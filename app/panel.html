@@ -1,0 +1,433 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RF Noise Map</title>
+<style>
+:root{--ink:#1d2733;--mut:#5b6877;--line:#d9dfe6;--bg:#f3f5f8;--card:#fff;--acc:#1b5fd6;--ok:#1a8a4a;--bad:#c0392b;--warn:#b7791f}
+*{box-sizing:border-box}
+body{margin:0;font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;background:var(--bg);color:var(--ink);font-size:15px}
+header{background:#14233a;color:#fff;padding:10px 18px;display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;position:sticky;top:0;z-index:10}
+header h1{font-size:19px;margin:0;font-weight:650}
+.pill{display:inline-flex;align-items:center;gap:6px;background:#22344f;border-radius:14px;padding:3px 11px;font-size:13px}
+.dot{width:10px;height:10px;border-radius:50%;background:#7b8794;display:inline-block}
+.dot.on{background:#35d07f}.dot.bad{background:#ff6b5c}.dot.warn{background:#f3b64a}
+header .sp{flex:1}
+main{max-width:1050px;margin:16px auto;padding:0 14px 40px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-bottom:16px}
+.card h2{margin:0 0 4px 0;font-size:17px}
+.card .sub{color:var(--mut);margin:0 0 12px 0;font-size:13.5px}
+.num{display:inline-flex;width:24px;height:24px;border-radius:50%;background:var(--acc);color:#fff;align-items:center;justify-content:center;font-size:13px;margin-right:8px}
+label{font-size:13.5px;color:var(--mut)}
+input[type=text],input[type=number],select,textarea{font-size:15px;padding:7px 9px;border:1px solid #c3ccd6;border-radius:7px;background:#fff;color:var(--ink);max-width:100%}
+input[type=number]{width:105px}
+textarea{width:100%;min-height:90px}
+button{font-size:14.5px;padding:8px 14px;border-radius:8px;border:1px solid #b8c2cd;background:#fff;color:var(--ink);cursor:pointer}
+button:hover{background:#eef3fb}
+button.pri{background:var(--acc);border-color:var(--acc);color:#fff;font-weight:600}
+button.pri:hover{background:#174fb5}
+button.stop{background:var(--bad);border-color:var(--bad);color:#fff;font-weight:600}
+button.sm{font-size:13px;padding:4px 9px}
+button:disabled{opacity:.45;cursor:default}
+a.btn{display:inline-block;text-decoration:none;font-size:13px;padding:4px 9px;border-radius:8px;border:1px solid #b8c2cd;background:#fff;color:var(--ink)}
+a.btn:hover{background:#eef3fb}
+.row{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:flex-end;margin:8px 0}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:820px){.grid{grid-template-columns:1fr}}
+table{border-collapse:collapse;width:100%}
+th,td{padding:6px 8px;text-align:left;border-bottom:1px solid #eceff3;vertical-align:middle;font-size:14px}
+th{color:var(--mut);font-weight:600;font-size:12.5px}
+td.act{white-space:nowrap}td.act>*{margin:2px 3px 2px 0}
+.live{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px}
+.big{flex:1 1 130px;border:1px solid var(--line);border-radius:10px;padding:8px 12px;background:#fafbfd}
+.big b{font-size:26px;display:block}
+.big span{font-size:12.5px;color:var(--mut)}
+.bar{height:7px;border-radius:4px;background:linear-gradient(to right,#313695,#74add1,#ffffbf,#f46d43,#a50026);position:relative;margin-top:5px}
+.bar i{position:absolute;top:-3px;width:3px;height:13px;background:#111;border-radius:2px}
+.note{background:#fff8e6;border:1px solid #f0d58c;border-radius:8px;padding:8px 11px;font-size:13.5px;color:#6b4e0c;margin:8px 0}
+.err{background:#fdecea;border-color:#f3b4ad;color:#8a1f13}
+.mut{color:var(--mut);font-size:13px}
+.tag{font-size:11.5px;background:#eef1f5;border-radius:6px;padding:1px 6px;color:var(--mut)}
+.tag.rec{background:#fde4e1;color:#a5281b}
+dialog{border:1px solid #aab4c0;border-radius:12px;max-width:560px;width:92%;padding:18px}
+dialog::backdrop{background:rgba(10,20,35,.45)}
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:22px;background:#14233a;color:#fff;padding:10px 16px;border-radius:10px;font-size:14px;display:none;z-index:50;max-width:90%}
+#toast a{color:#9cc4ff}
+.chk{display:flex;gap:8px;align-items:flex-start;margin:6px 0}
+.res{display:flex;gap:9px;margin:6px 0}
+.res b{min-width:118px;font-size:13px}
+.ico{font-weight:700}.ico.ok{color:var(--ok)}.ico.fix{color:var(--bad)}.ico.info{color:var(--mut)}
+details summary{cursor:pointer;color:var(--acc);font-size:13.5px;margin:6px 0}
+</style></head><body>
+<header>
+ <h1>RF Noise Map</h1>
+ <span class="pill"><span class="dot" id="dLog"></span><span id="tLog">Not logging</span></span>
+ <span class="pill"><span class="dot" id="dGps"></span><span id="tGps">GPS: idle</span></span>
+ <span class="sp"></span>
+ <button class="sm" onclick="runCheck()">Check setup</button>
+ <a class="btn" href="/help" target="_blank">Help &amp; guide</a>
+</header>
+
+<main>
+<div id="blockBanner" style="display:none;background:#fff4cc;border:1px solid #e0b400;border-radius:8px;padding:10px 12px;margin:10px 0">
+ <b>These programs may be using your radio or GPS:</b> <span id="blockList"></span>
+ <div class="mut">Only one program can use the radio or a GPS port at a time. Press the button to close them (they are asked politely first). Save your work in them first.</div>
+ <button class="pri" onclick="freeDevices()">Close them for me</button> <button class="sm" onclick="$('blockBanner').style.display='none'">Ignore</button>
+</div>
+<!-- ======================= 1. COLLECT ======================= -->
+<section class="card" id="cCollect">
+ <h2><span class="num">1</span>Collect data</h2>
+ <p class="sub">Drive your route while this runs. A reading is saved about every 10&nbsp;ft along the way.</p>
+
+ <div class="row">
+  <div><label>Route name (optional)</label><br><input type="text" id="route" size="30" placeholder="e.g. Maple St powerline"></div>
+  <label class="chk"><input type="checkbox" id="practice"> <span><b>Practice mode</b> &mdash; pretend radio and GPS, no hardware needed</span></label>
+ </div>
+
+ <div class="grid">
+  <div id="gpsBox">
+   <b>Where does the position come from?</b>
+   <div class="chk"><input type="radio" name="gpsm" value="iphone" id="gm1"><label for="gm1"><b>iPhone</b> (GPS2IP app)</label></div>
+   <div id="fIphone" class="row">
+     <div><label>iPhone address</label><br><input type="text" id="gHost" size="16"></div>
+     <div><label>Port</label><br><input type="number" id="gPort"></div>
+   </div>
+   <div class="mut" id="fIphoneHelp">Turn on the iPhone's Personal Hotspot, join this computer to it, open GPS2IP and switch it on. The app shows the address and port.</div>
+   <div class="chk"><input type="radio" name="gpsm" value="usb" id="gm2"><label for="gm2"><b>USB GPS</b> plugged into this computer</label></div>
+   <div id="fUsb" class="row">
+     <div><label>Port</label><br><select id="gSerial"></select> <button class="sm" onclick="loadPorts()">Refresh</button> <button class="sm" id="btnFindGps" onclick="findGps()">Find my GPS</button></div>
+     <div><label>Speed (baud)</label><br><select id="gBaud"><option>4800</option><option selected>9600</option><option>38400</option><option>57600</option><option>115200</option></select></div>
+   </div>
+  </div>
+
+  <div>
+   <b>Frequencies to measure (up to 4)</b>
+   <table id="chTable"></table>
+   <div class="mut">Low bands (0.75, 3.7, 7.3&nbsp;MHz) show the general area. A VHF or <b>AM airband</b> (118&ndash;137&nbsp;MHz) channel pinpoints a pole or house. Pick a quiet channel with no stations. You can change these <b>while driving</b>.</div>
+   <details><summary>More settings</summary>
+    <div class="row">
+      <div><label>Dot spacing (ft)</label><br><input type="number" id="spacing" min="2" step="1"></div>
+      <div><label>IF gain reduction (dB)</label><br><input type="number" id="ifgr" min="20" max="59"></div>
+      <div><label>RF gain reduction (0&ndash;27)</label><br><input type="number" id="rfgr" min="0" max="27"></div>
+    </div>
+    <div class="mut">Leave gain alone during a drive so dots can be compared. If readings are pinned at the top or bottom, raise or lower the IF gain reduction.</div>
+   </details>
+  </div>
+ </div>
+
+ <div class="row" style="margin-top:14px">
+  <button class="pri" id="bStart" onclick="startLog()">&#9654; Start logging</button>
+  <button class="stop" id="bStop" onclick="stopLog()" style="display:none">&#9632; Stop logging</button>
+  <button id="bApply" onclick="applyLive()" style="display:none">Apply frequency changes now</button>
+  <button id="bPause" onclick="pauseLog()" style="display:none">Pause / resume</button>
+  <label class="chk"><input type="checkbox" id="autoMap"> <span>Make a map automatically when I stop</span></label>
+ </div>
+ <div id="startErr" class="note err" style="display:none"></div>
+ <div id="liveBox" style="display:none">
+  <div class="mut" id="liveLine"></div>
+  <div class="live" id="liveCards"></div>
+ </div>
+</section>
+
+<!-- ======================= 2. DRIVES ======================= -->
+<section class="card" id="cDrives">
+ <h2><span class="num">2</span>Your recorded drives</h2>
+ <p class="sub">Every drive is saved automatically as a spreadsheet-style file (CSV) in <span id="pDrives" class="mut"></span>. Tick one or several drives, then make a map.</p>
+ <div class="row">
+  <button class="pri" onclick="mapChecked()">Make map from ticked drives</button>
+  <button onclick="openFolder('drives')">Open Drives folder</button>
+ </div>
+ <table><thead><tr><th></th><th>Name</th><th>When</th><th>Dots</th><th>Miles</th><th>MHz</th><th></th></tr></thead>
+ <tbody id="dTable"></tbody></table>
+ <div id="dEmpty" class="mut" style="display:none;padding:8px">No drives yet. Press Start logging above (or try Practice mode).</div>
+</section>
+
+<!-- ======================= 3. MAPS ======================= -->
+<section class="card" id="cMaps">
+ <h2><span class="num">3</span>Maps: view, print, save, email</h2>
+ <p class="sub">Each map is ONE file. Open it in any browser, print it or save it as a PDF, keep a copy, or email it. Saved in <span id="pMaps" class="mut"></span>.</p>
+ <table><thead><tr><th>Map</th><th>Made</th><th>Size</th><th></th></tr></thead><tbody id="mTable"></tbody></table>
+ <div id="mEmpty" class="mut" style="display:none;padding:8px">No maps yet. Tick a drive above and press <b>Make map</b>.</div>
+ <div id="xList" class="mut" style="margin-top:10px"></div>
+</section>
+
+<!-- ======================= TOOLS ======================= -->
+<section class="card" id="cTools">
+ <h2>Tools</h2>
+ <div class="row">
+  <button onclick="openFolder('data')">Open my data folder</button>
+  <button onclick="doBackup()">Back up everything (zip)</button>
+  <button onclick="doDemo()">Try a practice drive + map</button>
+  <button onclick="runCheck()">Check setup</button>
+  <button onclick="runFull()">Full test (about 1 minute)</button>
+  <button onclick="quitApp()">Quit RF Noise Map</button>
+ </div>
+ <div class="chk"><input type="checkbox" id="phoneAccess"><label for="phoneAccess">Let my iPhone/iPad open this window too (same Wi-Fi or hotspot). Takes effect after you quit and reopen.</label></div>
+ <div id="phoneUrl" class="mut" style="display:none"></div>
+ <div class="mut">Data folder: <span id="pData"></span></div>
+</section>
+</main>
+
+<div id="toast"></div>
+
+<dialog id="dlgEmail">
+ <h3 style="margin-top:0">Email this map</h3>
+ <div class="mut" id="emFile"></div>
+ <div class="row"><div style="flex:1"><label>Send to (optional, you can type it in the email)</label><br><input type="text" id="emTo" style="width:100%" placeholder="name@example.com"></div></div>
+ <label class="chk"><input type="checkbox" id="emZip" checked> <span>Put the map in a .zip first (recommended: many email systems block .html attachments)</span></label>
+ <div class="mut">This opens a new email in your email program with the file attached. You press Send. If it cannot, the file is shown in a folder so you can drag it into an email.</div>
+ <div class="row" style="justify-content:flex-end"><button onclick="dlgEmail.close()">Cancel</button><button class="pri" onclick="sendEmail()">Create email</button></div>
+</dialog>
+
+<dialog id="dlgNotes">
+ <h3 style="margin-top:0">Drive name and notes</h3>
+ <div class="row"><div style="flex:1"><label>Name</label><br><input type="text" id="nName" style="width:100%"></div></div>
+ <label>Notes (weather, antenna, what you were looking for...)</label>
+ <textarea id="nNotes"></textarea>
+ <div class="row" style="justify-content:flex-end"><button onclick="dlgNotes.close()">Cancel</button><button class="pri" onclick="saveNotes()">Save</button></div>
+</dialog>
+
+<dialog id="dlgFull">
+ <h3 style="margin-top:0">Full test</h3>
+ <div id="fullBody" class="mut">Starting...</div>
+ <div class="mut">Tip: put the GPS puck where it can see the sky, and have the antenna connected.</div>
+ <div class="row" style="justify-content:flex-end"><button onclick="dlgFull.close()">Close</button><button class="pri" onclick="runFull(true)">Run again</button></div>
+</dialog>
+
+<dialog id="dlgCheck">
+ <h3 style="margin-top:0">Setup check</h3>
+ <div id="chkBody" class="mut">Checking...</div>
+ <label class="chk"><input type="checkbox" id="chkGps"> <span>Also listen to the GPS for 5 seconds</span></label>
+ <div class="row" style="justify-content:flex-end"><button onclick="dlgCheck.close()">Close</button><button class="pri" onclick="runCheck(true)">Check again</button></div>
+</dialog>
+
+<script>
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+let S=null, formFilled=false, wasLogging=false, stoppedByUser=false, emailFile=null, notesFile=null, tToast=null;
+
+async function api(path,body){
+  const r=await fetch(path,{method:body===undefined?"GET":"POST",headers:{"X-RFMap":"1","Content-Type":"application/json"},
+                            body:body===undefined?undefined:JSON.stringify(body)});
+  let j; try{j=await r.json();}catch(e){throw new Error("The program did not answer. Is RF Noise Map still running?");}
+  if(!r.ok||j.ok===false) throw new Error(j.error||"Something went wrong");
+  return j;
+}
+function toast(html,ms=6000){const t=$("toast");t.innerHTML=html;t.style.display="block";clearTimeout(tToast);tToast=setTimeout(()=>t.style.display="none",ms);}
+async function guard(fn){try{return await fn();}catch(e){toast("&#9888; "+esc(e.message),9000);}}
+
+/* ---------- form <-> config ---------- */
+function chRow(c,i){return `<tr><td><input type="number" step="any" class="cm" value="${esc(c.mhz)}" placeholder="MHz"></td>
+ <td><input type="number" step="any" class="cb" value="${esc(c.bw_khz)}"></td>
+ <td><input type="number" step="any" class="cc" value="${esc(c.cal_db)}"></td></tr>`;}
+function fillForm(cfg){
+  $("route").value=cfg.route_name||""; $("practice").checked=!!cfg.practice;
+  document.querySelector(`input[name=gpsm][value=${cfg.gps_mode}]`).checked=true;
+  $("gHost").value=cfg.gps_host; $("gPort").value=cfg.gps_port; $("gBaud").value=cfg.gps_baud;
+  $("autoMap").checked=!!cfg.auto_map; $("spacing").value=cfg.spacing_ft; $("ifgr").value=cfg.if_gain_db; $("rfgr").value=cfg.rf_gain_state;
+  let h="<tr><th>MHz</th><th>Width (kHz)</th><th>Calibration (dB)</th></tr>";
+  for(let i=0;i<4;i++) h+=chRow(cfg.channels[i]||{mhz:"",bw_khz:5,cal_db:0},i);
+  $("chTable").innerHTML=h; $("phoneAccess").checked=!!cfg.phone_access;
+}
+function readForm(){
+  const m=[...document.querySelectorAll(".cm")],b=[...document.querySelectorAll(".cb")],c=[...document.querySelectorAll(".cc")];
+  return {route_name:$("route").value.trim(), practice:$("practice").checked,
+    gps_mode:document.querySelector("input[name=gpsm]:checked").value, gps_host:$("gHost").value.trim(),
+    gps_port:+$("gPort").value||11123, gps_serial:$("gSerial").value, gps_baud:+$("gBaud").value,
+    auto_map:$("autoMap").checked, spacing_ft:+$("spacing").value||10, if_gain_db:+$("ifgr").value||40, rf_gain_state:+$("rfgr").value||0,
+    channels:m.map((x,i)=>({mhz:x.value, bw_khz:b[i].value||5, cal_db:c[i].value||0}))};
+}
+function showGpsFields(){
+  const prac=$("practice").checked, mode=document.querySelector("input[name=gpsm]:checked").value;
+  $("gpsBox").style.opacity=prac?.4:1;
+  $("fIphone").style.display=mode==="iphone"?"flex":"none"; $("fIphoneHelp").style.display=mode==="iphone"?"block":"none";
+  $("fUsb").style.display=mode==="usb"?"flex":"none";
+}
+function fillPorts(ports,sel){
+  const s=$("gSerial"); s.innerHTML=ports.length?ports.map(p=>`<option ${p===sel?"selected":""}>${esc(p)}</option>`).join(""):"<option value=''>(none found)</option>";
+}
+async function findGps(){
+  const b=$("btnFindGps"); b.disabled=true; const old=b.textContent; b.textContent="Listening... (up to 45 s)";
+  try{
+    const r=await api("/api/gps_detect",{});
+    if(r.found&&r.found.length){
+      const f=r.found[0]; fillPorts(r.ports,f.port); $("gSerial").value=f.port;
+      if(![...$("gBaud").options].some(o=>+o.value===f.baud)){const o=document.createElement("option");o.textContent=f.baud;$("gBaud").appendChild(o);}
+      $("gBaud").value=String(f.baud);
+      await api("/api/config",readForm());
+    }
+    toast(esc(r.note),12000);
+  }catch(e){toast("&#9888; "+esc(e.message),9000);}
+  b.disabled=false; b.textContent=old;
+}
+async function loadPorts(){const j=await api("/api/ports");fillPorts(j.ports,$("gSerial").value);}
+
+/* ---------- start / stop ---------- */
+let blockers=[];
+async function checkBlockers(){
+  try{
+    const r=await api("/api/blockers"); blockers=[...(r.other||[])];
+    $("blockList").textContent=blockers.map(b=>b.label).join(", ");
+    $("blockBanner").style.display=blockers.length?"block":"none";
+  }catch(e){}
+  return blockers.length;
+}
+async function freeDevices(){
+  await guard(async()=>{
+    const r=await api("/api/free_devices",{pids:blockers.map(b=>b.pid)});
+    let left=(r.closed||[]).filter(c=>!c.closed);
+    if(left.length&&confirm("These did not close politely: "+left.map(c=>c.label).join(", ")+"\n\nForce them to close? (Unsaved work in them will be lost.)")){
+      await api("/api/free_devices",{pids:left.map(c=>c.pid),force:true});
+    }
+    await checkBlockers(); toast(blockers.length?"Some programs are still open.":"Done. The radio and GPS are free.");
+  });
+}
+async function startLog(){
+  if(!$("practice").checked && await checkBlockers()){ toast("&#9888; Close the programs in the yellow box first (press 'Close them for me').",9000); return; }
+  $("startErr").style.display="none";
+  try{ await api("/api/start",readForm()); toast("Logging started."); await refreshLive(); }
+  catch(e){ $("startErr").textContent=e.message; $("startErr").style.display="block"; }
+}
+async function stopLog(){
+  stoppedByUser=true;
+  const win=$("autoMap").checked?window.open("about:blank","_blank"):null;
+  await api("/api/config",{auto_map:$("autoMap").checked});
+  const r=await guard(()=>api("/api/stop",{}));
+  await refreshAll();
+  if(r&&r.map){ if(win){win.location=`/maps/${encodeURIComponent(r.map)}`;} else toast(`Map ready: <a href="/maps/${encodeURIComponent(r.map)}" target="_blank">open it</a>`);}
+  else { if(win) win.close(); if(r&&r.map_error) toast(esc(r.map_error)); }
+}
+async function applyLive(){ await guard(async()=>{await api("/api/apply",readForm());toast("Frequencies updated.");}); }
+async function pauseLog(){ await guard(()=>api("/api/pause",{})); }
+
+/* ---------- live status ---------- */
+function setPill(dotId,textId,cls,text){$(dotId).className="dot "+cls;$(textId).textContent=text;}
+function posPct(v){return Math.max(0,Math.min(100,(v+120)/100*100));}
+async function refreshLive(){
+  let j; try{j=await api("/api/live");}catch(e){setPill("dLog","tLog","bad","Lost contact with program");return;}
+  const lg=j.logging, st=j.logger;
+  setPill("dLog","tLog",lg?"on":"","Logging"+(lg?"":": off")+(lg&&st&&st.settings.paused?" (paused)":""));
+  $("bStart").style.display=lg?"none":""; $("bStop").style.display=lg?"":"none";
+  $("bApply").style.display=lg?"":"none"; $("bPause").style.display=lg?"":"none";
+  for(const id of ["practice","route"]) $(id).disabled=lg;
+  document.querySelectorAll("input[name=gpsm],#gHost,#gPort,#gSerial,#gBaud,#spacing,#ifgr,#rfgr").forEach(e=>e.disabled=lg);
+  $("liveBox").style.display=lg?"block":"none";
+  if(lg&&st){
+    const g=st.gps_status||"", good=/fix OK|simulated/i.test(g);
+    setPill("dGps","tGps",good?"on":"warn","GPS: "+(good?"OK":g)+(st.sats!=null?` (${st.sats} sats)`:""));
+    $("liveLine").innerHTML=`<b>${st.rows}</b> dots saved &nbsp;|&nbsp; ${st.speed_mph!=null?Math.round(st.speed_mph)+" mph":"waiting for GPS"} &nbsp;|&nbsp; ${esc(st.sdr)}`;
+    $("liveCards").innerHTML=(st.last||[]).map(l=>`<div class="big"><span>${l.mhz} MHz</span><b>${l.level.toFixed(1)} dB</b><div class="bar"><i style="left:${posPct(l.level)}%"></i></div></div>`).join("")||'<div class="mut">Waiting for the first position...</div>';
+  } else if(!lg){ setPill("dGps","tGps","","GPS: idle"); }
+  if(j.crashed){ $("startErr").textContent="Logging stopped unexpectedly. "+(j.log_tail||""); $("startErr").style.display="block"; }
+  if(wasLogging&&!lg){
+    const mine=stoppedByUser; stoppedByUser=false;
+    refreshAll().then(()=>{ if(!mine && S && S.cfg.practice && S.cfg.auto_map && S.drives.length){
+      toast("Practice drive finished."); makeMap([S.drives[0].file]); } });
+  }
+  wasLogging=lg;
+}
+
+/* ---------- lists ---------- */
+function fmtDot(d){return d.dots==null?"…":d.dots;}
+function renderDrives(list){
+  const keep=new Set([...document.querySelectorAll(".dsel:checked")].map(x=>x.value));
+  $("dEmpty").style.display=list.length?"none":"block";
+  $("dTable").innerHTML=list.map(d=>`<tr>
+   <td><input type="checkbox" class="dsel" value="${esc(d.file)}" ${d.recording?"disabled":""} ${keep.has(d.file)?"checked":""}></td>
+   <td><b>${esc(d.name)}</b> ${d.recording?'<span class="tag rec">&#9679; recording</span>':""}${d.practice?' <span class="tag">practice</span>':""}
+       <div class="mut">${esc(d.notes).slice(0,90)}</div></td>
+   <td>${esc(d.modified)}</td><td>${fmtDot(d)}</td><td>${d.miles==null?"":d.miles}</td><td>${(d.freqs||[]).join(", ")}</td>
+   <td class="act">
+     <button class="sm pri" ${d.recording?"disabled":""} onclick="mapOne('${esc(d.file)}')">Make map</button>
+     <button class="sm" onclick="editNotes('${esc(d.file)}')">Name / notes</button>
+     <a class="btn" href="/drives/${encodeURIComponent(d.file)}">Save CSV</a>
+     <button class="sm" ${d.recording?"disabled":""} onclick="doKml('${esc(d.file)}')">Google Earth</button>
+     <button class="sm" onclick="reveal('drive','${esc(d.file)}')">Show in folder</button>
+     <button class="sm" ${d.recording?"disabled":""} onclick="delDrive('${esc(d.file)}')">Delete</button>
+   </td></tr>`).join("");
+  window._drives=Object.fromEntries(list.map(d=>[d.file,d]));
+}
+function renderMaps(list){
+  $("mEmpty").style.display=list.length?"none":"block";
+  $("mTable").innerHTML=list.map(m=>{const u=encodeURIComponent(m.file);return `<tr>
+   <td><b>${esc(m.file.replace(/_map\.html$/,""))}</b></td><td>${esc(m.modified)}</td><td>${m.size_kb} KB</td>
+   <td class="act">
+     <a class="btn" href="/maps/${u}" target="_blank">Open / view</a>
+     <a class="btn" href="/maps/${u}?print=1" target="_blank">Print / PDF</a>
+     <a class="btn" href="/maps/${u}?download=1">Save a copy</a>
+     <button class="sm" onclick="openEmail('${esc(m.file)}')">Email</button>
+     <button class="sm" onclick="reveal('map','${esc(m.file)}')">Show in folder</button>
+   </td></tr>`;}).join("");
+}
+function renderExports(list){
+  $("xList").innerHTML=list.length?("Other saved files (Google Earth, zips): "+list.map(x=>`<a href="/exports/${encodeURIComponent(x.file)}">${esc(x.file)}</a>`).join(" &middot; ")):"";
+}
+async function refreshAll(){
+  const j=await api("/api/state"); S=j;
+  $("pData").textContent=j.data_dir; $("pDrives").textContent=j.data_dir+"/Drives"; $("pMaps").textContent=j.data_dir+"/Maps";
+  if(!formFilled){ fillForm(j.cfg); fillPorts(j.ports,j.cfg.gps_serial); formFilled=true; showGpsFields(); }
+  renderDrives(j.drives); renderMaps(j.maps); renderExports(j.exports);
+  if(j.phone_url){$("phoneUrl").style.display="block";$("phoneUrl").innerHTML="On your iPhone/iPad open: <b>"+esc(j.phone_url)+"</b>";}else $("phoneUrl").style.display="none";
+}
+async function refreshDrivesOnly(){ const j=await api("/api/drives"); renderDrives(j.drives); renderMaps(j.maps); renderExports(j.exports); }
+
+/* ---------- map actions ---------- */
+async function makeMap(files,title){
+  const win=window.open("about:blank","_blank");
+  try{
+    const r=await api("/api/map",{files,title});
+    await refreshDrivesOnly();
+    const url="/maps/"+encodeURIComponent(r.map);
+    if(win) win.location=url; else toast(`Map ready: <a href="${url}" target="_blank">open it</a>`);
+  }catch(e){ if(win)win.close(); toast("&#9888; "+esc(e.message),9000); }
+}
+const mapOne=f=>makeMap([f]);
+function mapChecked(){const f=[...document.querySelectorAll(".dsel:checked")].map(x=>x.value); if(!f.length){toast("Tick at least one drive first.");return;} makeMap(f);}
+async function doKml(f){await guard(async()=>{const r=await api("/api/kml",{file:f});await refreshDrivesOnly();toast(`Google Earth file saved: <a href="/exports/${encodeURIComponent(r.file)}">${esc(r.file)}</a> (open it with Google Earth)`,9000);});}
+async function reveal(kind,file){await guard(()=>api("/api/reveal",{kind,file}));}
+async function openFolder(which){await guard(()=>api("/api/open_folder",{which}));}
+async function delDrive(f){ if(!confirm("Delete this drive's data file? Maps already made from it are kept.\n\n"+f))return; await guard(async()=>{await api("/api/drive/delete",{file:f});await refreshDrivesOnly();}); }
+async function doBackup(){await guard(async()=>{const r=await api("/api/backup",{});toast("Backup saved: "+esc(r.file));await refreshDrivesOnly();});}
+async function doDemo(){toast("Running a practice drive...",20000);const win=window.open("about:blank","_blank");
+  try{const r=await api("/api/demo",{});await refreshDrivesOnly();const url="/maps/"+encodeURIComponent(r.map);if(win)win.location=url;else toast(`Practice map ready: <a href="${url}" target="_blank">open it</a>`);toast("Practice map made (fake data).");}
+  catch(e){if(win)win.close();toast("&#9888; "+esc(e.message),9000);}}
+async function quitApp(){ if(!confirm("Quit RF Noise Map? (Logging will stop. Your data is kept.)"))return; await guard(()=>api("/api/quit",{})); document.body.innerHTML="<p style='padding:30px;font-size:18px'>RF Noise Map has quit. You can close this tab.</p>"; }
+
+/* ---------- email / notes / check ---------- */
+function openEmail(f){emailFile=f;$("emFile").textContent=f;dlgEmail.showModal();}
+async function sendEmail(){
+  await guard(async()=>{const r=await api("/api/email",{file:emailFile,to:$("emTo").value,zip:$("emZip").checked});
+    dlgEmail.close(); toast(esc(r.message)+" (file: "+esc(r.file)+")",14000); await refreshDrivesOnly();});
+}
+function editNotes(f){notesFile=f;const d=window._drives[f];$("nName").value=d.name;$("nNotes").value=d.notes||"";dlgNotes.showModal();}
+async function saveNotes(){await guard(async()=>{await api("/api/drive/meta",{file:notesFile,name:$("nName").value,notes:$("nNotes").value});dlgNotes.close();await refreshDrivesOnly();});}
+async function runFull(again){
+  if(!again) dlgFull.showModal();
+  $("fullBody").textContent="Testing the radio, the GPS and a mock drive... about a minute. Please wait.";
+  try{
+    await api("/api/config",readForm());
+    const r=await api("/api/fulltest",{});
+    const sym={ok:"&#10003;",warn:"!",fix:"&#10007;",info:"i"}, cls={ok:"ok",warn:"info",fix:"fix",info:"info"};
+    $("fullBody").innerHTML=r.results.map(x=>`<div class="res"><span class="ico ${cls[x.status]}">${sym[x.status]}</span><b>${esc(x.step)}</b><span>${esc(x.message)}</span></div>`).join("");
+  }catch(e){$("fullBody").textContent=e.message;}
+}
+async function runCheck(again){
+  if(!again) dlgCheck.showModal();
+  $("chkBody").textContent="Checking... (a GPS test takes about 5 seconds)";
+  try{
+    await api("/api/config",readForm());
+    const r=await api("/api/check",{test_gps:$("chkGps").checked});
+    const sym={ok:"&#10003;",fix:"&#10007;",info:"i"};
+    $("chkBody").innerHTML=r.results.map(x=>`<div class="res"><span class="ico ${x.status}">${sym[x.status]}</span><b>${esc(x.name)}</b><span>${esc(x.message)}</span></div>`).join("");
+  }catch(e){$("chkBody").textContent=e.message;}
+}
+
+/* ---------- wiring ---------- */
+document.querySelectorAll("input[name=gpsm]").forEach(r=>r.onchange=showGpsFields);
+checkBlockers();
+$("practice").onchange=showGpsFields;
+$("phoneAccess").onchange=()=>guard(async()=>{await api("/api/config",{phone_access:$("phoneAccess").checked});toast("Saved. Quit and reopen RF Noise Map to apply.");});
+refreshAll().then(()=>refreshLive());
+setInterval(refreshLive,1200);
+setInterval(()=>{ if(!document.hidden) refreshDrivesOnly().catch(()=>{}); },8000);
+</script>
+</body></html>

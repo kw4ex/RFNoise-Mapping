@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RF Noise Map - User Guide</title>
+<style>
+body{font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;color:#1d2733;max-width:860px;margin:0 auto;padding:24px 22px 60px;line-height:1.5;font-size:15.5px}
+h1{font-size:30px;margin:0 0 4px 0}
+h2{font-size:21px;margin:34px 0 8px 0;border-bottom:2px solid #d9dfe6;padding-bottom:4px;page-break-after:avoid}
+h3{font-size:16.5px;margin:20px 0 4px 0;page-break-after:avoid}
+.sub{color:#5b6877;margin:0 0 18px 0}
+ol,ul{padding-left:24px} li{margin:5px 0}
+.box{border:1px solid #cfd8e3;background:#f6f9fd;border-radius:10px;padding:10px 14px;margin:12px 0;page-break-inside:avoid}
+.warn{border-color:#efd28a;background:#fff8e6}
+.tip{border-color:#b9dfc6;background:#f1faf4}
+code,.k{font-family:Menlo,Consolas,monospace;background:#eef1f5;border-radius:4px;padding:1px 5px;font-size:13.5px}
+table{border-collapse:collapse;width:100%;margin:10px 0;page-break-inside:avoid}
+th,td{border:1px solid #d9dfe6;padding:6px 9px;text-align:left;vertical-align:top;font-size:14.5px}
+th{background:#f0f3f7}
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:12px 0}
+.flow div{border:1px solid #9db3cf;background:#eaf1fb;border-radius:8px;padding:8px 12px;font-size:14px;text-align:center}
+.flow span{font-size:20px;color:#5b6877}
+.btn{display:inline-block;border:1px solid #9aa7b6;border-radius:6px;padding:0 7px;background:#fff;font-size:13.5px}
+.toc a{color:#1b5fd6;text-decoration:none}
+@media print{body{max-width:none;padding:0;font-size:12.5px} h2{margin-top:22px}}
+</style></head><body>
+
+<h1>RF Noise Map</h1>
+<p class="sub">User guide &mdash; find where radio noise (power lines, poles, noisy buildings) is strongest, by driving a route and drawing the readings as colored dots on a street map.</p>
+
+<div class="flow">
+ <div>Radio receiver<br>(SDRplay)</div><span>+</span><div>GPS<br>(iPhone or USB)</div><span>&rarr;</span>
+ <div>Logger saves a reading<br>about every 10&nbsp;ft</div><span>&rarr;</span><div>Map of colored dots<br>blue = weak, red = strong</div>
+</div>
+
+<div class="box toc"><b>Contents</b><br>
+<a href="#need">1. What you need</a> &middot; <a href="#install">2. Download and install</a> &middot; <a href="#radio">3. The radio driver</a> &middot; <a href="#practice">4. First try (no hardware)</a> &middot;
+<a href="#gps">5. Connect the GPS</a> &middot; <a href="#collect">6. Collect data</a> &middot; <a href="#where">7. Where your data is stored</a> &middot;
+<a href="#maps">8. Make, view, print, save, email maps</a> &middot; <a href="#hunt">9. Finding the noise source</a> &middot; <a href="#accuracy">10. Accuracy and calibration</a> &middot;
+<a href="#trouble">11. Troubleshooting</a> &middot; <a href="#more">12. Updating, moving, uninstalling</a></div>
+
+<h2 id="need">1. What you need</h2>
+<ul>
+ <li><b>A computer in the car:</b> a Mac or a Windows 11 PC (laptop). It runs the program and does the logging.</li>
+ <li><b>An SDRplay receiver</b> plugged into that computer, with an antenna mounted away from the engine.</li>
+ <li><b>A GPS</b>, either:
+   <ul><li>your <b>iPhone</b> with the <b>GPS2IP</b> app (simple; one position per second), or</li>
+   <li>a <b>USB GPS</b> plugged into the computer. A 10-updates-per-second model gives much closer dot spacing at 40&ndash;45&nbsp;mph.</li></ul></li>
+ <li>The iPhone's <b>Personal Hotspot</b> is handy for internet in the car (needed only to draw the street background when you view a map, and for iPhone GPS).</li>
+</ul>
+<div class="box warn"><b>Why not the iPhone as the whole system?</b> The SDRplay needs a computer driver; it cannot run on an iPhone or iPad. The phone is only the GPS and the hotspot.</div>
+
+<h2 id="install">2. Download and install</h2>
+<h3>Download (Windows and Mac) &mdash; no GitHub account needed</h3>
+<ol>
+ <li>Open <b>github.com/kw4ex/RFNoise-Mapping</b> in your web browser and click <b>Releases</b> (on the right side of the page). Click the newest entry, the one marked <b>Latest</b>. (A <b>Pre-release</b> label means it is still being tested.)</li>
+ <li>Scroll down to <b>Assets</b>, at the bottom of that page.</li>
+ <li><b>Windows:</b> click <span class="k">Install_RFNoise.bat</span>. <b>Mac:</b> click <span class="k">RFNoise_Mac_&hellip;.zip</span>. Your browser saves it in your <b>Downloads</b> folder. If it warns that the file may be harmful, choose <b>Keep</b>.</li>
+ <li><b>Do not</b> click <b>Source code (zip)</b> or <b>Source code (tar.gz)</b>. Those are for programmers.</li>
+</ol>
+<div class="box tip">Windows: you may also click <span class="k">RFNoise_User_Guide.pdf</span> in Assets, the printable copy of this guide.</div>
+
+<h3>Mac (experimental: not yet tested on a real Mac by the author)</h3>
+<ol>
+ <li>Open <b>Downloads</b> and double-click the zip you downloaded to unzip it. Keep the folders (<b>mac</b> and <b>app</b>) together.</li>
+ <li>Open the <b>mac</b> folder. <b>Right-click</b> <span class="k">Install_RFNoise.command</span> and choose <b>Open</b>, then <b>Open</b> again. (Only the first time. macOS asks because the file was downloaded.)</li>
+ <li>A window explains each step before it does it. Press <span class="k">y</span> and Return to go on.</li>
+ <li>When it says <b>DONE</b>, an <b>RF Noise Map</b> icon is on your Desktop and in <b>Applications</b>.</li>
+</ol>
+<div class="box">If the file opens in a text editor, or says it cannot run: open <b>Terminal</b>, type <code>bash </code> (with a space), drag the install file into the Terminal window, press Return.</div>
+<h3>Windows 11</h3>
+<ol>
+ <li>Double-click <span class="k">Install_RFNoise.bat</span> (the file you downloaded; keep it anywhere, for example your Downloads folder). If Windows says <b>"Windows protected your PC"</b>, click <b>More info</b> then <b>Run anyway</b>.</li>
+ <li>A window asks <b>which folder</b> to use. Press Enter to accept <b>C:\RadioScripts</b>, or type another. The program makes its own subfolder, <b>RFNoise</b>, inside it, so everything lives in <b>C:\RadioScripts\RFNoise</b>.</li>
+ <li>It explains each step and asks short questions (answer <span class="k">y</span> or <span class="k">n</span>). It finds Python and offers to install it if missing, and no administrator password is needed.</li>
+ <li>When it says <b>All done</b>, start the program with <span class="k">Start_RFNoise.bat</span> in that folder, or the Desktop shortcut if you chose one.</li>
+</ol>
+<div class="box tip">The installer saves a copy of everything it said in <b>install_log.txt</b> inside the RFNoise folder. If anything goes wrong, send that file to Claude.</div>
+
+<h2 id="radio">3. The radio driver (SDRplay)</h2>
+<p>The SDRplay driver is not mine to include; it comes from sdrplay.com. Without it, <b>Practice mode and all map features still work</b>, and you can make maps from drives recorded on another computer.</p>
+<h3>Mac</h3>
+<ol>
+ <li>Run the installer again and answer <span class="k">y</span> at <b>STEP 3</b>. It opens the SDRplay page; download the <b>macOS API</b> installer and run it. <b>Restart the Mac.</b></li>
+ <li>Run the installer once more and answer <span class="k">y</span> at STEP 3. It installs the helper tools (it will offer to install Homebrew, a standard Mac tool installer; it asks for your Mac password) and builds the SDRplay driver module.</li>
+ <li>Newer driver modules need SDRplay API <b>3.15 or later</b>. If the build fails, update the API from sdrplay.com and try again.</li>
+</ol>
+<h3>Windows</h3>
+<ol>
+ <li><b>SDRplay driver:</b> run the installer again and answer <span class="k">y</span> at the radio step (or go to sdrplay.com &rarr; Downloads &rarr; Windows) and install the <b>API</b>. Restart if it asks.</li>
+ <li><b>Radio library:</b> the program also needs <b>PothosSDR</b>, a free Windows bundle (download link on <b>github.com/pothosware/PothosSDR/wiki</b>). Install it with the default choices.</li>
+ <li>Open RF Noise Map, plug in the SDRplay, and press <span class="btn">Check setup</span>.</li>
+ <li><b>Python version:</b> PothosSDR's Python part is made for ONE Python version (currently <b>Python 3.9</b>). The installer notices this, uses (or installs) the matching Python by itself, and sets up the launcher files to use it. If you install PothosSDR later, run the installer again so it picks the right Python.</li>
+ <li>Close other SDR programs (SDRuno, SDRconnect, SDR Console, HDSDR ...) before you start: only one program can use the radio at a time. RF Noise Map shows a yellow box with a <span class="btn">Close them for me</span> button if it sees one.</li>
+ <li>For a complete automatic check, double-click <b>Test_Everything.bat</b> (or press <span class="btn">Full test</span> in the window). It takes about a minute and tests the radio, the GPS and a pretend drive.</li>
+</ol>
+<div class="box">Press <span class="btn">Check setup</span> any time. It says in plain English what is working and what is missing.</div>
+
+<h2 id="practice">4. First try (no hardware)</h2>
+<ol>
+ <li>Open <b>RF Noise Map</b> (double-click the icon). A window opens in your web browser.</li>
+ <li>Press <span class="btn">Try a practice drive + map</span> in the <b>Tools</b> box. A fake drive is recorded in a second and a map opens: a red stretch is a pretend noisy power pole.</li>
+ <li>Or tick <b>Practice mode</b> in box 1 and press <b>Start logging</b> to watch the live readings for about 40 seconds.</li>
+</ol>
+<p>The practice route is made up, so it won't follow real streets. Real drives will.</p>
+
+<h2 id="gps">5. Connect the GPS</h2>
+<h3>Option A: iPhone</h3>
+<ol>
+ <li>On the iPhone, install <b>GPS2IP</b> from the App Store. A free <b>GPS2IP Lite</b> lets you try it; the full version (a few dollars) is the one to use.</li>
+ <li>Turn on <b>Personal Hotspot</b> on the iPhone (Settings &rarr; Personal Hotspot). Join the computer to that Wi-Fi.</li>
+ <li>Open GPS2IP and switch it <b>on</b>. Use the fastest update rate (1 second). Make sure the <b>Sockets</b> option is on. Leave the app open.</li>
+ <li>The app shows an <b>address</b> and a <b>port</b>. In RF Noise Map choose <b>iPhone</b> and type them in. (<code>172.20.10.1</code> and <code>11123</code> are the usual values.)</li>
+ <li>Press <span class="btn">Check setup</span>, tick <b>Also listen to the GPS</b>, and look for a green &#10003; with your position.</li>
+</ol>
+<div class="box">The iPhone updates once per second. At 45&nbsp;mph that is about 66&nbsp;ft between true GPS fixes, so the program slides the position forward along your direction of travel. This works well on straight roads and is less exact in sharp turns.</div>
+<h3>Option B: USB GPS</h3>
+<ol>
+ <li>Plug it into the computer. In RF Noise Map choose <b>USB GPS</b> and press <span class="btn">Find my GPS</span>. It listens on every likely COM port at the common speeds (4800, 9600, 38400, 115200) and fills in the right <b>Port</b> and <b>Speed</b> for you. (Or double-click <b>Find_GPS.bat</b>.) Many pucks use 4800, not 9600.</li>
+ <li>If it says the port is in use, another program has it open: close other GPS or mapping programs, or unplug the puck for 5 seconds and plug it back in. A new puck often needs a few minutes outdoors for its first position fix.</li>
+ <li>Press <span class="btn">Check setup</span>, tick <b>Also listen to the GPS</b>, and look for a green &#10003;.</li>
+ <li>Most pucks come set to 1 update per second. For about 10&nbsp;ft spacing at 45&nbsp;mph you want one set to <b>10 updates per second</b> (a one-time setting). Ask Claude and we'll do it together.</li>
+</ol>
+
+<h2 id="collect">6. Collect data</h2>
+<ol>
+ <li>In box <b>1 Collect data</b>, type a <b>Route name</b> (optional, but it makes drives easy to find).</li>
+ <li>Choose the GPS (iPhone or USB), unless you're in Practice mode.</li>
+ <li>Enter up to <b>four frequencies</b> in MHz. Suggestions: <b>0.75</b> (AM broadcast band, wide area), <b>3.7</b> or <b>7.3</b> (ham bands), and a VHF channel such as <b>148</b> or an <b>AM airband channel (118&ndash;137)</b> for pinpointing.
+  <ul><li><b>Pick a quiet channel</b> with no station on it. A pilot's transmission on an airband channel would look like a hot spot.</li>
+  <li><b>Width</b> is the slice measured (5&ndash;10 kHz is good). Narrow slices ignore nearby stations.</li>
+  <li>Leave <b>Calibration</b> at 0 unless you've calibrated (section 10).</li></ul></li>
+ <li>Press <span class="btn">&#9654; Start logging</span>. The header shows <b>Logging</b> and <b>GPS: OK</b>, and the big numbers show the live level for each frequency.</li>
+ <li><b>Drive the route.</b> Steady speed is best. You can change frequencies <b>while driving</b>: edit the boxes and press <span class="btn">Apply frequency changes now</span>. <span class="btn">Pause / resume</span> is there for stops.</li>
+ <li>Press <span class="btn">&#9632; Stop logging</span> when finished. If <b>Make a map automatically</b> is ticked, the map opens.</li>
+</ol>
+<div class="box tip"><b>Good habits:</b> don't change gain mid-route; keep the computer plugged in (the program keeps it awake while logging); drive each important road twice, once in each direction; note the date and conditions in <b>Name / notes</b>.</div>
+<div class="box warn"><b>Safety:</b> have a passenger operate the computer, or set everything up while parked. Please don't use the screen while driving.</div>
+
+<h2 id="where">7. Where your data is stored</h2>
+<p>Everything you create is in one folder: on a Mac, <b>Documents / RF Noise Map</b>; on Windows, the install folder itself (normally <b>C:\RadioScripts\RFNoise</b>). The window's footer shows its exact path, and <span class="btn">Open my data folder</span> opens it.</p>
+<table>
+<tr><th>Folder</th><th>What is in it</th></tr>
+<tr><td><b>Drives</b></td><td>One <b>.csv</b> file per drive (opens in Excel / Numbers). Each row: time, latitude, longitude, speed, frequency, level. A small <b>.meta.json</b> beside it holds the name and notes.</td></tr>
+<tr><td><b>Maps</b></td><td>Finished maps: one <b>.html</b> file each. Works by double-click in any browser.</td></tr>
+<tr><td><b>Exports</b></td><td>Google Earth <b>.kml</b> files, and the <b>.zip</b> files made for emailing.</td></tr>
+<tr><td><b>Backups</b></td><td>Zip backups made by the <b>Back up everything</b> button.</td></tr>
+<tr><td><b>Settings</b></td><td>Your remembered choices and the logger's log file.</td></tr>
+</table>
+<p>The program itself is kept apart from your data (Mac: Applications / RF Noise Map; Windows: the <b>app</b> folder inside RFNoise), so you can reinstall or update it without touching your data.</p>
+<p><b>Level numbers:</b> readings are in <b>dB relative to the receiver's maximum</b> (so they're negative; closer to zero = stronger). They compare places perfectly well. See section 10 for true dBm.</p>
+
+<h2 id="maps">8. Make, view, print, save and email maps</h2>
+<h3>Make a map</h3>
+<ol>
+ <li>In box <b>2 Your recorded drives</b>, press <span class="btn">Make map</span> on a drive. The map opens in a new browser tab.</li>
+ <li>To <b>combine several drives</b> on one map, tick them and press <span class="btn">Make map from ticked drives</span>.</li>
+</ol>
+<h3>Read the map</h3>
+<ul>
+ <li><b>Blue</b> dots = weak, <b>red</b> dots = strong. The color bar shows the dB numbers; change <b>Min / Max</b> to stretch the colors, or press <b>Auto</b>.</li>
+ <li>Pick the <b>frequency</b> in the drop-down. Each frequency has its own picture of the same route.</li>
+ <li>Tap a dot to see its level, time and speed. <b>Hottest spots</b> lists the ten strongest places; tap one to zoom there.</li>
+ <li>The button at top right switches <b>Street / Satellite</b>. Zoom in to separate dots.</li>
+</ul>
+<h3>Print or save as a PDF</h3>
+<p>In box <b>3 Maps</b> press <span class="btn">Print / PDF</span> (or the <b>Print / Save as PDF</b> button on the map itself). The print preview shows the title, color scale, strongest spots and the map. Choose your printer, or <b>Save as PDF</b> as the destination. Landscape paper works best.</p>
+<h3>Save a viewable file</h3>
+<p>Each map is already a file in <b>Maps</b> folder of your data folder (section 7). <span class="btn">Save a copy</span> downloads another copy anywhere you like. Double-click it any time to view it again. It needs internet only for the street background.</p>
+<h3>Email a map</h3>
+<ol>
+ <li>Press <span class="btn">Email</span> beside the map. Type an address (optional) and keep <b>Put the map in a .zip</b> ticked (many email systems block .html attachments).</li>
+ <li>Press <b>Create email</b>. Your email program opens with the file attached; check it and press Send.</li>
+ <li>If your email program can't be controlled automatically (some web-based or newer mail apps), a blank email opens and the file is shown in a folder: drag it into the email. The person receiving it unzips it and opens the map in any browser.</li>
+</ol>
+<h3>Other extras</h3>
+<ul>
+ <li><b>Google Earth:</b> <span class="btn">Google Earth</span> beside a drive creates a <b>.kml</b> file with the colored dots (in Exports). Open it with Google Earth.</li>
+ <li><b>Spreadsheet:</b> <span class="btn">Save CSV</span> gives the raw data for Excel / Numbers.</li>
+ <li><b>Name / notes:</b> add a name and notes (weather, antenna, what you were looking for).</li>
+ <li><b>Back up everything:</b> one zip of Drives, Maps and Exports in the Backups folder.</li>
+ <li><b>iPhone / iPad view:</b> tick <b>Let my iPhone/iPad open this window</b>, quit and reopen, then open the address shown on the iPhone (same Wi-Fi/hotspot). On Windows, allow the firewall question for private networks. Or simply email yourself the map.</li>
+</ul>
+
+<h2 id="hunt">9. Finding the noise source</h2>
+<ol>
+ <li><b>Drive a wide area</b> with a low band (such as 0.75 or 3.7&nbsp;MHz) and one VHF channel. Low bands show the general neighborhood; VHF is more local.</li>
+ <li><b>Make the map and look for the reddest area.</b> Use <b>Hottest spots</b> to jump to the top places.</li>
+ <li><b>Drive that area again, slowly</b>, on every nearby street, and make a second map. The peak should narrow to a block or a pole.</li>
+ <li><b>Check the car.</b> If readings stay high everywhere, the noise may be from the vehicle. Move the antenna, or test in a known-quiet place.</li>
+ <li><b>Finish on foot</b> with your handheld and yagi. An <b>AM</b> mode works better than FM for tracking noise: an FM receiver is built to ignore the amplitude noise that AM shows. Aircraft-band AM (118&ndash;137&nbsp;MHz) on a clear channel is a good choice.</li>
+ <li>Note the pole number or address and report it to the utility with your map (Print / PDF or Email).</li>
+</ol>
+
+<h2 id="accuracy">10. Accuracy and calibration</h2>
+<ul>
+ <li><b>Position:</b> a GPS is typically good to about 10&ndash;15&nbsp;ft, so a dot can sit slightly off the road. Dots consistently 30&nbsp;ft or more off the road suggest a GPS problem (poor sky view, or a slow-updating GPS in turns).</li>
+ <li><b>Spacing:</b> a new dot is saved each time you move the spacing distance (default 10&nbsp;ft; <b>More settings</b>). Measuring four frequencies takes a fraction of a second, so at 45&nbsp;mph spacing may be a little wider than 10&nbsp;ft. Fewer frequencies = tighter dots.</li>
+ <li><b>Levels are relative</b> (dB below the receiver's maximum). To get true dBm: feed the receiver a known signal (a signal generator at, say, &minus;60&nbsp;dBm), note the reading, and enter <b>(known dBm) minus (reading)</b> in that frequency's <b>Calibration</b> box. Keep the same gain settings afterward.</li>
+ <li><b>Gain:</b> automatic gain is switched off so readings along the route can be compared. If readings are stuck near the top or bottom of the scale, adjust <b>IF gain reduction</b> in <b>More settings</b> before the drive.</li>
+</ul>
+
+<h2 id="trouble">11. Troubleshooting</h2>
+<table>
+<tr><th>What you see</th><th>What to do</th></tr>
+<tr><td>Mac: "cannot be opened because Apple cannot check it"</td><td>Right-click the file &rarr; <b>Open</b> &rarr; <b>Open</b>. Or use the Terminal method in section 2.</td></tr>
+<tr><td>Windows: "Windows protected your PC"</td><td><b>More info</b> &rarr; <b>Run anyway</b>.</td></tr>
+<tr><td>Start logging says the radio library isn't available</td><td>The SDRplay driver isn't set up yet (section 3). Use <b>Practice mode</b> meanwhile. Press <b>Check setup</b>.</td></tr>
+<tr><td>Radio library error mentioning "Python 3.9" or "DLL load failed"</td><td>Python and the radio library (PothosSDR) do not match. Run the installer again: it uses Python 3.9 and installs it if needed.</td></tr>
+<tr><td>GPS: "Access is denied" or "port in use"</td><td>Another program (or an old RF Noise Map helper) has the GPS open. Quit and restart RF Noise Map, close other GPS programs, or re-plug the puck.</td></tr>
+<tr><td>GPS: "nothing received" on a USB puck</td><td>Wrong speed or wrong port. Press <b>Find my GPS</b>.</td></tr>
+<tr><td>"no SDRplay found"</td><td>Close other SDR programs (see the yellow box in the window). Plug it in directly (not through a weak hub). Make sure the SDRplay API is installed and the computer was restarted. Windows: the <b>SDRplay API Service</b> must be running.</td></tr>
+<tr><td>GPS says "connecting" or "retrying" (iPhone)</td><td>Is the computer on the iPhone's hotspot? Is GPS2IP open and switched on, with Sockets on? Do the address and port match the app exactly?</td></tr>
+<tr><td>GPS says "no GPS fix yet"</td><td>The GPS needs a view of the sky. Put it on the dashboard or roof; wait a minute or two.</td></tr>
+<tr><td>Map shows dots but no streets</td><td>The street background needs internet when you open the map. Connect and reload. Use the layers button to try <b>Satellite</b>.</td></tr>
+<tr><td>Dots are far from the road</td><td>See section 10 (GPS accuracy). Try the USB GPS, or place the GPS where it sees more sky.</td></tr>
+<tr><td>Email button opens a blank email</td><td>Your email program can't be controlled automatically. Drag the file shown in the folder window into the email.</td></tr>
+<tr><td>The window won't open / blank page</td><td>Windows: start it with <b>Start_RFNoise.bat</b> and read the messages in its window. Mac: look in <code>~/Library/Logs/RFNoiseMap.log</code>. Send it to Claude.</td></tr>
+</table>
+
+<h2 id="more">12. Updating, moving, uninstalling</h2>
+<ul>
+ <li><b>Update:</b> run the new version's installer. It replaces the program and keeps your data.</li>
+ <li><b>Move to another computer:</b> install there, then copy the <b>Drives</b> folder over (or use a backup zip). Maps can be made on any computer, so a Windows PC can make and print maps from drives recorded on the Mac.</li>
+ <li><b>Uninstall:</b> run <b>Uninstall_RFNoise.bat</b> (Windows) or <b>Uninstall RF Noise Map</b> (Mac) from the install folder. It asks before it touches your recorded drives and maps, and keeps them unless you say yes.</li>
+</ul>
+
+<h3>Words used in this guide</h3>
+<table>
+<tr><td><b>dB / dBFS / dBm</b></td><td>Units of signal strength. dBFS is relative to the receiver's maximum (what this program records). dBm is an absolute power level (needs calibration).</td></tr>
+<tr><td><b>CSV</b></td><td>A plain table file that Excel and Numbers open.</td></tr>
+<tr><td><b>Hotspot (Personal Hotspot)</b></td><td>The iPhone sharing its internet over Wi-Fi.</td></tr>
+<tr><td><b>KML</b></td><td>A file format Google Earth opens.</td></tr>
+<tr><td><b>AM / FM</b></td><td>Radio modulation types. AM responds to amplitude noise (like power-line noise); FM mostly ignores it.</td></tr>
+</table>
+</body></html>
