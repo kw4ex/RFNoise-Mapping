@@ -1,0 +1,37 @@
+# SPDX-License-Identifier: MIT
+# Publishes a GitHub Release automatically when a tag like v1.2.0 is pushed.
+# Notes come from docs/release-notes/<tag>.md. If the notes contain the words
+# "TESTING VERSION" the release is marked Pre-release (and not Latest).
+name: Publish release on tag
+on:
+  push:
+    tags: ["v*"]
+permissions:
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - name: Create the release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          VER="${TAG#v}"
+          notes="docs/release-notes/${TAG}.md"; test -f "$notes"
+          mkdir -p dl
+          cp Install_RFNoise.bat docs/guides/RFNoise-Mapping-guide.pdf dl/
+          zip -q -r "dl/RFNoise_Mac_${TAG}.zip" mac app
+          title="$(head -n1 "$notes" | sed 's/^# *//')"
+          flags=""
+          if grep -q "TESTING VERSION" "$notes"; then flags="--prerelease --latest=false"; fi
+          ls -l dl
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" dl/* --clobber
+            gh release edit "$TAG" --title "$title" --notes-file "$notes"
+          else
+            gh release create "$TAG" dl/* --target "${{ github.sha }}" --title "$title" --notes-file "$notes" $flags
+          fi
