@@ -47,6 +47,10 @@ ask "Ready to start?" || pause_exit 0
 step 1 "I am about to check the program files in this folder."
 [ -f "$APPSRC/rfmap_app.py" ] || fail "I can't find the 'app' folder. Download the Mac zip from the Releases page (or the whole repository) and keep the folders together; don't move this file out by itself."
 say "Found the program files."
+# macOS marks downloaded files "from the internet" and then refuses to run each one. Clear that mark for this whole
+# unzipped folder so the other files here (like the uninstaller) open normally. Local, harmless.
+xattr -dr com.apple.quarantine "$HERE" 2>/dev/null
+[ -d "$HERE/../app" ] && xattr -dr com.apple.quarantine "$HERE/../app" 2>/dev/null
 
 # ------------------------------------------------------------------------------
 step 2 "I am about to look for Homebrew (a standard Mac tool installer, only needed for the radio driver)."

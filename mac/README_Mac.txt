@@ -19,6 +19,11 @@ INSTALL - STEP BY STEP
      "mac" and "app" together.
   3. Open the "mac" folder. Right-click  Install_RFNoise.command  and choose Open,
      then Open again (first time only).
+     If macOS says it "cannot be opened because Apple cannot check it": click Done
+     (never "Move to Trash"). Then open System Settings > Privacy & Security, scroll down
+     to the message about Install_RFNoise.command, click "Open Anyway" and enter your
+     Mac password. (This only happens for the installer; it clears the warning for the
+     other files in the folder, including the uninstaller.)
   4. Read each step in the window and answer y to go on. When it says DONE, an
      "RF Noise Map" icon is on your Desktop and in Applications.
   5. If the file opens in a text editor: open Terminal, type  bash  and a space,
