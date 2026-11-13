@@ -319,13 +319,14 @@ async function guard(fn){try{return await fn();}catch(e){toast("&#9888; "+esc(e.
 /* ---------- form <-> config ---------- */
 function chRow(c,i){return `<tr><td><input type="number" step="any" class="cm" value="${esc(c.mhz)}" placeholder="MHz"></td>
  <td><input type="number" step="any" class="cb" value="${esc(c.bw_khz)}"></td>
- <td><input type="number" step="any" class="cc" value="${esc(c.cal_db)}"></td></tr>`;}
+ <td><input type="number" step="any" class="cc" value="${esc(c.cal_db)}"></td>
+ <td class="lvlcell" id="lvl${i}" style="min-width:120px"><span class="mut">&ndash;</span></td></tr>`;}
 function fillForm(cfg){
   $("route").value=cfg.route_name||""; $("practice").checked=!!cfg.practice;
   (document.querySelector(`input[name=gpsm][value=${cfg.gps_mode}]`)||document.querySelector("input[name=gpsm][value=usb]")).checked=true;
   $("gHost").value=cfg.gps_host; $("gPort").value=cfg.gps_port; $("gBaud").value=cfg.gps_baud;
   $("autoMap").checked=!!cfg.auto_map; $("spacing").value=cfg.spacing_ft; spacingNote(); $("ifgr").value=cfg.if_gain_db; $("rfgr").value=cfg.rf_gain_state; gainSync();
-  let h="<tr><th>MHz</th><th>Width (kHz)</th><th>Calibration (dB)</th></tr>";
+  let h="<tr><th>MHz</th><th>Width (kHz)</th><th>Calibration (dB)</th><th>Level now (dB)</th></tr>";
   for(let i=0;i<4;i++) h+=chRow(cfg.channels[i]||{mhz:"",bw_khz:5,cal_db:0},i);
   $("chTable").innerHTML=h; $("phoneAccess").checked=!!cfg.phone_access;
 }
@@ -418,7 +419,11 @@ async function refreshLive(){
     setPill("dGps","tGps",good?"on":"warn","GPS: "+(good?"OK":g)+(st.sats!=null?` (${st.sats} sats)`:""));
     $("liveLine").innerHTML=`<b>${st.rows}</b> dots saved &nbsp;|&nbsp; ${st.speed_mph!=null?Math.round(st.speed_mph)+" mph":"waiting for GPS"} &nbsp;|&nbsp; ${esc(st.sdr)}`;
     $("liveCards").innerHTML=(st.last||[]).map(l=>`<div class="big"><span>${l.mhz} MHz</span><b>${l.level.toFixed(1)} dB</b><div class="bar"><i style="left:${posPct(l.level)}%"></i></div></div>`).join("")||'<div class="mut">Waiting for the first position...</div>';
-  } else if(!lg){ setPill("dGps","tGps","","GPS: idle"); }
+    const byCh={}; (st.last||[]).forEach(l=>{byCh[l.ch!=null?l.ch:l.mhz]=l;});
+    for(let i=0;i<4;i++){ const c=$("lvl"+i); if(!c) continue; const m=document.querySelectorAll(".cm")[i];
+      const l=byCh[i]; c.innerHTML=(l&&m&&m.value!=="")?`<b>${l.level.toFixed(1)}</b><div class="bar"><i style="left:${posPct(l.level)}%"></i></div>`:'<span class="mut">&ndash;</span>'; }
+  } else if(!lg){ setPill("dGps","tGps","","GPS: idle");
+    for(let i=0;i<4;i++){ const c=$("lvl"+i); if(c) c.innerHTML='<span class="mut">&ndash;</span>'; } }
   if(j.crashed){ $("startErr").textContent="Logging stopped unexpectedly. "+(j.log_tail||""); $("startErr").style.display="block"; }
   if(wasLogging&&!lg){
     const mine=stoppedByUser; stoppedByUser=false;

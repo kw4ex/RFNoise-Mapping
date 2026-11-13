@@ -763,7 +763,7 @@ def main():
                             f"{level:.2f}", f"{level + ch['cal_db']:.2f}",
                             "" if fix.sats is None else fix.sats,
                             "" if fix.hdop is None else fix.hdop])
-                last.append({"mhz": ch["mhz"], "level": level + ch["cal_db"]})
+                last.append({"ch": ci, "mhz": ch["mhz"], "level": level + ch["cal_db"]})
             fh.flush()
             last_lat, last_lon = lat, lon
             dots += 1
