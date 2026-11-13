@@ -131,8 +131,24 @@ if ask "Set up the SDRplay radio driver now?"; then
             :
         else
         say "I am about to build the SDRplay driver module (SoapySDRPlay3)."
+        # Some Command Line Tools installs lack the C++ headers folder the compiler expects
+        # (error "'cstring' file not found"). The same headers exist inside the SDK, so point at them.
+        SDKP="$(xcrun --show-sdk-path 2>/dev/null)"
+        CXXEXTRA=""
+        CLTH="/Library/Developer/CommandLineTools/usr/include/c++/v1/cstring"
+        if [ -n "$SDKP" ] && [ -f "$SDKP/usr/include/c++/v1/cstring" ]; then
+            export SDKROOT="$SDKP"
+            if [ ! -f "$CLTH" ]; then
+                CXXEXTRA="-isystem $SDKP/usr/include/c++/v1"
+                echo "Compiler headers missing from Command Line Tools; using SDK copy: $SDKP" >>"$LOG"
+            fi
+        else
+            say "The Mac's compiler tools look incomplete (the C++ headers are missing)."
+            say "Fix: in Terminal run   sudo rm -rf /Library/Developer/CommandLineTools ; xcode-select --install"
+            say "Then run this installer again. Everything else will still work meanwhile."
+        fi
         if git clone --depth 1 https://github.com/pothosware/SoapySDRPlay3.git "$TMP/src" >>"$LOG" 2>&1 \
-           && cmake -S "$TMP/src" -B "$TMP/build" -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$("$BREW" --prefix)" >>"$LOG" 2>&1 \
+           && cmake -S "$TMP/src" -B "$TMP/build" -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$("$BREW" --prefix)" ${SDKP:+-DCMAKE_OSX_SYSROOT="$SDKP"} ${CXXEXTRA:+-DCMAKE_CXX_FLAGS="$CXXEXTRA"} >>"$LOG" 2>&1 \
            && cmake --build "$TMP/build" -j4 >>"$LOG" 2>&1 \
            && cmake --install "$TMP/build" >>"$LOG" 2>&1; then
             say "SDRplay driver module built and installed."
