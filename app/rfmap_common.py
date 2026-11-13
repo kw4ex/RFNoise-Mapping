@@ -39,7 +39,7 @@ def data_dir():
     home = os.path.expanduser("~")
     default = os.path.join(home, APP_NAME) if IS_MAC else os.path.join(home, "Documents", APP_NAME)
     base = os.environ.get("RFMAP_DATA") or install_dir() or default
-    for sub in ("Drives", "Maps", "Exports", "Backups", "Settings"):
+    for sub in ("Drives", "Maps", "Exports", "Backups", "Settings", "Recordings"):
         os.makedirs(os.path.join(base, sub), exist_ok=True)
     if IS_MAC and base == default:          # carry settings over from the old Documents location, if it can be read
         new_cfg = os.path.join(base, "Settings", "config.json")

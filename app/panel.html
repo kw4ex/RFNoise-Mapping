@@ -28,6 +28,14 @@ button.pri:hover{background:#174fb5}
 button.stop{background:var(--bad);border-color:var(--bad);color:#fff;font-weight:600}
 button.sm{font-size:13px;padding:4px 9px}
 button:disabled{opacity:.45;cursor:default}
+button.lock{font-size:19px;font-weight:800;letter-spacing:.5px;padding:10px 18px;border-radius:10px;border:3px solid #1e8e3e;background:#e6f6ea;color:#14692c;min-width:210px}
+button.lock.on{border-color:#b3261e;background:#d93025;color:#fff;box-shadow:0 0 0 3px rgba(217,48,37,.28)}
+.memrow{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+.mem{display:inline-flex;border:1px solid #b8c2cd;border-radius:9px;overflow:hidden;background:#fff}
+.mem button{border:0;border-radius:0;background:transparent;padding:6px 10px;text-align:left;line-height:1.25}
+.mem button:hover{background:#eef3fb}
+.mem .memx{padding:6px 9px;color:#8a1f17;border-left:1px solid #dde3ea;font-weight:700}
+button.recbtn.on{background:var(--bad);border-color:var(--bad);color:#fff;font-weight:700}
 a.btn{display:inline-block;text-decoration:none;font-size:13px;padding:4px 9px;border-radius:8px;border:1px solid #b8c2cd;background:#fff;color:var(--ink)}
 a.btn:hover{background:#eef3fb}
 .row{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:flex-end;margin:8px 0}
@@ -168,11 +176,12 @@ details summary{cursor:pointer;color:var(--acc);font-size:13.5px;margin:6px 0}
    <div><label>Move view</label><br><button class="sm" onclick="panShift(-0.25)">&#9664; left</button> <button class="sm" onclick="panShift(0.25)">right &#9654;</button> <button class="sm" onclick="panRecentre()">Centre on tuned</button></div>
   </div>
   <div class="row">
+   <div class="rxonly"><label>Frequency lock</label><br><button id="panLock" class="lock" onclick="panToggleLock()" title="Locks the tuned frequency so it cannot be changed by accident (clicks, mouse wheel, keys, memories). Moving the view still works.">&#128275; VFO UNLOCKED</button></div>
    <div class="rxonly"><label>Mode</label><br><span class="seg" id="panModes"></span></div>
    <div class="rxonly"><label>Bandwidth</label><br><select id="panBw" onchange="panSetBw(+this.value)"></select></div>
    <div class="rxonly"><label>Tuned (MHz)</label><br><input type="number" id="panTune" step="0.001" style="width:130px" onkeydown="panTuneKey(event)" onchange="panGoTune()"> <button class="sm" onclick="panGoTune()">Tune</button></div>
    <div class="rxonly"><label>Step</label><br><select id="panStep" onchange="panStepChanged()">
-     <option value="10">10 Hz</option><option value="100">100 Hz</option><option value="500">500 Hz</option><option value="1000" selected>1 kHz</option>
+     <option value="1">1 Hz</option><option value="10">10 Hz</option><option value="100">100 Hz</option><option value="500">500 Hz</option><option value="1000" selected>1 kHz</option>
      <option value="5000">5 kHz</option><option value="10000">10 kHz</option><option value="12500">12.5 kHz</option><option value="25000">25 kHz</option></select></div>
    <div class="rxonly"><label>Volume</label><br><input type="range" id="panVol" min="0" max="100" value="70" oninput="panVol()"> <label class="chk" style="display:inline-flex;margin:0"><input type="checkbox" id="panMute" onchange="panVol()"> <span>Mute</span></label></div>
    <div class="rxonly"><label>Squelch <span id="panSqV">off</span></label><br><input type="range" id="panSq" min="-120" max="-20" value="-120" oninput="panSquelch()"></div>
@@ -195,12 +204,25 @@ details summary{cursor:pointer;color:var(--acc);font-size:13.5px;margin:6px 0}
    <label class="chk rxonly"><input type="checkbox" id="panAuto" onchange="panGain()"> <span>Automatic gain (for listening only)</span></label>
   </div>
   <div class="mut"><b>Attenuation</b> reduces how strongly the radio amplifies, so strong signals do not overload it. The two boxes are the <b>same settings used for recording</b> (also under More settings in box 1), so what you see is what gets recorded. Raise the numbers if the picture fills with false signals or is crowded by strong stations; lower them to hear weak signals. <b>Automatic gain is never used while recording</b>; recording always uses these fixed numbers. If you change attenuation while logging, later dots are no longer directly comparable with earlier ones.</div>
+  <div class="rxonly" style="margin-top:10px"><b>Memory frequencies</b> <span class="mut">&ndash; click one to tune it, set its mode and centre the picture on it</span>
+   <div class="row" style="margin-top:4px;align-items:center"><input type="text" id="panMemName" placeholder="Name (optional)" style="width:190px" maxlength="30"> <button class="sm pri" onclick="panMemSave()">&#9733; Save the tuned frequency to memory</button></div>
+   <div class="memrow" id="panMems"></div></div>
+  <div class="rxonly" style="margin-top:12px"><b>Record what you hear:</b> <button id="bRec" class="recbtn" onclick="recToggle()">&#9679; Record audio</button> <span id="recInfo" class="mut">Saved in the Audio recordings box below.</span></div>
   <div class="rxonly" style="margin-top:8px"><b>Use the tuned frequency for mapping:</b> <span class="mut">(replaces that slot in the list above)</span>
    <div class="row" style="margin-top:4px">
     <button id="panSlot0" onclick="panUseSlot(0)"></button><button id="panSlot1" onclick="panUseSlot(1)"></button>
     <button id="panSlot2" onclick="panUseSlot(2)"></button><button id="panSlot3" onclick="panUseSlot(3)"></button>
    </div></div>
  </div>
+</section>
+
+<section class="card" id="cRec">
+ <h2>Audio recordings</h2>
+ <p class="sub">Recordings made with the <b>&#9679; Record audio</b> button in the panadapter. They are kept in the <b>Recordings</b> folder inside your RF Noise Map folder. They are small files (about 29 MB per hour, 8,000 samples a second) in the universal WAV format, so they play on any computer or phone and are fine for voice and CW.</p>
+ <div class="row" style="align-items:center"><audio id="recPlayer" controls preload="none" style="width:min(520px,100%)"></audio> <span class="mut" id="recNow"></span>
+  <button class="sm" onclick="openFolder('recordings')">Open the Recordings folder</button></div>
+ <div id="recEmpty" class="mut">No recordings yet.</div>
+ <table><thead><tr><th></th><th>Recording (date, time, frequency, mode)</th><th>Length</th><th>Size</th><th></th></tr></thead><tbody id="recTable"></tbody></table>
 </section>
 
 <!-- ======================= 2. DRIVES ======================= -->
@@ -298,7 +320,7 @@ const BUSY_MSG={"/api/fulltest":"Full test running: checking the software, radio
 let busyN=0, busyT=null, busyTick=null, busyStart=0, busyTxt="";
 function busyShow(){const b=document.getElementById("busy"); if(!b)return; const sec=Math.round((Date.now()-busyStart)/1000);
   b.innerHTML='<span class="sp"></span>'+busyTxt+"... "+sec+" s"; b.style.display="block";}
-function busyBegin(path){ if(path in BUSY_MSG===false && ["/api/config","/api/live","/api/state","/api/drives","/api/ports","/api/blockers","/api/pause","/api/pan/set","/api/pan/stop","/api/pan/watch","/api/spacing","/api/gain","/api/reveal","/api/open_folder","/api/drive/meta","/api/quit"].includes(path)) return false;
+function busyBegin(path){ if(path in BUSY_MSG===false && ["/api/config","/api/live","/api/state","/api/drives","/api/ports","/api/blockers","/api/pause","/api/pan/set","/api/pan/stop","/api/pan/watch","/api/spacing","/api/gain","/api/rec/start","/api/rec/stop","/api/rec/delete","/api/reveal","/api/open_folder","/api/drive/meta","/api/quit"].includes(path)) return false;
   busyN++; if(busyN===1){busyStart=Date.now(); busyTxt=BUSY_MSG[path]||"Working";
     busyT=setTimeout(()=>{busyShow(); busyTick=setInterval(busyShow,1000);},500);} return true;}
 function busyEnd(){ busyN=Math.max(0,busyN-1); if(busyN===0){clearTimeout(busyT);clearInterval(busyTick);const b=document.getElementById("busy"); if(b)b.style.display="none";}}
@@ -328,7 +350,7 @@ function fillForm(cfg){
   $("autoMap").checked=!!cfg.auto_map; $("spacing").value=cfg.spacing_ft; spacingNote(); $("ifgr").value=cfg.if_gain_db; $("rfgr").value=cfg.rf_gain_state; gainSync();
   let h="<tr><th>MHz</th><th>Width (kHz)</th><th>Calibration (dB)</th><th>Level now (dB)</th></tr>";
   for(let i=0;i<4;i++) h+=chRow(cfg.channels[i]||{mhz:"",bw_khz:5,cal_db:0},i);
-  $("chTable").innerHTML=h; $("phoneAccess").checked=!!cfg.phone_access;
+  $("chTable").innerHTML=h; $("phoneAccess").checked=!!cfg.phone_access; panMemLoad(cfg);
 }
 function readForm(){
   const m=[...document.querySelectorAll(".cm")],b=[...document.querySelectorAll(".cb")],c=[...document.querySelectorAll(".cc")];
@@ -553,7 +575,7 @@ const PAN_BANDS=[
 const WF_LUT=(()=>{const L=new Uint8ClampedArray(256*3);const st=[[0,[0,0,40]],[0.25,[0,40,200]],[0.5,[0,200,200]],[0.7,[240,240,0]],[0.9,[255,100,0]],[1,[255,255,255]]];
  for(let i=0;i<256;i++){const t=i/255;let k=0;while(k<st.length-2&&t>st[k+1][0])k++;const a=st[k],b=st[k+1];
   const u=Math.min(1,Math.max(0,(t-a[0])/(b[0]-a[0])));for(let c=0;c<3;c++)L[i*3+c]=a[1][c]+(b[1][c]-a[1][c])*u;}return L;})();
-const fmtMHz=hz=>(hz/1e6).toFixed(5).replace(/0+$/,"").replace(/\.$/,".0");
+const fmtMHz=hz=>(hz/1e6).toFixed(6).replace(/0+$/,"").replace(/\.$/,".0");
 const b64Bytes=b=>{const s=atob(b),u=new Uint8Array(s.length);for(let i=0;i<s.length;i++)u[i]=s.charCodeAt(i);return u;};
 
 function panInit(){
@@ -561,7 +583,8 @@ function panInit(){
   $("panModes").innerHTML=["AM","USB","LSB","CW","NFM"].map(m=>`<button id="pm_${m}" onclick="panSetMode('${m}')">${m==="NFM"?"FM (narrow)":m}</button>`).join("");
   try{const j=JSON.parse(localStorage.getItem("rfmapPan")||"null"); if(j&&j.center){Object.assign(PAN,{center:j.center,rate:j.rate,tune:j.tune,mode:j.mode,bw:j.bw});}}catch(e){}
   try{const st=+localStorage.getItem("rfmapPanStep"); if(st>0&&[...$("panStep").options].some(o=>+o.value===st)) $("panStep").value=String(st);}catch(e){}
-  panStepChanged(); panFillBw(); panShowControls();
+  try{PAN.locked=localStorage.getItem("rfmapPanLock")==="1";}catch(e){}
+  panStepChanged(); panFillBw(); panShowControls(); panLockShow();
 }
 function panSave(){try{localStorage.setItem("rfmapPan",JSON.stringify({center:PAN.center,rate:PAN.rate,tune:PAN.tune,mode:PAN.mode,bw:PAN.bw}));}catch(e){}}
 function panFillBw(){
@@ -581,7 +604,15 @@ function panPost(f){ clearTimeout(PAN.pt); PAN.pend=Object.assign(PAN.pend||{},f
   PAN.pt=setTimeout(()=>{const b=PAN.pend;PAN.pend=null; if(PAN.on) api("/api/pan/set",b).catch(e=>toast("&#9888; "+esc(e.message),6000));},60); }
 function panSetMode(m){PAN.mode=m; PAN.bw=PAN_BW_DEF[m]; panFillBw(); panShowControls(); panSave(); panPost({mode:m,bw:PAN.bw});}
 function panSetBw(b){PAN.bw=b; panSave(); panPost({bw:b});}
+function panLockMsg(){ toast("&#128274; The VFO is locked, so the tuned frequency cannot change. Press the big red VFO LOCKED button to unlock it.",4500); $("panTune").value=fmtMHz(PAN.tune); }
+function panLockShow(){
+  const b=$("panLock"); b.className="lock"+(PAN.locked?" on":""); b.innerHTML=PAN.locked?"&#128274; VFO LOCKED":"&#128275; VFO UNLOCKED";
+  $("panTune").readOnly=!!PAN.locked; $("panTune").style.background=PAN.locked?"#fde8e6":"";
+}
+function panToggleLock(){ PAN.locked=!PAN.locked; try{localStorage.setItem("rfmapPanLock",PAN.locked?"1":"0");}catch(e){} panLockShow(); if(PAN.last) panOverlay(null);
+  toast(PAN.locked?"&#128274; VFO locked at "+fmtMHz(PAN.tune)+" MHz":"&#128275; VFO unlocked",2500); }
 function panSetTune(hz,typed){
+  if(PAN.locked){ panLockMsg(); return; }
   hz=Math.max(10000,hz); PAN.tune=hz; $("panTune").value=fmtMHz(hz); panSave(); panPost({tune:hz}); panSlotLabels();
   // keep the tuned frequency in view: typed entries are centred unless already near the middle
   if(PAN.on&&!PAN.viewOnly&&Math.abs(hz-PAN.center)>(typed?0.3:0.42)*PAN.rate) panSetCenter(hz);
@@ -607,7 +638,7 @@ function panSpanSlide(){const r=PAN_SPANS[+$("panSpan").value]; $("panSpanTxt").
 function panSetSpan(r){PAN.rate=r; PAN.clearWf=true; panSave(); panPost({rate:r});}
 function panShift(f){panSetCenter(PAN.center+f*PAN.rate);}
 function panRecentre(){panSetCenter(PAN.tune);}
-function panBand(i){ if(i==="")return; const b=PAN_BANDS[+i]; PAN.rate=b[4]; PAN.mode=b[3]; PAN.bw=PAN_BW_DEF[b[3]]; PAN.tune=b[2]*1e6; PAN.center=b[1]*1e6; PAN.clearWf=true;
+function panBand(i){ if(i==="")return; if(PAN.locked){ panLockMsg(); $("panBand").value=""; return; } const b=PAN_BANDS[+i]; PAN.rate=b[4]; PAN.mode=b[3]; PAN.bw=PAN_BW_DEF[b[3]]; PAN.tune=b[2]*1e6; PAN.center=b[1]*1e6; PAN.clearWf=true;
   panFillBw(); panShowControls(); panSave(); panPost({center:PAN.center,rate:PAN.rate,tune:PAN.tune,mode:PAN.mode,bw:PAN.bw}); $("panBand").value=""; }
 function gainSync(){ if($("panIf")){ $("panIf").value=$("ifgr").value||40; $("panRf").value=$("rfgr").value||0; } }
 async function gainChanged(){
@@ -628,6 +659,59 @@ async function panUseSlot(i){
   await guard(async()=>{await api("/api/config",readForm()); panSlotLabels();
     toast(`Mapping frequency ${i+1} is now ${mhz} MHz. Press Start logging (or 'Apply frequency changes now' if you are already logging).`,9000);});
 }
+
+/* memory frequencies */
+const PAN_MEM_DEFAULT=[
+ {name:"WWV 5 MHz time",hz:5000000,mode:"AM",bw:6000},{name:"WWV 10 MHz time",hz:10000000,mode:"AM",bw:6000},
+ {name:"WWV 15 MHz time",hz:15000000,mode:"AM",bw:6000},{name:"CHU Canada time",hz:7850000,mode:"AM",bw:6000},
+ {name:"AM broadcast 1000",hz:1000000,mode:"AM",bw:8000},{name:"CB channel 19",hz:27185000,mode:"AM",bw:6000},
+ {name:"2 m calling",hz:146520000,mode:"NFM",bw:12000},{name:"NOAA weather",hz:162550000,mode:"NFM",bw:12000},
+ {name:"Airband guard",hz:121500000,mode:"AM",bw:8000}];
+PAN.mem=PAN_MEM_DEFAULT.slice();
+function panMemLoad(cfg){ PAN.mem=(cfg&&Array.isArray(cfg.pan_mem))?cfg.pan_mem:PAN_MEM_DEFAULT.slice(); panMemRender(); }
+function panMemRender(){
+  $("panMems").innerHTML=PAN.mem.map((m,i)=>`<span class="mem"><button onclick="panMemGo(${i})" title="Tune and centre on this memory"><b>${esc(fmtMHz(m.hz))}</b> ${m.mode==="NFM"?"FM":esc(m.mode)}${m.name?"<br><small>"+esc(m.name)+"</small>":""}</button><button class="memx" onclick="panMemDel(${i})" title="Delete this memory">&times;</button></span>`).join("")||'<span class="mut">No memories yet. Tune a frequency, then press the Save button.</span>';
+}
+async function panMemStore(){ await guard(()=>api("/api/config",{pan_mem:PAN.mem})); }
+async function panMemSave(){
+  if(PAN.mem.length>=40){toast("The memory list is full (40). Delete one first.");return;}
+  const name=$("panMemName").value.trim().slice(0,30);
+  PAN.mem.push({name,hz:Math.round(PAN.tune),mode:PAN.mode,bw:PAN.bw}); $("panMemName").value=""; panMemRender();
+  await panMemStore(); toast("Saved "+fmtMHz(PAN.tune)+" MHz "+PAN.mode+" to memory.",3000);
+}
+async function panMemDel(i){ const m=PAN.mem[i]; if(!m||!confirm("Delete this memory?\n\n"+fmtMHz(m.hz)+" MHz "+m.mode+(m.name?"  "+m.name:"")))return; PAN.mem.splice(i,1); panMemRender(); await panMemStore(); }
+function panMemGo(i){
+  const m=PAN.mem[i]; if(!m)return; if(PAN.locked){panLockMsg();return;}
+  PAN.mode=m.mode; PAN.bw=(PAN_BW[m.mode]||[]).includes(m.bw)?m.bw:PAN_BW_DEF[m.mode]; PAN.tune=m.hz; PAN.center=m.hz; PAN.clearWf=true;
+  panFillBw(); panShowControls(); panSave(); panPost({center:PAN.center,tune:PAN.tune,mode:PAN.mode,bw:PAN.bw});
+}
+
+/* audio recording */
+const REC={on:false,t0:0};
+function recFmt(s){s=Math.round(s);return Math.floor(s/60)+":"+String(s%60).padStart(2,"0");}
+function recUi(){ const b=$("bRec"); b.className="recbtn"+(REC.on?" on":""); b.innerHTML=REC.on?"&#9632; Stop recording":"&#9679; Record audio";
+  $("recInfo").textContent=REC.on?"Recording... "+recFmt((Date.now()-REC.t0)/1000):"Saved in the Audio recordings box below."; }
+async function recToggle(){
+  if(REC.on){ await guard(async()=>{ const j=await api("/api/rec/stop",{}); REC.on=false; recUi(); await recList(); toast("Recording saved"+(j.result?" ("+recFmt(j.result.seconds)+"). Find it in the Audio recordings box.":"."),6000); }); return; }
+  await guard(async()=>{ await api("/api/rec/start",{}); REC.on=true; REC.t0=Date.now(); recUi(); toast("Recording what you hear. Press Stop recording when done.",4000); });
+}
+async function recPoll(){
+  if(!REC.on)return; recUi();
+  try{ const j=await api("/api/rec/list"); if(!j.recording.on){ REC.on=false; recUi(); renderRecs(j.files); toast("Recording stopped and saved (the panadapter was closed).",6000);} }catch(e){}
+}
+function renderRecs(list){
+  $("recEmpty").style.display=list.length?"none":"block";
+  $("recTable").innerHTML=list.map(r=>`<tr><td><button class="sm pri" onclick="recPlay('${esc(r.file)}')">&#9654; Play</button></td>
+   <td><b>${esc(r.file.replace(/\.wav$/i,""))}</b></td><td>${recFmt(r.seconds)}</td><td>${r.size_kb} KB</td>
+   <td class="act"><a class="btn" href="/recordings/${encodeURIComponent(r.file)}?download=1">Save a copy</a>
+    <button class="sm" onclick="reveal('rec','${esc(r.file)}')">Show in folder</button>
+    <button class="sm" onclick="recDel('${esc(r.file)}')">Delete</button></td></tr>`).join("");
+}
+async function recList(){ try{ const j=await api("/api/rec/list"); renderRecs(j.files); }catch(e){} }
+function recPlay(f){ const a=$("recPlayer"); a.src="/recordings/"+encodeURIComponent(f); $("recNow").textContent="Now playing: "+f.replace(/\.wav$/i,""); a.play().catch(()=>{}); }
+async function recDel(f){ if(!confirm("Delete this recording permanently?\n\n"+f))return;
+  const a=$("recPlayer"); if(a.src.includes(encodeURIComponent(f))){a.pause();a.removeAttribute("src");a.load();$("recNow").textContent="";}
+  await guard(async()=>{await api("/api/rec/delete",{file:f}); await recList();}); }
 
 /* audio */
 function panAudioStart(){
@@ -784,7 +868,7 @@ function panOverlay(mx){
   const tn=f.viewonly?f.tune:PAN.tune, [e0,e1]=panEdges(f), xt=panXOf(tn,f);
   ox.fillStyle="rgba(255,60,60,.18)";ox.fillRect(panXOf(tn+e0,f),0,Math.max(2,panXOf(tn+e1,f)-panXOf(tn+e0,f)),H);
   ox.strokeStyle="#ff5a4a";ox.lineWidth=1.5;ox.beginPath();ox.moveTo(xt,0);ox.lineTo(xt,H);ox.stroke();
-  ox.fillStyle="#ff5a4a";ox.font="bold 12px sans-serif";ox.fillText(fmtMHz(tn)+" MHz  "+(f.viewonly?"being measured":PAN.mode),Math.min(Math.max(xt+6,4),W-190),14);
+  ox.fillStyle="#ff5a4a";ox.font="bold 12px sans-serif";ox.fillText((PAN.locked&&!f.viewonly?"LOCKED ":"")+fmtMHz(tn)+" MHz  "+(f.viewonly?"being measured":PAN.mode),Math.min(Math.max(xt+6,4),W-190),14);
   if(mx!==null){ox.strokeStyle="rgba(255,255,255,.5)";ox.lineWidth=1;ox.beginPath();ox.moveTo(mx,0);ox.lineTo(mx,H);ox.stroke();}
 }
 function panMouse(e,click){
@@ -819,7 +903,7 @@ function panWire(){
 document.querySelectorAll("input[name=gpsm]").forEach(r=>r.onchange=showGpsFields);
 checkBlockers();
 $("practice").onchange=showGpsFields;
-panInit(); panWire(); setInterval(panSlotLabels,1500);
+panInit(); panWire(); setInterval(panSlotLabels,1500); recList(); setInterval(recPoll,1000);
 $("phoneAccess").onchange=()=>guard(async()=>{await api("/api/config",{phone_access:$("phoneAccess").checked});toast("Saved. Quit and reopen RF Noise Map to apply.");});
 refreshAll().then(()=>refreshLive()).catch(()=>{});
 setInterval(refreshLive,1200);

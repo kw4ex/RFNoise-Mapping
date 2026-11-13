@@ -11,6 +11,7 @@ logging starts, and refuses to start it while logging is running.
 import base64
 import collections
 import math
+import os
 import sys
 import threading
 import time
@@ -334,6 +335,126 @@ DEFAULTS = {"center": 7_150_000.0, "rate": 2_000_000, "tune": 7_150_000.0, "mode
             "squelch": -120.0, "auto_gain": False, "if_gain": 40, "rf_state": 0}
 
 
+# ----------------------------------------------------------------------------
+# Audio recorder: saves what you hear as a small, universal WAV file
+# (8,000 samples a second, 8-bit mu-law = about 29 MB per hour, plays in every
+# browser, QuickTime, Windows Media Player, VLC, phones...). Good for voice and CW.
+# ----------------------------------------------------------------------------
+REC_RATE = 8000
+REC_MAX_S = 4 * 3600
+REC_HEADER = 58
+
+
+def _ulaw_encode(x):
+    x = np.clip(np.round(x), -32767, 32767).astype(np.int32)
+    sign = np.where(x < 0, 0x80, 0).astype(np.int32)
+    mag = np.minimum(np.abs(x), 32635) + 132
+    ex = np.floor(np.log2(mag)).astype(np.int32) - 7
+    man = (mag >> (ex + 3)) & 0x0F
+    return ((~(sign | (ex << 4) | man)) & 0xFF).astype(np.uint8)
+
+
+def _ulaw_decode(b):
+    b = (~np.asarray(b, np.uint8)).astype(np.int32) & 0xFF
+    sign = b & 0x80
+    ex = (b >> 4) & 7
+    man = b & 15
+    mag = (((man << 3) + 0x84) << ex) - 0x84
+    return np.where(sign != 0, -mag, mag).astype(np.int32)
+
+
+class Recorder:
+    def __init__(self):
+        self.lock = threading.Lock()
+        self.f = None
+        self.path = ""
+        self.t0 = 0.0
+        self.n = 0
+        taps = 255
+        fc = 3600.0 / AUDIO_RATE
+        k = np.arange(taps) - (taps - 1) / 2.0
+        h = np.sinc(2 * fc * k) * np.kaiser(taps, 8.0)
+        self.h = (h / np.sum(h)).astype(np.float32)
+        self.step = AUDIO_RATE / float(REC_RATE)
+
+    def active(self):
+        return self.f is not None
+
+    def status(self):
+        with self.lock:
+            if self.f is None:
+                return {"on": False}
+            return {"on": True, "file": os.path.basename(self.path), "seconds": round(self.n / float(REC_RATE), 1)}
+
+    def start(self, path):
+        with self.lock:
+            if self.f is not None:
+                raise ValueError("Already recording.")
+            self.f = open(path, "wb")
+            self.path = path
+            self.n = 0
+            self.t0 = time.time()
+            self.tail = np.zeros(len(self.h) - 1, np.float32)
+            self.pos = 0.0
+            self._header()
+
+    def _header(self):
+        n = self.n
+        hd = b"RIFF" + (REC_HEADER - 8 + n).to_bytes(4, "little") + b"WAVE"
+        hd += b"fmt " + (18).to_bytes(4, "little") + (7).to_bytes(2, "little") + (1).to_bytes(2, "little")
+        hd += REC_RATE.to_bytes(4, "little") + REC_RATE.to_bytes(4, "little")
+        hd += (1).to_bytes(2, "little") + (8).to_bytes(2, "little") + (0).to_bytes(2, "little")
+        hd += b"fact" + (4).to_bytes(4, "little") + n.to_bytes(4, "little")
+        hd += b"data" + n.to_bytes(4, "little")
+        pos = self.f.tell()
+        self.f.seek(0)
+        self.f.write(hd)
+        self.f.seek(pos)
+
+    def feed(self, audio):
+        if self.f is None:
+            return
+        with self.lock:
+            if self.f is None:
+                return
+            x = np.concatenate((self.tail, audio.astype(np.float32)))
+            y = np.convolve(x, self.h, "valid")
+            self.tail = x[-(len(self.h) - 1):]
+            n = max(0, int(math.ceil((len(y) - 1 - self.pos) / self.step)))
+            if n:
+                idx = self.pos + np.arange(n) * self.step
+                i0 = idx.astype(np.int64)
+                fr = (idx - i0).astype(np.float32)
+                out = y[i0] * (1 - fr) + y[np.minimum(i0 + 1, len(y) - 1)] * fr
+                self.f.write(_ulaw_encode(out).tobytes())
+                self.n += n
+            self.pos = self.pos + n * self.step - len(y)
+            if self.n // REC_RATE != (self.n - n) // REC_RATE:     # keep the header valid about once a second
+                self._header()
+                self.f.flush()
+            if self.n >= REC_MAX_S * REC_RATE:
+                self._close()
+
+    def _close(self):
+        try:
+            self._header()
+            self.f.close()
+        except Exception:
+            pass
+        self.f = None
+
+    def stop(self):
+        with self.lock:
+            if self.f is None:
+                return None
+            name, secs = os.path.basename(self.path), self.n / float(REC_RATE)
+            self._close()
+            return {"file": name, "seconds": round(secs, 1)}
+
+
+REC = Recorder()
+
+
 class Panadapter:
     def __init__(self):
         self.lock = threading.Lock()
@@ -515,11 +636,13 @@ class Panadapter:
                         "audio_rate": AUDIO_RATE,
                     }
                     self.audio.append((self.aseq, audio.tobytes()))
+                REC.feed(audio)
         except Exception as e:
             self.error = "%s: %s" % (type(e).__name__, e)
             print("Panadapter stopped:", self.error, file=sys.stderr)
         finally:
             self.running = False
+            REC.stop()
             try:
                 src.close()
             except Exception:

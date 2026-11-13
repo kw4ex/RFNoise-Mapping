@@ -38,7 +38,7 @@ import check_setup
 import gps_detect
 import device_guard
 import make_map
-from panadapter import PAN
+from panadapter import PAN, REC, REC_RATE, REC_HEADER
 
 DEFAULT_PORT = 8780
 LOGGER_PORT = 8765
@@ -63,6 +63,7 @@ DEFAULT_CONFIG = {
         {"mhz": 148.000, "bw_khz": 10.0, "cal_db": 0.0},
         {"mhz": "", "bw_khz": 5.0, "cal_db": 0.0},
     ],
+    "pan_mem": None,                 # saved panadapter memory frequencies (None = show the starter list)
     "phone_access": False,           # let an iPhone/iPad open this window too (needs restart)
     "token": "",
 }
@@ -132,6 +133,7 @@ class App:
         self.maps_dir = C.sub_dir("Maps")
         self.exports_dir = C.sub_dir("Exports")
         self.backups_dir = C.sub_dir("Backups")
+        self.rec_dir = C.sub_dir("Recordings")
         self.settings_dir = C.sub_dir("Settings")
         self.cfg_path = os.path.join(self.settings_dir, "config.json")
         self.cfg = json.loads(json.dumps(DEFAULT_CONFIG))
@@ -157,6 +159,21 @@ class App:
     def save_cfg(self):
         with open(self.cfg_path, "w") as f:
             json.dump(self.cfg, f, indent=2)
+
+    def recordings(self):
+        out = []
+        for fn in sorted(os.listdir(self.rec_dir), reverse=True):
+            if not fn.lower().endswith(".wav"):
+                continue
+            p = os.path.join(self.rec_dir, fn)
+            try:
+                size = os.path.getsize(p)
+                out.append({"file": fn, "size_kb": round(size / 1024),
+                            "seconds": round(max(0, size - REC_HEADER) / float(REC_RATE), 1),
+                            "modified": time.strftime("%Y-%m-%d %H:%M", time.localtime(os.path.getmtime(p)))})
+            except OSError:
+                pass
+        return out
 
     def update_cfg(self, new):
         allowed = set(DEFAULT_CONFIG) - {"token"}
@@ -537,6 +554,31 @@ class Handler(BaseHTTPRequestHandler):
                     out.update(j)
                     return self._json(out)
                 return self._json(PAN.get_frame(after))
+            if path == "/api/rec/list":
+                return self._json({"ok": True, "recording": REC.status(), "files": APP.recordings()})
+            if path.startswith("/recordings/"):
+                name = unquote(path[len("/recordings/"):])
+                p = safe_name(name, APP.rec_dir, (".wav",))
+                with open(p, "rb") as f:
+                    data = f.read()
+                total = len(data)
+                hdr = {"Accept-Ranges": "bytes"}
+                if q.get("download"):
+                    hdr["Content-Disposition"] = f'attachment; filename="{os.path.basename(p)}"'
+                rng = self.headers.get("Range", "")
+                if rng.startswith("bytes=") and total:
+                    a, _, b2 = rng[6:].partition("-")
+                    try:
+                        start = int(a) if a else max(0, total - int(b2))
+                        end = int(b2) if (a and b2) else total - 1
+                    except ValueError:
+                        start, end = 0, total - 1
+                    end = min(end, total - 1)
+                    if start > end:
+                        return self._send(416, "", "text/plain", {"Content-Range": "bytes */%d" % total})
+                    hdr["Content-Range"] = "bytes %d-%d/%d" % (start, end, total)
+                    return self._send(206, data[start:end + 1], "audio/wav", hdr)
+                return self._send(200, data, "audio/wav", hdr)
             if path == "/api/pan/audio":
                 data, last = PAN.get_audio(int((q.get("after") or ["0"])[0] or 0))
                 return self._send(200, data, "application/octet-stream",
@@ -621,6 +663,25 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/pan/set":
             PAN.set(b)
             return {"ok": True}
+        if path == "/api/rec/start":
+            if APP.running() or not PAN.running:
+                raise ValueError("Start the panadapter first (recording saves what you hear, and you cannot listen while logging).")
+            if REC.active():
+                raise ValueError("Already recording.")
+            p = PAN.params
+            mode = str(p.get("mode", "AM"))
+            name = "%s_%.4fMHz_%s.wav" % (time.strftime("%Y-%m-%d_%H%M%S"), float(p.get("tune", 0)) / 1e6, mode)
+            REC.start(os.path.join(APP.rec_dir, name))
+            return {"ok": True, "file": name}
+        if path == "/api/rec/stop":
+            r = REC.stop()
+            return {"ok": True, "result": r}
+        if path == "/api/rec/delete":
+            name = os.path.basename(str(b.get("file", "")))
+            if REC.active() and REC.status().get("file") == name:
+                raise ValueError("Stop recording first.")
+            os.remove(safe_name(name, APP.rec_dir, (".wav",)))
+            return {"ok": True}
         if path == "/api/pan/stop":
             PAN.stop()
             return {"ok": True}
@@ -660,11 +721,13 @@ class Handler(BaseHTTPRequestHandler):
             return {"ok": True}
         if path == "/api/open_folder":
             folder = {"data": APP.data, "drives": APP.drives_dir, "maps": APP.maps_dir,
-                      "exports": APP.exports_dir, "backups": APP.backups_dir}.get(b.get("which"), APP.data)
+                      "exports": APP.exports_dir, "backups": APP.backups_dir,
+                      "recordings": APP.rec_dir}.get(b.get("which"), APP.data)
             return {"ok": open_path(folder)}
         if path == "/api/reveal":
             kind = b.get("kind")
-            folder = {"map": APP.maps_dir, "drive": APP.drives_dir, "export": APP.exports_dir}.get(kind)
+            folder = {"map": APP.maps_dir, "drive": APP.drives_dir, "export": APP.exports_dir,
+                      "rec": APP.rec_dir}.get(kind)
             if not folder:
                 raise ValueError("unknown kind")
             p = os.path.join(folder, os.path.basename(b.get("file", "")))
