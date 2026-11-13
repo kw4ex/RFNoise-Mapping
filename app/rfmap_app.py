@@ -682,14 +682,29 @@ class Handler(BaseHTTPRequestHandler):
                 "crashed": dead}
 
     def full_state(self):
-        from rf_logger import lan_ip
-        phone = f"http://{lan_ip()}:{APP.port}/?t={APP.cfg['token']}"
+        warns = []
+
+        def safe(label, fn, default):
+            try:
+                return fn()
+            except Exception as e:                       # never let one part blank the whole page
+                msg = str(e)
+                if isinstance(e, PermissionError) and C.IS_MAC:
+                    msg += (" (macOS is blocking this program from your Documents folder. "
+                            "Open System Settings > Privacy & Security > Files & Folders, "
+                            "or Full Disk Access, and switch on 'RF Noise Map' or Terminal.)")
+                warns.append(f"{label}: {msg}")
+                return default
+
+        phone = safe("phone address", lambda: f"http://{__import__('rf_logger').lan_ip()}:{APP.port}/?t={APP.cfg['token']}", "")
         return {"version": C.VERSION, "platform": "mac" if C.IS_MAC else "windows" if C.IS_WIN else "linux",
                 "data_dir": APP.data, "cfg": {k: v for k, v in APP.cfg.items() if k != "token"},
-                "ports": check_setup.list_serial_ports(),
+                "ports": safe("USB ports", check_setup.list_serial_ports, []),
                 "phone_url": phone if APP.cfg.get("phone_access") else "",
-                "drives": APP.drives(), "maps": APP.maps(), "exports": APP.exports(),
-                "live": self.live_state()}
+                "drives": safe("recorded drives", APP.drives, []), "maps": safe("maps", APP.maps, []),
+                "exports": safe("exports", APP.exports, []),
+                "live": safe("status", self.live_state, {"logging": False, "logger": None, "log_tail": "", "crashed": False}),
+                "warnings": warns}
 
 
 def serve(port):
@@ -742,7 +757,7 @@ def main():
         pass
 
     try:                                   # close leftovers of this program that may be holding the radio/GPS
-        gone = device_guard.cleanup_own_leftovers()
+        gone = [] if os.environ.get("RFMAP_NO_CLEANUP") else device_guard.cleanup_own_leftovers()
         if gone:
             print("Closed " + str(len(gone)) + " leftover RF Noise Map helper program(s).", flush=True)
     except Exception:

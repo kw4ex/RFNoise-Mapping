@@ -68,6 +68,7 @@ details summary{cursor:pointer;color:var(--acc);font-size:13.5px;margin:6px 0}
 </header>
 
 <main>
+<div id="warnBanner" style="display:none;background:#ffe3e0;border:1px solid #d04a3a;border-radius:8px;padding:10px 12px;margin:10px 0"></div>
 <div id="blockBanner" style="display:none;background:#fff4cc;border:1px solid #e0b400;border-radius:8px;padding:10px 12px;margin:10px 0">
  <b>These programs may be using your radio or GPS:</b> <span id="blockList"></span>
  <div class="mut">Only one program can use the radio or a GPS port at a time. Press the button to close them (they are asked politely first). Save your work in them first.</div>
@@ -221,7 +222,7 @@ function chRow(c,i){return `<tr><td><input type="number" step="any" class="cm" v
  <td><input type="number" step="any" class="cc" value="${esc(c.cal_db)}"></td></tr>`;}
 function fillForm(cfg){
   $("route").value=cfg.route_name||""; $("practice").checked=!!cfg.practice;
-  document.querySelector(`input[name=gpsm][value=${cfg.gps_mode}]`).checked=true;
+  (document.querySelector(`input[name=gpsm][value=${cfg.gps_mode}]`)||document.querySelector("input[name=gpsm][value=usb]")).checked=true;
   $("gHost").value=cfg.gps_host; $("gPort").value=cfg.gps_port; $("gBaud").value=cfg.gps_baud;
   $("autoMap").checked=!!cfg.auto_map; $("spacing").value=cfg.spacing_ft; $("ifgr").value=cfg.if_gain_db; $("rfgr").value=cfg.rf_gain_state;
   let h="<tr><th>MHz</th><th>Width (kHz)</th><th>Calibration (dB)</th></tr>";
@@ -231,13 +232,13 @@ function fillForm(cfg){
 function readForm(){
   const m=[...document.querySelectorAll(".cm")],b=[...document.querySelectorAll(".cb")],c=[...document.querySelectorAll(".cc")];
   return {route_name:$("route").value.trim(), practice:$("practice").checked,
-    gps_mode:document.querySelector("input[name=gpsm]:checked").value, gps_host:$("gHost").value.trim(),
+    gps_mode:(document.querySelector("input[name=gpsm]:checked")||{value:"usb"}).value, gps_host:$("gHost").value.trim(),
     gps_port:+$("gPort").value||11123, gps_serial:$("gSerial").value, gps_baud:+$("gBaud").value,
     auto_map:$("autoMap").checked, spacing_ft:+$("spacing").value||10, if_gain_db:+$("ifgr").value||40, rf_gain_state:+$("rfgr").value||0,
     channels:m.map((x,i)=>({mhz:x.value, bw_khz:b[i].value||5, cal_db:c[i].value||0}))};
 }
 function showGpsFields(){
-  const prac=$("practice").checked, mode=document.querySelector("input[name=gpsm]:checked").value;
+  const prac=$("practice").checked, mode=(document.querySelector("input[name=gpsm]:checked")||{value:"usb"}).value;
   $("gpsBox").style.opacity=prac?.4:1;
   $("fIphone").style.display=mode==="iphone"?"flex":"none"; $("fIphoneHelp").style.display=mode==="iphone"?"block":"none";
   $("fUsb").style.display=mode==="usb"?"flex":"none";
@@ -362,12 +363,14 @@ function renderExports(list){
   $("xList").innerHTML=list.length?("Other saved files (Google Earth, zips): "+list.map(x=>`<a href="/exports/${encodeURIComponent(x.file)}">${esc(x.file)}</a>`).join(" &middot; ")):"";
 }
 async function refreshAll(){
-  const j=await api("/api/state"); S=j;
+  let j; try{ j=await api("/api/state"); }catch(e){ showWarn("Cannot reach the program: "+e.message+" Close this window and open RF Noise Map again."); throw e; }
+  S=j; showWarn((j.warnings||[]).join("<br>"));
   $("pData").textContent=j.data_dir; $("pDrives").textContent=j.data_dir+"/Drives"; $("pMaps").textContent=j.data_dir+"/Maps";
   if(!formFilled){ fillForm(j.cfg); fillPorts(j.ports,j.cfg.gps_serial); formFilled=true; showGpsFields(); }
   renderDrives(j.drives); renderMaps(j.maps); renderExports(j.exports);
   if(j.phone_url){$("phoneUrl").style.display="block";$("phoneUrl").innerHTML="On your iPhone/iPad open: <b>"+esc(j.phone_url)+"</b>";}else $("phoneUrl").style.display="none";
 }
+function showWarn(t){const b=$("warnBanner"); if(!t){b.style.display="none";return;} b.innerHTML="&#9888; "+t; b.style.display="block";}
 async function refreshDrivesOnly(){ const j=await api("/api/drives"); renderDrives(j.drives); renderMaps(j.maps); renderExports(j.exports); }
 
 /* ---------- map actions ---------- */
@@ -426,7 +429,7 @@ document.querySelectorAll("input[name=gpsm]").forEach(r=>r.onchange=showGpsField
 checkBlockers();
 $("practice").onchange=showGpsFields;
 $("phoneAccess").onchange=()=>guard(async()=>{await api("/api/config",{phone_access:$("phoneAccess").checked});toast("Saved. Quit and reopen RF Noise Map to apply.");});
-refreshAll().then(()=>refreshLive());
+refreshAll().then(()=>refreshLive()).catch(()=>{});
 setInterval(refreshLive,1200);
 setInterval(()=>{ if(!document.hidden) refreshDrivesOnly().catch(()=>{}); },8000);
 </script>

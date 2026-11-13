@@ -49,10 +49,24 @@ say "Found the program files."
 
 # ------------------------------------------------------------------------------
 step 2 "I am about to look for Homebrew (a standard Mac tool installer, only needed for the radio driver)."
-BREW=""
-for b in /opt/homebrew/bin/brew /usr/local/bin/brew; do [ -x "$b" ] && BREW="$b" && break; done
-command -v brew >/dev/null 2>&1 && BREW="$(command -v brew)"
-if [ -n "$BREW" ]; then eval "$($BREW shellenv)"; say "Homebrew found at $BREW"; else say "Homebrew not installed (only needed for the SDRplay radio driver)."; fi
+BREW=""; WRONGBREW=""
+ARCH="$(uname -m)"
+if [ "$ARCH" = "arm64" ]; then
+    # Apple-silicon Mac: the right Homebrew lives in /opt/homebrew. One in /usr/local is the old Intel kind
+    # (it cannot be written to without extra steps and mixes up the radio driver), so do not use it.
+    [ -x /opt/homebrew/bin/brew ] && BREW=/opt/homebrew/bin/brew
+    [ -z "$BREW" ] && [ -x /usr/local/bin/brew ] && WRONGBREW=/usr/local/bin/brew
+else
+    for b in /usr/local/bin/brew /opt/homebrew/bin/brew; do [ -x "$b" ] && BREW="$b" && break; done
+fi
+if [ -n "$BREW" ]; then
+    eval "$($BREW shellenv)"; say "Homebrew found at $BREW"
+elif [ -n "$WRONGBREW" ]; then
+    say "I found an older Intel-type Homebrew ($WRONGBREW) on this Apple-silicon Mac. I will not use it."
+    say "If you set up the radio driver, I can install the correct Apple-silicon Homebrew next to it (your old one is left alone)."
+else
+    say "Homebrew not installed (only needed for the SDRplay radio driver)."
+fi
 
 # ------------------------------------------------------------------------------
 step 3 "RADIO DRIVER (optional but needed to use the SDRplay receiver).
@@ -74,6 +88,7 @@ if ask "Set up the SDRplay radio driver now?"; then
     say "SDRplay API found."
     if [ -z "$BREW" ]; then
         echo "Homebrew (a standard Mac tool installer) is needed for the next part."
+        [ -n "$WRONGBREW" ] && echo "(This installs the Apple-silicon version into /opt/homebrew; your older one is not touched.)"
         if ask "Install Homebrew now? (official installer from brew.sh; it will ask for your Mac password)"; then
             /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" || fail "Homebrew did not install. See https://brew.sh"
             for b in /opt/homebrew/bin/brew /usr/local/bin/brew; do [ -x "$b" ] && BREW="$b" && break; done
@@ -81,10 +96,36 @@ if ask "Set up the SDRplay radio driver now?"; then
         fi
     fi
     if [ -n "$BREW" ]; then
+        PFX="$("$BREW" --prefix)"
+        if [ ! -w "$PFX/bin" ] || [ ! -w "$PFX/share" ]; then
+            say "Homebrew cannot write to its own folders ($PFX). This is why installs fail with 'not writable'."
+            echo "I can fix it with one standard command (it asks for your Mac password):"
+            echo "    sudo chown -R \"\$(whoami)\" the Homebrew folders inside $PFX"
+            if ask "Run that now?"; then
+                for d in bin etc include lib sbin share var opt Cellar Frameworks Homebrew; do
+                    [ -e "$PFX/$d" ] && sudo chown -R "$(whoami)" "$PFX/$d"
+                done
+                chmod u+w "$PFX/bin" "$PFX/share" "$PFX/share/man" "$PFX/share/man/man8" 2>/dev/null
+            fi
+        fi
+        if [ ! -w "$PFX/bin" ]; then
+            say "Homebrew is still not writable, so I will skip the radio driver. Practice mode and maps will work."
+            say "To fix later: run this installer again and answer y to the question above."
+            BREW=""
+        fi
+    fi
+    if [ -n "$BREW" ]; then
         say "I am about to install SoapySDR, cmake and Python with Homebrew (a few minutes)."
         "$BREW" install cmake soapysdr python 2>&1 | tee -a "$LOG"
-        say "I am about to build the SDRplay driver module (SoapySDRPlay3)."
+        if ! "$BREW" list --versions cmake soapysdr >/dev/null 2>&1; then
+            say "Homebrew could not install cmake or SoapySDR (see the log). Skipping the driver module."
+            BREW_FAILED=1
+        fi
         TMP="$(mktemp -d)"
+        if [ -n "${BREW_FAILED:-}" ]; then
+            :
+        else
+        say "I am about to build the SDRplay driver module (SoapySDRPlay3)."
         if git clone --depth 1 https://github.com/pothosware/SoapySDRPlay3.git "$TMP/src" >>"$LOG" 2>&1 \
            && cmake -S "$TMP/src" -B "$TMP/build" -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$("$BREW" --prefix)" >>"$LOG" 2>&1 \
            && cmake --build "$TMP/build" -j4 >>"$LOG" 2>&1 \
@@ -94,6 +135,7 @@ if ask "Set up the SDRplay radio driver now?"; then
         else
             say "The driver module did not build. Details are in the log. The rest of the install will continue."
             say "(Newer driver modules need SDRplay API 3.15 or later; if yours is older, update the API from sdrplay.com.)"
+        fi
         fi
         rm -rf "$TMP"
     else
@@ -178,6 +220,26 @@ else
     say "SELF-TEST FAILED. Details are in the log."
 fi
 rm -rf "$TESTDIR"
+
+echo
+say "I am about to check that the control panel starts and answers (this finds 'connection' problems)."
+PCHK="$(mktemp -d)"; PPORT=8795; PANEL_OK=0
+( cd "$DEST/app" && RFMAP_DATA="$DATA" RFMAP_NO_CLEANUP=1 "$DEST/venv/bin/python" rfmap_app.py --no-browser --port $PPORT >>"$LOG" 2>&1 ) &
+PPID_CHK=$!
+for i in 1 2 3 4 5 6 7 8 9 10; do
+    sleep 1
+    if curl -s --max-time 3 -H "X-RFMap: 1" "http://localhost:$PPORT/api/state" -o "$PCHK/state.json" 2>/dev/null && [ -s "$PCHK/state.json" ]; then PANEL_OK=1; break; fi
+done
+if [ "$PANEL_OK" = "1" ]; then
+    WARN="$("$DEST/venv/bin/python" -c "import json,sys;d=json.load(open(sys.argv[1]));print('; '.join(d.get('warnings',[])) if 'data_dir' in d else 'NOSTATE')" "$PCHK/state.json" 2>>"$LOG")"
+    if [ -z "$WARN" ]; then say "CONTROL PANEL CHECK PASSED: the program answers and can read your data folder."
+    elif [ "$WARN" = "NOSTATE" ]; then say "CONTROL PANEL CHECK FAILED: the program answered but not correctly. See $LOG"
+    else say "CONTROL PANEL WARNING: $WARN"; fi
+else
+    say "CONTROL PANEL CHECK FAILED: the program did not answer on this Mac. See $LOG (and ~/Library/Logs/RFNoiseMap.log)."
+fi
+kill $PPID_CHK 2>/dev/null; pkill -f "rfmap_app.py --no-browser --port $PPORT" 2>/dev/null
+rm -rf "$PCHK"
 
 echo
 say "Checking the radio (this is informational):"

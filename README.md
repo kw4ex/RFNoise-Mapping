@@ -47,7 +47,7 @@ For the real radio you also need **SDRplay API** and **PothosSDR** from their ow
 
 ### Mac (experimental, untested)
 
-1. On the Releases page, click **RFNoise_Mac_v1.2.0.zip** under Assets. Double-click it in Downloads to unzip. Keep the `mac` and `app` folders together.
+1. On the Releases page, click **RFNoise_Mac_v1.2.1.zip** under Assets. Double-click it in Downloads to unzip. Keep the `mac` and `app` folders together.
 2. Open the `mac` folder, right-click **Install_RFNoise.command**, choose **Open**, then **Open** again.
 3. Follow the steps in the window. See [mac/README_Mac.txt](mac/README_Mac.txt).
 
