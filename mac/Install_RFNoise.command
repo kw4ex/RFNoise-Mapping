@@ -153,6 +153,20 @@ if ask "Set up the SDRplay radio driver now?"; then
            && cmake --install "$TMP/build" >>"$LOG" 2>&1; then
             say "SDRplay driver module built and installed."
             RADIO_OK=1
+            # The module may look for the SDRplay library under a different file name than the Mac one.
+            MOD="$("$BREW" --prefix)/lib/SoapySDR/modules0.9/libsdrPlaySupport.so"
+            APILIB=""
+            for C in /usr/local/lib/libsdrplay_api.dylib /usr/local/lib/libsdrplay_api.so.3 /usr/local/lib/libsdrplay_api.3.dylib; do
+                [ -f "$C" ] && APILIB="$C" && break
+            done
+            if [ -f "$MOD" ] && [ -n "$APILIB" ]; then
+                OLDREF="$(otool -L "$MOD" 2>/dev/null | awk '/libsdrplay_api/ {print $1; exit}')"
+                if [ -n "$OLDREF" ] && [ "$OLDREF" != "$APILIB" ]; then
+                    install_name_tool -change "$OLDREF" "$APILIB" "$MOD" >>"$LOG" 2>&1
+                    codesign --force -s - "$MOD" >>"$LOG" 2>&1
+                    echo "Re-pointed driver module from $OLDREF to $APILIB" >>"$LOG"
+                fi
+            fi
         else
             say "The driver module did not build. Details are in the log. The rest of the install will continue."
             say "(Newer driver modules need SDRplay API 3.15 or later; if yours is older, update the API from sdrplay.com.)"
