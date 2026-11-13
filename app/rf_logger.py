@@ -41,6 +41,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import numpy as np
 
 import rfmap_common as C
+import rfmap_log as L
 
 FT_PER_M = 3.28084
 MPH_PER_MPS = 2.23694
@@ -60,6 +61,8 @@ DEFAULT_SETTINGS = {
         {"mhz": 148.000, "bw_khz": 10.0, "cal_db": 0.0},
     ],
     "spacing_ft": 10.0,       # save a new row each time we move this far
+    "sample_mode": "distance",  # "distance" = every spacing_ft; "time" = every interval_s seconds (even standing still)
+    "interval_s": 5.0,        # seconds between readings in "time" mode
     "paused": False,          # pause button on the settings page
     "if_gain_db": 40,         # SDRplay "IF gain reduction" (higher = less gain)
     "rf_gain_state": 0,       # SDRplay "RF gain reduction" (0 = most gain)
@@ -363,6 +366,7 @@ class SoapySdr:
     def __init__(self, settings):
         SoapySDR, note = C.find_soapy()
         if SoapySDR is None:
+            L.error("radio library (SoapySDR) not available: %s" % note)
             sys.exit(
                 "\nERROR: the radio library (SoapySDR) is not available.\n"
                 f"       {note}\n"
@@ -373,6 +377,7 @@ class SoapySdr:
         self.RX, self.CF32 = SOAPY_SDR_RX, SOAPY_SDR_CF32
         devs = SoapySDR.Device.enumerate("driver=sdrplay")
         if not devs:
+            L.error("no SDRplay found by SoapySDR (radio unplugged, SDRplay API service not running, or another program is using it)")
             sys.exit("\nERROR: no SDRplay found. Is it plugged in, and is the SDRplay "
                      "API service installed and running? (see README step 2)\n")
         self.dev = SoapySDR.Device(devs[0])
@@ -590,6 +595,10 @@ def make_handler(settings, state, stop_event):
                         if not chans:
                             raise ValueError("need at least one frequency")
                         upd["channels"] = chans
+                    if "sample_mode" in req:
+                        upd["sample_mode"] = "time" if str(req["sample_mode"]) == "time" else "distance"
+                    if "interval_s" in req:
+                        upd["interval_s"] = min(max(0.5, float(req["interval_s"])), 3600.0)
                     if "spacing_ft" in req:
                         upd["spacing_ft"] = min(max(2.0, float(req["spacing_ft"])), 5280.0)
                     if "if_gain_db" in req:
@@ -637,6 +646,7 @@ def main():
     ap.add_argument("--no-extrapolate", action="store_true",
                     help="use raw GPS positions (no sliding forward by fix age)")
     args = ap.parse_args()
+    L.setup("logger")
 
     settings = Settings(args.settings)
 
@@ -717,6 +727,7 @@ def main():
         return True
 
     last_lat = last_lon = None
+    last_t = None
     dots = 0
     last_print = 0.0
     try:
@@ -742,7 +753,13 @@ def main():
 
             moved = (distance_m(last_lat, last_lon, lat, lon) * FT_PER_M
                      if last_lat is not None else 1e9)
-            if moved < cfg["spacing_ft"]:
+            if cfg.get("sample_mode") == "time":
+                # time mode: one reading every interval_s seconds, even when standing still
+                wait_more = (last_t is not None and
+                             (time.time() - last_t) < float(cfg.get("interval_s", 5.0)))
+            else:
+                wait_more = moved < cfg["spacing_ft"]
+            if wait_more:
                 if not pan_idle(cfg, lat, lon) and args.gps != "sim":
                     time.sleep(0.01)
                 continue
@@ -766,6 +783,7 @@ def main():
                 last.append({"ch": ci, "mhz": ch["mhz"], "level": level + ch["cal_db"]})
             fh.flush()
             last_lat, last_lon = lat, lon
+            last_t = time.time()
             dots += 1
             state.update(rows=dots, speed_mph=fix.speed_mps * MPH_PER_MPS,
                          sats=fix.sats, last=last)
@@ -776,6 +794,9 @@ def main():
                       end="", flush=True)
     except KeyboardInterrupt:
         pass
+    except Exception:
+        L.exception("the logging loop crashed")
+        raise
     finally:
         fh.close()
         try:

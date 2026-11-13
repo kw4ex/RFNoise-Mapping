@@ -125,10 +125,14 @@ details summary{cursor:pointer;color:var(--acc);font-size:13.5px;margin:6px 0}
    <table id="chTable"></table>
    <div class="mut">Low bands (0.75, 3.7, 7.3&nbsp;MHz) show the general area. A VHF or <b>AM airband</b> (118&ndash;137&nbsp;MHz) channel pinpoints a pole or house. Pick a quiet channel with no stations. You can change these <b>while driving</b>.</div>
    <div class="row" style="margin-top:10px">
-     <div><label><b>Dot spacing</b>: one reading every</label><br>
-       <input type="number" id="spacing" min="2" max="5280" step="1" style="width:80px" onchange="spacingChanged()"> ft <span class="mut" id="spacingM"></span></div>
-     <div><span class="seg"><button class="sm" onclick="setSpacing(5)">5</button><button class="sm" onclick="setSpacing(10)">10</button><button class="sm" onclick="setSpacing(20)">20</button><button class="sm" onclick="setSpacing(50)">50</button><button class="sm" onclick="setSpacing(100)">100</button></span> <span class="mut">ft</span></div>
+     <div><label><b>Take a reading</b>:</label><br>
+       <label><input type="radio" name="smode" value="distance" onchange="spacingChanged()"> by <b>distance</b> (every</label>
+       <input type="number" id="spacing" min="2" max="5280" step="1" style="width:80px" onchange="spacingChanged()"> ft) <span class="mut" id="spacingM"></span><br>
+       <label><input type="radio" name="smode" value="time" onchange="spacingChanged()"> by <b>time</b> (every</label>
+       <input type="number" id="interval" min="0.5" max="3600" step="0.5" style="width:80px" onchange="spacingChanged()"> seconds)</div>
+     <div id="spBtns"><span class="seg"><button class="sm" onclick="setSpacing(5)">5</button><button class="sm" onclick="setSpacing(10)">10</button><button class="sm" onclick="setSpacing(20)">20</button><button class="sm" onclick="setSpacing(50)">50</button><button class="sm" onclick="setSpacing(100)">100</button></span> <span class="mut">ft</span></div>
    </div>
+   <div class="mut">Distance (the usual) saves a dot each time you drive that far. <b>Time</b> saves a reading every few seconds even when you are standing still &mdash; useful for catching an <b>intermittent noise</b> at one spot. Time readings at one place pile up on one dot on the map.</div>
    <div class="mut">10&nbsp;ft is a good start. Smaller gives more detail (slow streets, walking); larger suits highways and gives smaller files. <b>You can change it while driving</b>: it applies from the next dot. If you drive faster than the radio can keep up, dots end up farther apart than this setting.</div>
    <details><summary>More settings</summary>
     <div class="row">
@@ -263,6 +267,14 @@ details summary{cursor:pointer;color:var(--acc);font-size:13.5px;margin:6px 0}
   <button onclick="runFull()">Full test (about 1 minute)</button>
   <button onclick="quitApp()">Quit RF Noise Map</button>
  </div>
+ <div class="row" style="margin-top:2px">
+  <b>If something goes wrong:</b>
+  <button onclick="showLog()">Show recent problems</button>
+  <button onclick="openFolder('logs')">Open the logs folder</button>
+  <button class="pri" onclick="makeSupport()">Make a support file (zip)</button>
+ </div>
+ <div id="logBox" style="display:none;margin-top:6px"><div class="mut" id="logInfo"></div>
+  <textarea id="logText" readonly style="min-height:150px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px"></textarea></div>
  <div class="chk"><input type="checkbox" id="phoneAccess"><label for="phoneAccess">Let my iPhone/iPad open this window too (same Wi-Fi or hotspot). Takes effect after you quit and reopen.</label></div>
  <div id="phoneUrl" class="mut" style="display:none"></div>
  <div class="mut">Data folder: <span id="pData"></span></div>
@@ -308,7 +320,7 @@ const $=id=>document.getElementById(id);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 let S=null, formFilled=false, wasLogging=false, stoppedByUser=false, emailFile=null, notesFile=null, tToast=null;
 
-const BUSY_MSG={"/api/fulltest":"Full test running: checking the software, radio and GPS, then making a practice map. About a minute, please wait",
+const BUSY_MSG={"/api/logs/bundle":"Collecting the logs and settings into a support file","/api/fulltest":"Full test running: checking the software, radio and GPS, then making a practice map. About a minute, please wait",
  "/api/check":"Checking your setup (a GPS test takes a few seconds)",
  "/api/map":"Building your map. Large drives can take a minute",
  "/api/demo":"Running a practice drive and building its map",
@@ -352,7 +364,7 @@ function fillForm(cfg){
   $("route").value=cfg.route_name||""; $("practice").checked=!!cfg.practice;
   (document.querySelector(`input[name=gpsm][value=${cfg.gps_mode}]`)||document.querySelector("input[name=gpsm][value=usb]")).checked=true;
   $("gHost").value=cfg.gps_host; $("gPort").value=cfg.gps_port; $("gBaud").value=cfg.gps_baud;
-  $("autoMap").checked=!!cfg.auto_map; $("spacing").value=cfg.spacing_ft; spacingNote(); $("ifgr").value=cfg.if_gain_db; $("rfgr").value=cfg.rf_gain_state; gainSync();
+  $("autoMap").checked=!!cfg.auto_map; $("spacing").value=cfg.spacing_ft; $("interval").value=cfg.interval_s||5; (document.querySelector(`input[name=smode][value=${cfg.sample_mode==="time"?"time":"distance"}]`)).checked=true; spacingNote(); $("ifgr").value=cfg.if_gain_db; $("rfgr").value=cfg.rf_gain_state; gainSync();
   let h="<tr><th>MHz</th><th>Width (kHz)</th><th>Calibration (dB)</th><th>Level now (dB)</th></tr>";
   for(let i=0;i<4;i++) h+=chRow(cfg.channels[i]||{mhz:"",bw_khz:5,cal_db:0},i);
   $("chTable").innerHTML=h; $("phoneAccess").checked=!!cfg.phone_access; panMemLoad(cfg);
@@ -362,7 +374,7 @@ function readForm(){
   return {route_name:$("route").value.trim(), practice:$("practice").checked,
     gps_mode:(document.querySelector("input[name=gpsm]:checked")||{value:"usb"}).value, gps_host:$("gHost").value.trim(),
     gps_port:+$("gPort").value||11123, gps_serial:$("gSerial").value, gps_baud:+$("gBaud").value,
-    auto_map:$("autoMap").checked, spacing_ft:+$("spacing").value||10, if_gain_db:+$("ifgr").value||40, rf_gain_state:+$("rfgr").value||0,
+    auto_map:$("autoMap").checked, spacing_ft:+$("spacing").value||10, sample_mode:smode(), interval_s:+$("interval").value||5, if_gain_db:+$("ifgr").value||40, rf_gain_state:+$("rfgr").value||0,
     channels:m.map((x,i)=>({mhz:x.value, bw_khz:b[i].value||5, cal_db:c[i].value||0}))};
 }
 function showGpsFields(){
@@ -526,6 +538,11 @@ async function doBackup(){await guard(async()=>{const r=await api("/api/backup",
 async function doDemo(){toast("Running a practice drive...",20000);const win=window.open("about:blank","_blank");
   try{const r=await api("/api/demo",{});await refreshDrivesOnly();const url="/maps/"+encodeURIComponent(r.map);if(win)win.location=url;else toast(`Practice map ready: <a href="${url}" target="_blank">open it</a>`);toast("Practice map made (fake data).");}
   catch(e){if(win)win.close();toast("&#9888; "+esc(e.message),9000);}}
+async function showLog(){ await guard(async()=>{ const j=await api("/api/logs/tail?n=60"); $("logBox").style.display="block";
+  $("logInfo").textContent="The error log (newest at the bottom). It is saved in: "+j.dir;
+  $("logText").value=j.lines.length?j.lines.join("\n"):"No problems have been recorded. That is good news."; $("logText").scrollTop=1e9; }); }
+async function makeSupport(){ await guard(async()=>{ const j=await api("/api/logs/bundle",{});
+  toast("Support file made: "+esc(j.file)+". It is in the logs folder (shown on your computer). Send that one file to KW4EX or Claude. It holds logs and settings only, not your drives or your private access key.",20000); }); }
 async function quitApp(){ if(!confirm("Quit RF Noise Map? (Logging will stop. Your data is kept.)"))return; await guard(()=>api("/api/quit",{})); try{window.close();}catch(e){} document.body.innerHTML="<p style='padding:30px;font-size:18px'>RF Noise Map has quit. You can close this tab.</p>"; }
 
 /* ---------- email / notes / check ---------- */
@@ -559,10 +576,15 @@ async function runCheck(again){
 
 
 /* ---------- dot spacing ---------- */
-function spacingNote(){const v=+$("spacing").value; $("spacingM").textContent=v>0?"(about "+(v*0.3048).toFixed(1)+" m)":"";}
+function smode(){return (document.querySelector("input[name=smode]:checked")||{value:"distance"}).value;}
+function spacingNote(){const v=+$("spacing").value; $("spacingM").textContent=v>0?"(about "+(v*0.3048).toFixed(1)+" m)":"";
+  const t=smode()==="time"; $("spacing").disabled=t; $("interval").disabled=!t; $("spBtns").style.opacity=t?0.4:1;}
 async function spacingChanged(){
-  let v=+$("spacing").value; if(!(v>=2)) v=10; v=Math.min(5280,Math.max(2,Math.round(v*10)/10)); $("spacing").value=v; spacingNote();
-  await guard(async()=>{await api("/api/spacing",{spacing_ft:v}); toast("Dot spacing is now "+v+" ft"+(PAN.logging?" (applies from the next dot).":"."));});
+  let v=+$("spacing").value; if(!(v>=2)) v=10; v=Math.min(5280,Math.max(2,Math.round(v*10)/10)); $("spacing").value=v;
+  let iv=+$("interval").value; if(!(iv>=0.5)) iv=5; iv=Math.min(3600,Math.round(iv*2)/2); $("interval").value=iv; spacingNote();
+  const m=smode();
+  await guard(async()=>{await api("/api/spacing",{spacing_ft:v,sample_mode:m,interval_s:iv});
+    toast((m==="time"?"A reading will be taken every "+iv+" seconds":"Dot spacing is now "+v+" ft")+(PAN.logging?" (applies from the next reading).":"."));});
 }
 function setSpacing(v){$("spacing").value=v; spacingChanged();}
 
@@ -953,6 +975,12 @@ function panWire(){
     } else panSetTune(PAN.tune+(e.deltaY<0?1:-1)*PAN.step);
   },{passive:false});
 }
+
+/* ---------- errors seen in this browser window go to the program's error log ---------- */
+let _clientLogN=0;
+function clientLog(msg,where){ if(_clientLogN++>=15)return; try{ fetch("/api/clientlog",{method:"POST",headers:{"X-RFMap":"1","Content-Type":"application/json"},body:JSON.stringify({msg:String(msg).slice(0,500),where:where||""})}); }catch(e){} }
+window.addEventListener("error",e=>clientLog(e.message||"error",(e.filename||"")+":"+(e.lineno||"")));
+window.addEventListener("unhandledrejection",e=>clientLog("unhandled: "+((e.reason&&e.reason.message)||e.reason),""));
 
 /* ---------- wiring ---------- */
 document.querySelectorAll("input[name=gpsm]").forEach(r=>r.onchange=showGpsFields);

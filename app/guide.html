@@ -75,7 +75,7 @@ th{background:#f0f3f7}
  <li>It explains each step and asks short questions (answer <span class="k">y</span> or <span class="k">n</span>). It finds Python and offers to install it if missing, and no administrator password is needed.</li>
  <li>When it says <b>All done</b>, start the program with <span class="k">Start_RFNoise.bat</span> in that folder, or the Desktop shortcut if you chose one.</li>
 </ol>
-<div class="box tip">The installer saves a copy of everything it said in <b>install_log.txt</b> inside the RFNoise folder. If anything goes wrong, send that file to Claude.</div>
+<div class="box tip">The installer keeps a <b>log of every install</b> (the newest 10) in the <b>Logs</b> folder inside the RFNoise folder, plus a copy named install_log.txt. If something goes wrong it also tells you in plain words what the cause probably is, what to do and where to read more, and offers to make a <b>support file</b> (one zip) to send to Claude. While the program runs, problems are written to <b>Logs/program_errors.log</b>. In the panel, <b>Tools &rsaquo; Show recent problems</b> shows them and <b>Make a support file</b> packs everything. The installer also checks your computer first, and if the program is already installed it offers upgrade/repair, a check, or uninstall.</div>
 
 <h2 id="radio">3. The radio driver (SDRplay)</h2>
 <p>The SDRplay driver is not mine to include; it comes from sdrplay.com. Without it, <b>Practice mode and all map features still work</b>, and you can make maps from drives recorded on another computer.</p>
@@ -131,6 +131,7 @@ th{background:#f0f3f7}
   <li><b>Width</b> is the slice measured (5&ndash;10 kHz is good). Narrow slices ignore nearby stations.</li>
   <li>Leave <b>Calibration</b> at 0 unless you've calibrated (section 10).</li></ul></li>
  <li><b>Dot spacing</b> sets how often a reading is saved (default one every 10&nbsp;ft). Use the quick buttons or type a number. You can change it <b>while driving</b>; it applies from the next dot. Smaller spacing gives more detail but bigger files, and if you drive faster than the radio can measure, dots end up farther apart than the setting.</li>
+ <li><b>Take a reading by time instead of distance.</b> Next to Dot spacing, choose <b>by time</b> and type the seconds (for example 5). The program then saves a reading every few seconds, even when you stand still &mdash; handy for catching an <b>intermittent noise</b> at one spot. The default is by distance. You can switch while driving; readings taken at one place pile up on one dot on the map.</li>
  <li>Press <span class="btn">&#9654; Start logging</span>. The header shows <b>Logging</b> and <b>GPS: OK</b>, and the big numbers show the live level for each frequency.</li>
  <li><b>Drive the route.</b> Steady speed is best. You can change frequencies <b>while driving</b>: edit the boxes and press <span class="btn">Apply frequency changes now</span>. <span class="btn">Pause / resume</span> is there for stops.</li>
  <li>Press <span class="btn">&#9632; Stop logging</span> when finished. If <b>Make a map automatically</b> is ticked, the map opens.</li>
@@ -240,7 +241,7 @@ th{background:#f0f3f7}
 <ul>
  <li><b>Update:</b> run the new version's installer. It replaces the program and keeps your data.</li>
  <li><b>Move to another computer:</b> install there, then copy the <b>Drives</b> folder over (or use a backup zip). Maps can be made on any computer, so a Windows PC can make and print maps from drives recorded on the Mac.</li>
- <li><b>Uninstall:</b> run <b>Uninstall_RFNoise.bat</b> (Windows) or <b>Uninstall RF Noise Map</b> (Mac) from the install folder. It asks before it touches your recorded drives and maps, and keeps them unless you say yes.</li>
+ <li><b>Uninstall:</b> run <b>Uninstall_RFNoise.bat</b> (Windows) or <b>Uninstall RF Noise Map</b> (Mac) from the install folder. It shows what is installed and how big your data is, then you choose: 1 remove the program only (your drives, maps and recordings are kept), 2 remove the program and your data (a backup zip is made first), 3 remove everything. On Windows it also removes the shortcuts, Start menu folder and the Windows Settings &rsaquo; Apps entry, and you can uninstall from there too. A record of the uninstall is kept.</li>
 </ul>
 
 <h3>Words used in this guide</h3>

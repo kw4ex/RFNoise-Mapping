@@ -19,6 +19,7 @@ import time
 import numpy as np
 
 import rfmap_common as C
+import rfmap_log as L
 
 FFT_N = 4096                    # spectrum resolution (bins across the whole span)
 AUDIO_RATE = 62500              # samples per second of the audio sent to the browser
@@ -483,8 +484,12 @@ class Panadapter:
         if practice:
             src = MockSource(p["center"], p["rate"])
         else:
-            src = SdrplaySource(p["center"], p["rate"], auto_gain=p["auto_gain"],
-                                if_gain=p["if_gain"], rf_state=p["rf_state"])
+            try:
+                src = SdrplaySource(p["center"], p["rate"], auto_gain=p["auto_gain"],
+                                    if_gain=p["if_gain"], rf_state=p["rf_state"])
+            except Exception as e:
+                L.warn("the panadapter could not open the radio: %s" % e)
+                raise
         with self.lock:
             self.params = p
             self.src = src
@@ -639,6 +644,7 @@ class Panadapter:
                 REC.feed(audio)
         except Exception as e:
             self.error = "%s: %s" % (type(e).__name__, e)
+            L.error("the panadapter stopped", e)
             print("Panadapter stopped:", self.error, file=sys.stderr)
         finally:
             self.running = False

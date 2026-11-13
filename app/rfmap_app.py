@@ -34,6 +34,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, unquote, urlparse
 
 import rfmap_common as C
+import rfmap_log as L
 import check_setup
 import gps_detect
 import device_guard
@@ -55,6 +56,8 @@ DEFAULT_CONFIG = {
     "gps_baud": 9600,
     "auto_map": True,
     "spacing_ft": 10,
+    "sample_mode": "distance",
+    "interval_s": 5,
     "if_gain_db": 40,
     "rf_gain_state": 0,
     "channels": [
@@ -242,6 +245,8 @@ class App:
         settings_file = os.path.join(self.settings_dir, "logger_settings.json")
         with open(settings_file, "w") as f:
             json.dump({"channels": chans, "spacing_ft": max(2.0, float(c["spacing_ft"])), "paused": False,
+                       "sample_mode": "time" if c.get("sample_mode") == "time" else "distance",
+                       "interval_s": min(max(0.5, float(c.get("interval_s", 5))), 3600.0),
                        "if_gain_db": int(c["if_gain_db"]), "rf_gain_state": int(c["rf_gain_state"])}, f)
         self.logger_port = free_port(LOGGER_PORT)
         cmd = [python_exe(), "-u", os.path.join(HERE, "rf_logger.py"),
@@ -573,6 +578,8 @@ class Handler(BaseHTTPRequestHandler):
                     out.update(j)
                     return self._json(out)
                 return self._json(PAN.get_frame(after))
+            if path == "/api/logs/tail":
+                return self._json({"ok": True, "lines": L.tail(int((q.get("n") or ["60"])[0] or 60)), "dir": L.log_dir()})
             if path == "/api/rec/list":
                 return self._json({"ok": True, "recording": REC.status(), "files": APP.recordings()})
             if path.startswith("/recordings/"):
@@ -633,6 +640,7 @@ class Handler(BaseHTTPRequestHandler):
         except ValueError as e:
             return self._fail(e, 404)
         except Exception as e:
+            L.exception("request %s" % self.path.split("?")[0])
             return self._fail(e, 500)
 
     # --- POST
@@ -650,6 +658,7 @@ class Handler(BaseHTTPRequestHandler):
         except ValueError as e:
             return self._fail(e)
         except Exception as e:
+            L.exception("request %s" % path)
             return self._fail(f"{type(e).__name__}: {e}", 500)
 
     def route_post(self, path, b):
@@ -675,13 +684,24 @@ class Handler(BaseHTTPRequestHandler):
             return {"ok": True, "if_gain_db": a, "rf_gain_state": r}
         if path == "/api/spacing":                # dot spacing, also while driving
             sp = min(max(2.0, float(b.get("spacing_ft", 10))), 5280.0)
-            APP.update_cfg({"spacing_ft": sp})
+            mode = "time" if b.get("sample_mode") == "time" else "distance"
+            iv = min(max(0.5, float(b.get("interval_s", 5))), 3600.0)
+            APP.update_cfg({"spacing_ft": sp, "sample_mode": mode, "interval_s": iv})
             if APP.running():
-                APP.logger_call("/set", {"spacing_ft": sp}, timeout=3)
-            return {"ok": True, "spacing_ft": sp}
+                APP.logger_call("/set", {"spacing_ft": sp, "sample_mode": mode, "interval_s": iv}, timeout=3)
+            return {"ok": True, "spacing_ft": sp, "sample_mode": mode, "interval_s": iv}
         if path == "/api/pan/set":
             PAN.set(b)
             return {"ok": True}
+        if path == "/api/clientlog":
+            msg = str(b.get("msg", ""))[:600]
+            if msg:
+                L.error("browser window: %s%s" % (msg, ("  at " + str(b.get("where", ""))[:200]) if b.get("where") else ""))
+            return {"ok": True}
+        if path == "/api/logs/bundle":
+            out = L.make_bundle()
+            open_path(out, reveal=True)
+            return {"ok": True, "file": os.path.basename(out), "dir": os.path.dirname(out)}
         if path == "/api/rec/start":
             if APP.running() or not PAN.running:
                 raise ValueError("Start the panadapter first (recording saves what you hear, and you cannot listen while logging).")
@@ -712,7 +732,9 @@ class Handler(BaseHTTPRequestHandler):
             APP.update_cfg(b)
             chans = APP.clean_channels(APP.cfg["channels"])
             if APP.running():
-                APP.logger_call("/set", {"channels": chans, "spacing_ft": float(APP.cfg["spacing_ft"])}, timeout=3)
+                APP.logger_call("/set", {"channels": chans, "spacing_ft": float(APP.cfg["spacing_ft"]),
+                                         "sample_mode": APP.cfg.get("sample_mode", "distance"),
+                                         "interval_s": float(APP.cfg.get("interval_s", 5))}, timeout=3)
             return {"ok": True}
         if path == "/api/pause":
             if APP.running():
@@ -741,7 +763,7 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/open_folder":
             folder = {"data": APP.data, "drives": APP.drives_dir, "maps": APP.maps_dir,
                       "exports": APP.exports_dir, "backups": APP.backups_dir,
-                      "recordings": APP.rec_dir}.get(b.get("which"), APP.data)
+                      "recordings": APP.rec_dir, "logs": L.log_dir()}.get(b.get("which"), APP.data)
             return {"ok": open_path(folder)}
         if path == "/api/reveal":
             kind = b.get("kind")
@@ -816,6 +838,9 @@ class Handler(BaseHTTPRequestHandler):
     def live_state(self):
         st = APP.logger_status()
         dead = APP.proc is not None and APP.proc.poll() is not None
+        if dead and getattr(APP, "_crash_logged", None) is not APP.proc:
+            APP._crash_logged = APP.proc
+            L.error("The logger stopped unexpectedly (exit code %s). Its last messages:\n%s" % (APP.proc.poll(), APP.log_tail(12)))
         return {"logging": APP.running(), "logger": st,
                 "log_tail": APP.log_tail(6) if (dead or not st) and APP.proc else "",
                 "crashed": dead}
@@ -836,6 +861,7 @@ class Handler(BaseHTTPRequestHandler):
                     import platform
                     msg += (f" [This program is running as '{platform.machine()}'. On an Apple-silicon Mac it must run as arm64; "
                             "close RF Noise Map and open it again from the Desktop icon, or run the installer again.]")
+                L.warn(f"{label}: {msg}")
                 warns.append(f"{label}: {msg}")
                 return default
 
@@ -881,6 +907,8 @@ def main():
         if not found:
             print("RF Noise Map is not running.")
         return
+
+    L.setup("panel")
 
     # Started without a console window (Windows double-click)? Send messages to a log file instead.
     if sys.stdout is None or sys.stderr is None:

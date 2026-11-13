@@ -1,11 +1,10 @@
-RF Noise Map - Mac (EXPERIMENTAL, NOT YET TESTED ON A REAL MAC)
+RF Noise Map - Mac (TESTING VERSION)
 ================================================================
 Design and on-air testing by KW4EX. No warranty. Use at your own risk.
 Not made or approved by SDRplay, Apple or any radio maker.
 
-The Windows version is the main one. This Mac version passed the program's
-self-test with practice data on Linux, but has not been tried on a real Mac,
-with a real SDRplay, or on a drive. Reports are welcome (open an issue).
+This Mac version has been installed and used on one Apple-silicon MacBook with an SDRplay RSP1.
+It has not yet been tried on an Intel Mac or on a long drive. Reports are welcome (open an issue).
 
 WHAT YOU NEED
   - A Mac, an SDRplay receiver, and a GPS (iPhone with the GPS2IP app, or a USB GPS).
@@ -29,8 +28,32 @@ INSTALL - STEP BY STEP
   5. If the file opens in a text editor: open Terminal, type  bash  and a space,
      drag Install_RFNoise.command into the window, press Return.
 
+WHAT THE INSTALLER MENU OFFERS (you can run it as often as you like)
+  1) Install or update. This also repairs a broken install.
+  2) Check my setup and make a support file. Changes nothing. It lists what is
+     working, what needs fixing, explains the likely cause in plain words and
+     offers a zip file to send for help.
+  3) Uninstall.
+
+IF SOMETHING GOES WRONG
+  * The installer keeps a log of every run in  ~/RF Noise Map/Logs  (the newest
+    copy is also  ~/RF Noise Map/install_log.txt). When a step fails it says what
+    the likely cause is, what to do, and gives a web page for more help. It then
+    offers to make ONE zip "support file" (logs only, nothing is sent anywhere).
+  * While the program runs, any error is written to
+    ~/RF Noise Map/Logs/program_errors.log. In the program window go to
+    Tools > "Show recent problems" or "Make a support file (zip)".
+  * Common causes it recognises: missing Apple developer tools, incomplete compiler
+    headers, Homebrew permissions, no internet, Rosetta (Intel) mode, a full disk,
+    macOS privacy blocks, another copy already running, SDRplay not found.
+  * Send the support file to KW4EX or Claude, or open an issue:
+    https://github.com/kw4ex/RFNoise-Mapping/issues
+
 REMOVE IT LATER
-  Right-click  Uninstall_RFNoise.command  > Open. Your drives and maps in
-  the "RF Noise Map" folder in your home folder are kept.
+  Right-click  Uninstall_RFNoise.command  > Open (or choose 3 in the installer).
+  It shows what is installed and lets you choose: program only (recommended; your
+  drives, maps, recordings and logs are kept), program plus data after saving a
+  backup zip in your home folder, or everything with no backup. A record is kept
+  in ~/Library/Logs/RFNoiseMap_uninstall.log.
 
 The full guide is in the app (Help & guide button) and docs/guides in the repository.

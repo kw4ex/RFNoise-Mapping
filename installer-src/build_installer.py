@@ -19,6 +19,7 @@ REM  If Windows SmartScreen warns you: More info > Run anyway.
 REM ======================================================================
 set "RFNOISE_INSTALLER=%~f0"
 set "RFNOISE_PS1=%TEMP%\rfnoise_installer_run.ps1"
+set "RFNOISE_ARGS=%*"
 powershell -NoProfile -ExecutionPolicy Bypass -Command "$t=[IO.File]::ReadAllText($env:RFNOISE_INSTALLER); $i=$t.IndexOf([string][char]10+'#PS1-BEGIN')+11; $j=$t.IndexOf([string][char]10+'#PS1-END'); [IO.File]::WriteAllText($env:RFNOISE_PS1,$t.Substring($i,$j-$i))"
 if not exist "%RFNOISE_PS1%" (
   echo Could not unpack the installer. Is PowerShell disabled on this PC?
@@ -49,7 +50,7 @@ with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
         p = os.path.join(PAYLOAD, name)
         if os.path.isfile(p):
             data = open(p, "rb").read()
-            if name.endswith((".bat", ".txt")):          # Windows text files need CRLF line ends
+            if name.endswith((".bat", ".txt", ".ps1")):          # Windows text files need CRLF line ends
                 data = data.replace(b"\r\n", b"\n").replace(b"\n", b"\r\n")
             z.writestr(name, data)
     # the help page and the printable guide are built from app/guide.html and docs/guides
