@@ -9,7 +9,8 @@ HERE="$(pwd)"
 APPSRC="$HERE/app"
 [ -f "$APPSRC/rfmap_app.py" ] || APPSRC="$HERE/../app"      # the repository layout has app/ one level up
 DEST="$HOME/Applications/RF Noise Map"
-DATA="$HOME/Documents/RF Noise Map"
+DATA="$HOME/RF Noise Map"      # not under Documents: macOS blocks programs from Documents/Desktop/Downloads
+OLDDATA="$HOME/Documents/RF Noise Map"
 LOG="$DATA/install_log.txt"
 APPBUNDLE="$HOME/Applications/RF Noise Map.app"
 
@@ -32,7 +33,7 @@ cat <<'EOF'
 This will:
   1. Copy the program into  Applications/RF Noise Map
   2. Set up its private Python environment (no changes to your system Python)
-  3. Create a folder  Documents/RF Noise Map  for your data
+  3. Create a folder  RF Noise Map  in your home folder for your data
   4. Put an "RF Noise Map" icon on your Desktop and in Applications
   5. (Optional) help you install the SDRplay radio driver
   6. Run a quick self-test with practice data
@@ -174,6 +175,10 @@ say "Python environment ready."
 step 6 "I am about to create your data folders in: $DATA"
 for d in Drives Maps Exports Backups Settings; do mkdir -p "$DATA/$d"; done
 say "Created: Drives, Maps, Exports, Backups, Settings"
+# An earlier version kept data in Documents; macOS blocks the program from reading it there. Copy it over (the old one is left alone).
+if [ -d "$OLDDATA/Drives" ] && [ -z "$(ls -A "$DATA/Drives" 2>/dev/null)" ]; then
+    cp -R "$OLDDATA/." "$DATA/" 2>/dev/null && say "Copied your earlier data from $OLDDATA into $DATA (the old folder was left alone; delete it when you like)."
+fi
 
 # ------------------------------------------------------------------------------
 step 7 "I am about to create the 'RF Noise Map' app icon (Applications folder and Desktop)."

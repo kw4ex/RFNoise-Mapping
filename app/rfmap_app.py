@@ -13,7 +13,7 @@ HOW THE PROGRAM FLOWS
   Make map-> calls make_map.build_map() and shows the finished HTML map
 
 Your data lives next to the program (Windows install: C:\\RadioScripts\\RFNoise) or, on a Mac,
-in Documents/RF Noise Map  -  in the folders {Drives, Maps, Exports, Backups, Settings}
+in the "RF Noise Map" folder in your home folder (Mac) - in the folders {Drives, Maps, Exports, Backups, Settings}
 """
 import argparse
 import csv
@@ -690,9 +690,9 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as e:                       # never let one part blank the whole page
                 msg = str(e)
                 if isinstance(e, PermissionError) and C.IS_MAC:
-                    msg += (" (macOS is blocking this program from your Documents folder. "
-                            "Open System Settings > Privacy & Security > Files & Folders, "
-                            "or Full Disk Access, and switch on 'RF Noise Map' or Terminal.)")
+                    msg += (" (macOS is blocking this program from that folder. Documents, Desktop and Downloads are protected. "
+                            "Open System Settings > Privacy & Security > Full Disk Access and switch on Terminal, "
+                            "or tell KW4EX.)")
                 warns.append(f"{label}: {msg}")
                 return default
 

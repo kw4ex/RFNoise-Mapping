@@ -33,12 +33,23 @@ def data_dir():
     """
     Folder holding YOUR data (drives, maps, exports, backups, settings).
       * Windows installer: the same folder as the program (e.g. C:\\RadioScripts\\RFNoise)
-      * otherwise (Mac):   Documents/RF Noise Map
+      * Mac:               "RF Noise Map" in your home folder (NOT Documents: macOS blocks programs from Documents)
     The RFMAP_DATA variable overrides both (used for tests).
     """
-    base = os.environ.get("RFMAP_DATA") or install_dir() or os.path.join(os.path.expanduser("~"), "Documents", APP_NAME)
+    home = os.path.expanduser("~")
+    default = os.path.join(home, APP_NAME) if IS_MAC else os.path.join(home, "Documents", APP_NAME)
+    base = os.environ.get("RFMAP_DATA") or install_dir() or default
     for sub in ("Drives", "Maps", "Exports", "Backups", "Settings"):
         os.makedirs(os.path.join(base, sub), exist_ok=True)
+    if IS_MAC and base == default:          # carry settings over from the old Documents location, if it can be read
+        new_cfg = os.path.join(base, "Settings", "config.json")
+        old_cfg = os.path.join(home, "Documents", APP_NAME, "Settings", "config.json")
+        try:
+            if not os.path.exists(new_cfg) and os.path.exists(old_cfg):
+                import shutil
+                shutil.copyfile(old_cfg, new_cfg)
+        except Exception:
+            pass
     return base
 
 

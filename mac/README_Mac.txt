@@ -26,6 +26,6 @@ INSTALL - STEP BY STEP
 
 REMOVE IT LATER
   Right-click  Uninstall_RFNoise.command  > Open. Your drives and maps in
-  Documents/RF Noise Map are kept.
+  the "RF Noise Map" folder in your home folder are kept.
 
 The full guide is in the app (Help & guide button) and docs/guides in the repository.
