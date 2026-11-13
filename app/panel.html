@@ -164,9 +164,7 @@ details summary{cursor:pointer;color:var(--acc);font-size:13.5px;margin:6px 0}
   <div class="row rxonly">
    <div><label>Jump to band</label><br><select id="panBand" onchange="panBand(this.value)"></select></div>
    <div><label>Centre (MHz)</label><br><input type="number" id="panCenter" step="0.1" style="width:130px" onkeydown="panCenterKey(event)" onchange="panGoCenter()"> <button class="sm" onclick="panGoCenter()">Go</button></div>
-   <div><label>Width of view</label><br><select id="panSpan" onchange="panSetSpan(+this.value)">
-     <option value="250000">250 kHz</option><option value="500000">500 kHz</option><option value="1000000">1 MHz</option>
-     <option value="2000000" selected>2 MHz</option><option value="4000000">4 MHz</option><option value="8000000">8 MHz</option></select></div>
+   <div><label>Width of view: <b id="panSpanTxt">2 MHz</b></label><br><span style="font-size:12px">narrow</span> <input type="range" id="panSpan" min="0" max="5" step="1" value="3" style="width:190px;vertical-align:middle" oninput="panSpanSlide()"> <span style="font-size:12px">wide</span></div>
    <div><label>Move view</label><br><button class="sm" onclick="panShift(-0.25)">&#9664; left</button> <button class="sm" onclick="panShift(0.25)">right &#9654;</button> <button class="sm" onclick="panRecentre()">Centre on tuned</button></div>
   </div>
   <div class="row">
@@ -567,7 +565,7 @@ function panFillBw(){
 }
 function panShowControls(){
   for(const m of ["AM","USB","LSB","CW","NFM"]) $("pm_"+m).className=(m===PAN.mode?"on":"");
-  $("panCenter").value=fmtMHz(PAN.center); $("panTune").value=fmtMHz(PAN.tune); $("panSpan").value=String(PAN.rate);
+  $("panCenter").value=fmtMHz(PAN.center); $("panTune").value=fmtMHz(PAN.tune); panSpanShow(PAN.rate);
   panSlotLabels();
 }
 function panSlotLabels(){
@@ -597,6 +595,10 @@ function panCenterKey(e){
 function panGoTune(){const v=parseFloat($("panTune").value); if(!(v>0)){toast("Type the frequency in MHz, for example 7.255");return;} panSetTune(v*1e6,true);}
 function panSetCenter(hz){hz=Math.max(10000,hz); PAN.center=hz; $("panCenter").value=fmtMHz(hz); panSave(); panPost({center:hz});}
 function panGoCenter(){const v=parseFloat($("panCenter").value); if(!(v>0)){toast("Type the centre frequency in MHz, for example 7.15");return;} panSetCenter(v*1e6);}
+const PAN_SPANS=[250000,500000,1000000,2000000,4000000,8000000];
+function panSpanTxt(r){return r>=1e6?(r/1e6)+" MHz":(r/1e3)+" kHz";}
+function panSpanShow(r){let i=PAN_SPANS.indexOf(+r); if(i<0)i=3; $("panSpan").value=i; $("panSpanTxt").textContent=panSpanTxt(PAN_SPANS[i]);}
+function panSpanSlide(){const r=PAN_SPANS[+$("panSpan").value]; $("panSpanTxt").textContent=panSpanTxt(r); panSetSpan(r);}
 function panSetSpan(r){PAN.rate=r; PAN.clearWf=true; panSave(); panPost({rate:r});}
 function panShift(f){panSetCenter(PAN.center+f*PAN.rate);}
 function panRecentre(){panSetCenter(PAN.tune);}
@@ -736,7 +738,7 @@ function panDraw(f){
   // spectrum
   const sc=$("cvSpec"),sx=sc.getContext("2d"),H=sc.height;
   sx.fillStyle="#0b1522";sx.fillRect(0,0,W,H);
-  sx.strokeStyle="#22344f";sx.lineWidth=1;sx.fillStyle="#7f93aa";sx.font="11px sans-serif";
+  sx.strokeStyle="#22344f";sx.lineWidth=1;sx.fillStyle="#d6e4f5";sx.font="bold 13px sans-serif";
   const dbLo=f.db_lo+lo/scale, dbHi=f.db_lo+hi/scale, gstep=(dbHi-dbLo)>70?20:10;
   for(let d=Math.ceil(dbLo/gstep)*gstep; d<=dbHi; d+=gstep){const y=H-((d-dbLo)/(dbHi-dbLo))*(H-6)-3; sx.beginPath();sx.moveTo(0,y);sx.lineTo(W,y);sx.stroke();sx.fillText(d+" dB",4,y-2);}
   if(!PAN.peak||PAN.peak.length!==W) PAN.peak=Float32Array.from(px);
@@ -759,7 +761,7 @@ function panDraw(f){
   let e0,e1; if(PAN.mode==="USB"||PAN.mode==="LSB"){e0=250;e1=250+PAN.bw;} else if(PAN.mode==="CW"){e0=700-PAN.bw/2;e1=700+PAN.bw/2;} else {e0=0;e1=PAN.bw/2;}
   const xa=h=>h/(binsHz*ab.length)*AW; ax.fillStyle="rgba(255,255,255,.08)";ax.fillRect(xa(Math.max(0,e0)),0,xa(e1)-xa(Math.max(0,e0)),AH);
   ax.fillStyle="#6fe29b";for(let i=0;i<ab.length;i++){const h=Math.max(0,Math.min(1,ab[i]/255))*(AH-4);const bw=AW/ab.length;ax.fillRect(i*bw,AH-h,Math.max(1,bw-0.5),h);}
-  ax.fillStyle="#7f93aa";ax.font="10px sans-serif";for(let k=0;k<=7;k+=1){const x=xa(k*1000);ax.fillText(k+"k",x+2,AH-2);}
+  ax.fillStyle="#d6e4f5";ax.font="bold 13px sans-serif";for(let k=0;k<=7;k+=1){const x=xa(k*1000);ax.fillText(k+"k",x+2,AH-2);}
   }
   // level
   $("panLvl").textContent=f.smeter.toFixed(0); $("panLvlBar").style.width=Math.max(0,Math.min(100,(f.smeter+110)/110*100))+"%";
@@ -769,8 +771,8 @@ function panOverlay(mx){
   const oc=$("cvOv"),ox=oc.getContext("2d"),W=oc.width,H=oc.height,f=PAN.last; ox.clearRect(0,0,W,H); if(!f)return;
   // frequency scale along the bottom of the spectrum picture
   const sp=f.rate, want=sp/9, mag=Math.pow(10,Math.floor(Math.log10(want))); let st=mag; for(const k of [1,2,5,10]){if(mag*k>=want){st=mag*k;break;}}
-  ox.fillStyle="rgba(0,0,0,.45)";ox.fillRect(0,198,W,14);ox.fillStyle="#cfe1f5";ox.font="11px sans-serif";ox.strokeStyle="rgba(255,255,255,.18)";
-  const f0=f.center-sp/2; for(let hz=Math.ceil(f0/st)*st; hz<f0+sp; hz+=st){const x=panXOf(hz,f);ox.beginPath();ox.moveTo(x,0);ox.lineTo(x,432);ox.stroke();ox.fillText((hz/1e6).toFixed(st<1000?4:st<100000?3:2),x+3,209);}
+  ox.fillStyle="rgba(0,0,0,.7)";ox.fillRect(0,196,W,22);ox.fillStyle="#ffffff";ox.font="bold 15px sans-serif";ox.strokeStyle="rgba(255,255,255,.18)";
+  const f0=f.center-sp/2; for(let hz=Math.ceil(f0/st)*st; hz<f0+sp; hz+=st){const x=panXOf(hz,f);ox.beginPath();ox.moveTo(x,0);ox.lineTo(x,432);ox.stroke();ox.fillText((hz/1e6).toFixed(st<1000?4:st<100000?3:2),x+4,213);}
   // edges of the picture are less reliable (radio filter roll-off)
   ox.fillStyle="rgba(120,120,120,.18)";ox.fillRect(0,0,W*0.06,H);ox.fillRect(W*0.94,0,W*0.06,H);
   // tuned marker and passband
