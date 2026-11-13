@@ -57,6 +57,9 @@ dialog::backdrop{background:rgba(10,20,35,.45)}
 .res b{min-width:118px;font-size:13px}
 .ico{font-weight:700}.ico.ok{color:var(--ok)}.ico.fix{color:var(--bad)}.ico.info{color:var(--mut)}
 details summary{cursor:pointer;color:var(--acc);font-size:13.5px;margin:6px 0}
+#busy{position:fixed;left:50%;transform:translateX(-50%);top:70px;background:#1d4ed8;color:#fff;padding:12px 20px;border-radius:10px;font-size:15px;display:none;z-index:100;max-width:90%;box-shadow:0 4px 18px rgba(0,0,0,.35)}
+#busy .sp{display:inline-block;width:14px;height:14px;border:3px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:bspin .8s linear infinite;vertical-align:-2px;margin-right:9px}
+@keyframes bspin{to{transform:rotate(360deg)}}
 </style></head><body>
 <header>
  <h1>RF Noise Map</h1>
@@ -168,6 +171,7 @@ details summary{cursor:pointer;color:var(--acc);font-size:13.5px;margin:6px 0}
 </section>
 </main>
 
+<div id="busy"></div>
 <div id="toast"></div>
 
 <dialog id="dlgEmail">
@@ -206,7 +210,31 @@ const $=id=>document.getElementById(id);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 let S=null, formFilled=false, wasLogging=false, stoppedByUser=false, emailFile=null, notesFile=null, tToast=null;
 
+const BUSY_MSG={"/api/fulltest":"Full test running: checking the software, radio and GPS, then making a practice map. About a minute, please wait",
+ "/api/check":"Checking your setup (a GPS test takes a few seconds)",
+ "/api/map":"Building your map. Large drives can take a minute",
+ "/api/demo":"Running a practice drive and building its map",
+ "/api/backup":"Making a backup zip of all your data",
+ "/api/kml":"Making the Google Earth file",
+ "/api/start":"Starting the radio and GPS",
+ "/api/stop":"Stopping and saving your drive",
+ "/api/gps_detect":"Looking for the GPS on the USB ports",
+ "/api/free_devices":"Closing the other programs that are using the radio or GPS",
+ "/api/email":"Sending the email",
+ "/api/apply":"Updating the frequencies",
+ "/api/drive/delete":"Deleting that drive"};
+let busyN=0, busyT=null, busyTick=null, busyStart=0, busyTxt="";
+function busyShow(){const b=document.getElementById("busy"); if(!b)return; const sec=Math.round((Date.now()-busyStart)/1000);
+  b.innerHTML='<span class="sp"></span>'+busyTxt+"... "+sec+" s"; b.style.display="block";}
+function busyBegin(path){ if(path in BUSY_MSG===false && ["/api/config","/api/live","/api/state","/api/drives","/api/ports","/api/blockers","/api/pause","/api/reveal","/api/open_folder","/api/drive/meta","/api/quit"].includes(path)) return false;
+  busyN++; if(busyN===1){busyStart=Date.now(); busyTxt=BUSY_MSG[path]||"Working";
+    busyT=setTimeout(()=>{busyShow(); busyTick=setInterval(busyShow,1000);},500);} return true;}
+function busyEnd(){ busyN=Math.max(0,busyN-1); if(busyN===0){clearTimeout(busyT);clearInterval(busyTick);const b=document.getElementById("busy"); if(b)b.style.display="none";}}
 async function api(path,body){
+  const tracked = body!==undefined && busyBegin(path);
+  try{ return await api0(path,body); } finally { if(tracked) busyEnd(); }
+}
+async function api0(path,body){
   const r=await fetch(path,{method:body===undefined?"GET":"POST",headers:{"X-RFMap":"1","Content-Type":"application/json"},
                             body:body===undefined?undefined:JSON.stringify(body)});
   let j; try{j=await r.json();}catch(e){throw new Error("The program did not answer. Is RF Noise Map still running?");}
