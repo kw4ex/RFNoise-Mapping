@@ -124,6 +124,25 @@ def dist_m(a, b):
 
 
 # ----------------------------------------------------------------------------
+def close_browser_tabs(port):
+    """After Quit: ask the Mac's browser to close the RF Noise Map tab(s) so no dead window is left behind.
+    Only browsers that are already running are asked (never started), and any failure is ignored."""
+    if not C.IS_MAC:
+        return
+    import subprocess
+    for app in ("Safari", "Google Chrome", "Microsoft Edge", "Brave Browser", "Arc", "Chromium"):
+        try:
+            if subprocess.run(["pgrep", "-x", app], capture_output=True, timeout=2).returncode != 0:
+                continue
+            for host in ("localhost", "127.0.0.1"):
+                url = "http://%s:%d" % (host, port)
+                script = ('tell application "%s"\nrepeat with w in (every window)\ntry\n'
+                          'close (every tab of w whose URL starts with "%s")\nend try\nend repeat\nend tell') % (app, url)
+                subprocess.run(["osascript", "-e", script], capture_output=True, timeout=4)
+        except Exception:
+            pass
+
+
 # The application state (one instance)
 # ----------------------------------------------------------------------------
 class App:
@@ -783,7 +802,13 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/quit":
             PAN.stop()
             APP.stop()
-            threading.Timer(0.4, lambda: os._exit(0)).start()
+            port = APP.port
+            def _finish():
+                close_browser_tabs(port)
+                time.sleep(0.4)
+                os._exit(0)
+            threading.Thread(target=_finish, daemon=True).start()
+            threading.Timer(12.0 if C.IS_MAC else 0.4, lambda: os._exit(0)).start()   # safety net
             return {"ok": True}
         raise ValueError("unknown request")
 

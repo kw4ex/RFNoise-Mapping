@@ -526,7 +526,7 @@ async function doBackup(){await guard(async()=>{const r=await api("/api/backup",
 async function doDemo(){toast("Running a practice drive...",20000);const win=window.open("about:blank","_blank");
   try{const r=await api("/api/demo",{});await refreshDrivesOnly();const url="/maps/"+encodeURIComponent(r.map);if(win)win.location=url;else toast(`Practice map ready: <a href="${url}" target="_blank">open it</a>`);toast("Practice map made (fake data).");}
   catch(e){if(win)win.close();toast("&#9888; "+esc(e.message),9000);}}
-async function quitApp(){ if(!confirm("Quit RF Noise Map? (Logging will stop. Your data is kept.)"))return; await guard(()=>api("/api/quit",{})); document.body.innerHTML="<p style='padding:30px;font-size:18px'>RF Noise Map has quit. You can close this tab.</p>"; }
+async function quitApp(){ if(!confirm("Quit RF Noise Map? (Logging will stop. Your data is kept.)"))return; await guard(()=>api("/api/quit",{})); try{window.close();}catch(e){} document.body.innerHTML="<p style='padding:30px;font-size:18px'>RF Noise Map has quit. You can close this tab.</p>"; }
 
 /* ---------- email / notes / check ---------- */
 function openEmail(f){emailFile=f;$("emFile").textContent=f;dlgEmail.showModal();}

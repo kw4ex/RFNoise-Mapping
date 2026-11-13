@@ -235,15 +235,56 @@ cat > "$APPBUNDLE/Contents/Info.plist" <<'PLIST'
 PLIST
 cat > "$APPBUNDLE/Contents/MacOS/launcher" <<LAUNCH
 #!/bin/bash
+# RF Noise Map starter. It starts the program in the background and then finishes straight away, so macOS
+# never thinks the icon is "not responding". If a copy is already running it asks what you want to do.
 cd "$DEST/app" || exit 1
 mkdir -p "\$HOME/Library/Logs"
+LOG="\$HOME/Library/Logs/RFNoiseMap.log"
 PY="$DEST/venv/bin/python"
-# Apple-silicon Mac: always start natively. An icon with no declared processor type can be started under
-# Rosetta (Intel emulation), which cannot load the arm64 libraries (numpy then fails to import).
-if [ "\$(sysctl -n hw.optional.arm64 2>/dev/null)" = "1" ]; then
-    exec arch -arm64 "\$PY" rfmap_app.py >> "\$HOME/Library/Logs/RFNoiseMap.log" 2>&1
+
+running_port() {
+    for p in 8780 8781 8782 8783 8784 8785 8786 8787 8788 8789; do
+        if curl -s -m 1 "http://127.0.0.1:\$p/api/ping" 2>/dev/null | grep -q '"app": "rfmap"'; then echo "\$p"; return 0; fi
+    done
+    return 1
+}
+
+start_app() {
+    # Apple-silicon Mac: always start natively. An icon with no declared processor type can be started under
+    # Rosetta (Intel emulation), which cannot load the arm64 libraries (numpy then fails to import).
+    if [ "\$(sysctl -n hw.optional.arm64 2>/dev/null)" = "1" ]; then
+        nohup arch -arm64 "\$PY" rfmap_app.py >> "\$LOG" 2>&1 &
+    else
+        nohup "\$PY" rfmap_app.py >> "\$LOG" 2>&1 &
+    fi
+    disown 2>/dev/null
+}
+
+RP="\$(running_port)"
+if [ -n "\$RP" ]; then
+    ANS="\$(osascript -e 'button returned of (display dialog "RF Noise Map is already running.\n\nWhat would you like to do?\n\n(Closing it stops any recording in progress. Data already saved is kept.)" buttons {"Cancel", "Open the running one", "Close it and start fresh"} default button "Open the running one" cancel button "Cancel" with title "RF Noise Map" with icon note)' 2>/dev/null)"
+    case "\$ANS" in
+        "Open the running one")
+            open "http://localhost:\$RP/"
+            exit 0 ;;
+        "Close it and start fresh")
+            "\$PY" rfmap_app.py --stop >> "\$LOG" 2>&1
+            for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
+                sleep 0.5
+                [ -z "\$(running_port)" ] && break
+            done
+            if [ -n "\$(running_port)" ]; then      # did not close politely: force it
+                pkill -f "rfmap_app.py" 2>/dev/null
+                pkill -f "rf_logger.py" 2>/dev/null
+                sleep 1.5
+            fi
+            ;;
+        *)
+            exit 0 ;;
+    esac
 fi
-exec "\$PY" rfmap_app.py >> "\$HOME/Library/Logs/RFNoiseMap.log" 2>&1
+start_app
+exit 0
 LAUNCH
 chmod +x "$APPBUNDLE/Contents/MacOS/launcher"
 if command -v sips >/dev/null 2>&1 && sips -s format icns "$DEST/app/icon.png" --out "$APPBUNDLE/Contents/Resources/icon.icns" >/dev/null 2>&1; then
