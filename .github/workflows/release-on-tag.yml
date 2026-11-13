@@ -1,11 +1,15 @@
 # SPDX-License-Identifier: MIT
-# Publishes a GitHub Release automatically when a tag like v1.2.0 is pushed.
+# Publishes a GitHub Release automatically when a tag like v1.2.0 is pushed, or when
+# a notes file docs/release-notes/vX.Y.Z.md is pushed to main (or Run workflow, no boxes).
 # Notes come from docs/release-notes/<tag>.md. If the notes contain the words
 # "TESTING VERSION" the release is marked Pre-release (and not Latest).
 name: Publish release on tag
 on:
   push:
     tags: ["v*"]
+    branches: [main]
+    paths: ["docs/release-notes/v*.md"]
+  workflow_dispatch:
 permissions:
   contents: write
 jobs:
@@ -17,10 +21,13 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.ref_name }}
+          REF_NAME: ${{ github.ref_name }}
+          REF_TYPE: ${{ github.ref_type }}
         run: |
           set -euo pipefail
-          VER="${TAG#v}"
+          if [ "$REF_TYPE" = "tag" ]; then TAG="$REF_NAME"; else
+            TAG="$(ls docs/release-notes | sed -n 's/^\(v.*\)\.md$/\1/p' | sort -V | tail -n1)"; fi
+          echo "Releasing $TAG"
           notes="docs/release-notes/${TAG}.md"; test -f "$notes"
           mkdir -p dl
           cp Install_RFNoise_Windows.bat docs/guides/RFNoise-Mapping-guide.pdf dl/
