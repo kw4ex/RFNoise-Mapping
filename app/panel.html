@@ -163,7 +163,7 @@ details summary{cursor:pointer;color:var(--acc);font-size:13.5px;margin:6px 0}
   </div>
   <div class="row rxonly">
    <div><label>Jump to band</label><br><select id="panBand" onchange="panBand(this.value)"></select></div>
-   <div><label>Centre (MHz)</label><br><input type="number" id="panCenter" step="any" style="width:130px" onkeydown="if(event.key==='Enter')panGoCenter()"> <button class="sm" onclick="panGoCenter()">Go</button></div>
+   <div><label>Centre (MHz)</label><br><input type="number" id="panCenter" step="0.1" style="width:130px" onkeydown="panCenterKey(event)" onchange="panGoCenter()"> <button class="sm" onclick="panGoCenter()">Go</button></div>
    <div><label>Width of view</label><br><select id="panSpan" onchange="panSetSpan(+this.value)">
      <option value="250000">250 kHz</option><option value="500000">500 kHz</option><option value="1000000">1 MHz</option>
      <option value="2000000" selected>2 MHz</option><option value="4000000">4 MHz</option><option value="8000000">8 MHz</option></select></div>
@@ -172,8 +172,8 @@ details summary{cursor:pointer;color:var(--acc);font-size:13.5px;margin:6px 0}
   <div class="row rxonly">
    <div><label>Mode</label><br><span class="seg" id="panModes"></span></div>
    <div><label>Bandwidth</label><br><select id="panBw" onchange="panSetBw(+this.value)"></select></div>
-   <div><label>Tuned (MHz)</label><br><input type="number" id="panTune" step="any" style="width:130px" onkeydown="if(event.key==='Enter')panGoTune()"> <button class="sm" onclick="panGoTune()">Tune</button></div>
-   <div><label>Step</label><br><select id="panStep" onchange="PAN.step=+this.value">
+   <div><label>Tuned (MHz)</label><br><input type="number" id="panTune" step="0.001" style="width:130px" onkeydown="panTuneKey(event)" onchange="panGoTune()"> <button class="sm" onclick="panGoTune()">Tune</button></div>
+   <div><label>Step</label><br><select id="panStep" onchange="panStepChanged()">
      <option value="10">10 Hz</option><option value="100">100 Hz</option><option value="500">500 Hz</option><option value="1000" selected>1 kHz</option>
      <option value="5000">5 kHz</option><option value="10000">10 kHz</option><option value="12500">12.5 kHz</option><option value="25000">25 kHz</option></select></div>
    <div><label>Volume</label><br><input type="range" id="panVol" min="0" max="100" value="70" oninput="panVol()"> <label class="chk" style="display:inline-flex;margin:0"><input type="checkbox" id="panMute" onchange="panVol()"> <span>Mute</span></label></div>
@@ -187,7 +187,7 @@ details summary{cursor:pointer;color:var(--acc);font-size:13.5px;margin:6px 0}
   <div class="row" style="margin-top:6px">
    <div class="rxonly" style="flex:1 1 320px"><label>What you hear (audio, 0&ndash;7.8 kHz)</label><canvas id="cvAud" class="pcan" width="500" height="70"></canvas></div>
    <div style="flex:1 1 220px"><label>Signal level in the filter: <b id="panLvl">&ndash;</b> (dBFS, not calibrated)</label><div class="smeter"><i id="panLvlBar"></i></div>
-     <div class="mut" id="panHover" style="margin-top:6px">Click the picture to tune. Mouse wheel changes frequency by one step.</div></div>
+     <div class="mut" id="panHover" style="margin-top:6px">Click a signal to tune. Drag the picture left or right (or swipe sideways on a trackpad) to move the view. The wheel, or the Up/Down keys in the Tuned box, change frequency by one step.</div></div>
   </div>
   <div class="row">
    <label class="chk"><input type="checkbox" id="panScale" checked> <span>Auto scale the picture</span></label>
@@ -556,7 +556,8 @@ function panInit(){
   $("panBand").innerHTML='<option value="">Choose...</option>'+PAN_BANDS.map((b,i)=>`<option value="${i}">${b[0]}</option>`).join("");
   $("panModes").innerHTML=["AM","USB","LSB","CW","NFM"].map(m=>`<button id="pm_${m}" onclick="panSetMode('${m}')">${m==="NFM"?"FM (narrow)":m}</button>`).join("");
   try{const j=JSON.parse(localStorage.getItem("rfmapPan")||"null"); if(j&&j.center){Object.assign(PAN,{center:j.center,rate:j.rate,tune:j.tune,mode:j.mode,bw:j.bw});}}catch(e){}
-  panFillBw(); panShowControls();
+  try{const st=+localStorage.getItem("rfmapPanStep"); if(st>0&&[...$("panStep").options].some(o=>+o.value===st)) $("panStep").value=String(st);}catch(e){}
+  panStepChanged(); panFillBw(); panShowControls();
 }
 function panSave(){try{localStorage.setItem("rfmapPan",JSON.stringify({center:PAN.center,rate:PAN.rate,tune:PAN.tune,mode:PAN.mode,bw:PAN.bw}));}catch(e){}}
 function panFillBw(){
@@ -576,17 +577,29 @@ function panPost(f){ clearTimeout(PAN.pt); PAN.pend=Object.assign(PAN.pend||{},f
   PAN.pt=setTimeout(()=>{const b=PAN.pend;PAN.pend=null; if(PAN.on) api("/api/pan/set",b).catch(e=>toast("&#9888; "+esc(e.message),6000));},60); }
 function panSetMode(m){PAN.mode=m; PAN.bw=PAN_BW_DEF[m]; panFillBw(); panShowControls(); panSave(); panPost({mode:m,bw:PAN.bw});}
 function panSetBw(b){PAN.bw=b; panSave(); panPost({bw:b});}
-function panSetTune(hz,fromUser){
+function panSetTune(hz,typed){
   hz=Math.max(10000,hz); PAN.tune=hz; $("panTune").value=fmtMHz(hz); panSave(); panPost({tune:hz}); panSlotLabels();
-  const sp=PAN.rate; if(PAN.on&&Math.abs(hz-PAN.center)>0.47*sp) $("panStatus").textContent="The tuned frequency is outside the picture. Press 'Centre on tuned' to see it."; else if(PAN.on) $("panStatus").textContent=PAN.practiceNote||"";
+  // keep the tuned frequency in view: typed entries are centred unless already near the middle
+  if(PAN.on&&!PAN.viewOnly&&Math.abs(hz-PAN.center)>(typed?0.3:0.42)*PAN.rate) panSetCenter(hz);
+  if(PAN.on) $("panStatus").textContent=PAN.practiceNote||"";
 }
-function panGoTune(){const v=parseFloat($("panTune").value); if(!(v>0)){toast("Type the frequency in MHz, for example 7.255");return;} panSetTune(v*1e6);}
-function panSetCenter(hz){hz=Math.max(10000,hz); PAN.center=hz; $("panCenter").value=fmtMHz(hz); PAN.last=null; panSave(); panPost({center:hz});}
+function panStepChanged(){ PAN.step=+$("panStep").value; $("panTune").step=PAN.step/1e6; try{localStorage.setItem("rfmapPanStep",String(PAN.step));}catch(e){} }
+function panTuneKey(e){
+  if(e.key==="Enter"){panGoTune();}
+  else if(e.key==="ArrowUp"||e.key==="ArrowDown"){ e.preventDefault(); const cur=parseFloat($("panTune").value); const base=cur>0?cur*1e6:PAN.tune;
+    panSetTune(Math.round(base/PAN.step)*PAN.step+(e.key==="ArrowUp"?1:-1)*PAN.step); }
+}
+function panCenterKey(e){
+  if(e.key==="Enter"){panGoCenter();}
+  else if(e.key==="ArrowUp"||e.key==="ArrowDown"){ e.preventDefault(); panShift(e.key==="ArrowUp"?0.25:-0.25); }
+}
+function panGoTune(){const v=parseFloat($("panTune").value); if(!(v>0)){toast("Type the frequency in MHz, for example 7.255");return;} panSetTune(v*1e6,true);}
+function panSetCenter(hz){hz=Math.max(10000,hz); PAN.center=hz; $("panCenter").value=fmtMHz(hz); panSave(); panPost({center:hz});}
 function panGoCenter(){const v=parseFloat($("panCenter").value); if(!(v>0)){toast("Type the centre frequency in MHz, for example 7.15");return;} panSetCenter(v*1e6);}
-function panSetSpan(r){PAN.rate=r; PAN.last=null; panSave(); panPost({rate:r});}
+function panSetSpan(r){PAN.rate=r; PAN.clearWf=true; panSave(); panPost({rate:r});}
 function panShift(f){panSetCenter(PAN.center+f*PAN.rate);}
 function panRecentre(){panSetCenter(PAN.tune);}
-function panBand(i){ if(i==="")return; const b=PAN_BANDS[+i]; PAN.rate=b[4]; PAN.mode=b[3]; PAN.bw=PAN_BW_DEF[b[3]]; PAN.tune=b[2]*1e6; PAN.center=b[1]*1e6; PAN.last=null;
+function panBand(i){ if(i==="")return; const b=PAN_BANDS[+i]; PAN.rate=b[4]; PAN.mode=b[3]; PAN.bw=PAN_BW_DEF[b[3]]; PAN.tune=b[2]*1e6; PAN.center=b[1]*1e6; PAN.clearWf=true;
   panFillBw(); panShowControls(); panSave(); panPost({center:PAN.center,rate:PAN.rate,tune:PAN.tune,mode:PAN.mode,bw:PAN.bw}); $("panBand").value=""; }
 function panGain(){panPost({auto_gain:$("panAuto").checked,if_gain:+$("panIf").value||40,rf_state:+$("panRf").value||0});}
 function panSquelch(){PAN.sq=+$("panSq").value; $("panSqV").textContent=PAN.sq<=-119?"off":PAN.sq+" dB"; panPost({squelch:PAN.sq});}
@@ -690,7 +703,15 @@ function panClearWf(){const c=$("cvWf"),x=c.getContext("2d");x.fillStyle="#00002
 const panXOf=(hz,f)=>((hz-(f.center-f.rate/2))/f.rate)*1000;
 function panEdges(f){ if(f&&f.viewonly) return [-f.bw/2,f.bw/2]; const m=PAN.mode,b=PAN.bw; if(m==="USB")return[250,250+b]; if(m==="LSB")return[-250-b,-250]; return[-b/2,b/2]; }
 function panDraw(f){
-  if(PAN.last&&(PAN.last.center!==f.center||PAN.last.rate!==f.rate)){panClearWf();PAN.peak=null;}
+  if(PAN.clearWf||(PAN.last&&PAN.last.rate!==f.rate)){panClearWf();PAN.peak=null;PAN.clearWf=false;}
+  else if(PAN.last&&PAN.last.center!==f.center){
+    const wc0=$("cvWf"), dx=Math.round((PAN.last.center-f.center)/f.rate*wc0.width);   // slide the old picture sideways
+    if(Math.abs(dx)>=wc0.width){panClearWf();} else {
+      const t=document.createElement("canvas");t.width=wc0.width;t.height=wc0.height;t.getContext("2d").drawImage(wc0,0,0);
+      const cx=wc0.getContext("2d"); cx.fillStyle="#000028"; cx.fillRect(0,0,wc0.width,wc0.height); cx.drawImage(t,dx,0);
+    }
+    PAN.peak=null;
+  }
   PAN.last=f;
   const bytes=b64Bytes(f.spec), N=bytes.length, W=1000, px=new Float32Array(W);
   for(let x=0;x<W;x++){const a=Math.floor(x*N/W),b=Math.max(a+1,Math.floor((x+1)*N/W));let m=0;for(let i=a;i<b;i++)if(bytes[i]>m)m=bytes[i];px[x]=m;}
@@ -759,8 +780,20 @@ function panWire(){
   const oc=$("cvOv");
   oc.addEventListener("mousemove",e=>panMouse(e,false));
   oc.addEventListener("mouseleave",()=>panOverlay(null));
-  oc.addEventListener("click",e=>panMouse(e,true));
-  oc.addEventListener("wheel",e=>{e.preventDefault();if(PAN.viewOnly)return;panSetTune(PAN.tune+(e.deltaY<0?1:-1)*PAN.step,true);},{passive:false});
+  let drag=null;
+  oc.addEventListener("mousedown",e=>{ if(PAN.viewOnly||!PAN.last||e.button!==0)return; drag={x:e.clientX,c:PAN.last.center,moved:false}; });
+  window.addEventListener("mousemove",e=>{
+    if(!drag)return; const dx=e.clientX-drag.x; if(!drag.moved&&Math.abs(dx)<5)return;
+    drag.moved=true; oc.style.cursor="grabbing"; const r=oc.getBoundingClientRect();
+    panSetCenter(Math.round((drag.c-dx/r.width*PAN.last.rate)/100)*100); });
+  window.addEventListener("mouseup",()=>{ if(drag){PAN.dragged=drag.moved; drag=null; oc.style.cursor="crosshair"; setTimeout(()=>{PAN.dragged=false;},0);} });
+  oc.addEventListener("click",e=>{ if(PAN.dragged)return; panMouse(e,true); });
+  oc.addEventListener("wheel",e=>{
+    e.preventDefault(); if(PAN.viewOnly)return;
+    if(Math.abs(e.deltaX)>Math.abs(e.deltaY)){            // two-finger sideways swipe on a trackpad: slide the view
+      const r=oc.getBoundingClientRect(); panSetCenter(Math.round((PAN.center+e.deltaX/r.width*PAN.rate)/100)*100);
+    } else panSetTune(PAN.tune+(e.deltaY<0?1:-1)*PAN.step);
+  },{passive:false});
 }
 
 /* ---------- wiring ---------- */
