@@ -38,7 +38,7 @@ jobs:
           ls -l dl
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" dl/* --clobber
-            gh release edit "$TAG" --title "$title" --notes-file "$notes"
+            gh release edit "$TAG" --title "$title" --notes-file "$notes" $flags
           else
             gh release create "$TAG" dl/* --target "${{ github.sha }}" --title "$title" --notes-file "$notes" $flags
           fi
