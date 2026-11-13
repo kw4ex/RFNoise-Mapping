@@ -152,6 +152,7 @@ fi
 
 # ------------------------------------------------------------------------------
 step 4 "I am about to copy the program into: $DEST"
+pkill -f "rfmap_app.py" 2>/dev/null && say "Closed a running copy of RF Noise Map so it can be replaced."
 mkdir -p "$DEST" || fail "Could not create $DEST"
 rm -rf "$DEST/app"
 cp -R "$APPSRC" "$DEST/app" || fail "Could not copy the program files."
