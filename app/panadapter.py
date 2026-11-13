@@ -331,7 +331,7 @@ class Receiver:
 # The panadapter itself (runs in its own thread)
 # ----------------------------------------------------------------------------
 DEFAULTS = {"center": 7_150_000.0, "rate": 2_000_000, "tune": 7_150_000.0, "mode": "AM", "bw": 6000.0,
-            "squelch": -120.0, "auto_gain": True, "if_gain": 40, "rf_state": 0}
+            "squelch": -120.0, "auto_gain": False, "if_gain": 40, "rf_state": 0}
 
 
 class Panadapter:
@@ -418,7 +418,7 @@ class Panadapter:
             if "if_gain" in b:
                 o["if_gain"] = int(min(max(int(b["if_gain"]), 20), 59))
             if "rf_state" in b:
-                o["rf_state"] = int(min(max(int(b["rf_state"]), 0), 8))
+                o["rf_state"] = int(min(max(int(b["rf_state"]), 0), 27))
         except (TypeError, ValueError) as e:
             raise ValueError("Bad panadapter setting: %s" % e)
         return o

@@ -124,10 +124,10 @@ details summary{cursor:pointer;color:var(--acc);font-size:13.5px;margin:6px 0}
    <div class="mut">10&nbsp;ft is a good start. Smaller gives more detail (slow streets, walking); larger suits highways and gives smaller files. <b>You can change it while driving</b>: it applies from the next dot. If you drive faster than the radio can keep up, dots end up farther apart than this setting.</div>
    <details><summary>More settings</summary>
     <div class="row">
-      <div><label>IF gain reduction (dB)</label><br><input type="number" id="ifgr" min="20" max="59"></div>
-      <div><label>RF gain reduction (0&ndash;27)</label><br><input type="number" id="rfgr" min="0" max="27"></div>
+      <div><label>IF attenuation (dB, 20&ndash;59)</label><br><input type="number" id="ifgr" min="20" max="59" onchange="gainChanged()"></div>
+      <div><label>RF attenuation (0&ndash;27)</label><br><input type="number" id="rfgr" min="0" max="27" onchange="gainChanged()"></div>
     </div>
-    <div class="mut">Leave gain alone during a drive so dots can be compared. If readings are pinned at the top or bottom, raise or lower the IF gain reduction.</div>
+    <div class="mut">Recording always uses these fixed numbers (never automatic gain). Pick values before a drive and leave them alone so dots can be compared. If readings are pinned at the top or bottom, or strong stations overload the radio, raise the attenuation; raise it more for stronger signals. You can change it while driving if you must, but dots before and after the change are then not directly comparable.</div>
    </details>
   </div>
  </div>
@@ -169,15 +169,16 @@ details summary{cursor:pointer;color:var(--acc);font-size:13.5px;margin:6px 0}
      <option value="2000000" selected>2 MHz</option><option value="4000000">4 MHz</option><option value="8000000">8 MHz</option></select></div>
    <div><label>Move view</label><br><button class="sm" onclick="panShift(-0.25)">&#9664; left</button> <button class="sm" onclick="panShift(0.25)">right &#9654;</button> <button class="sm" onclick="panRecentre()">Centre on tuned</button></div>
   </div>
-  <div class="row rxonly">
-   <div><label>Mode</label><br><span class="seg" id="panModes"></span></div>
-   <div><label>Bandwidth</label><br><select id="panBw" onchange="panSetBw(+this.value)"></select></div>
-   <div><label>Tuned (MHz)</label><br><input type="number" id="panTune" step="0.001" style="width:130px" onkeydown="panTuneKey(event)" onchange="panGoTune()"> <button class="sm" onclick="panGoTune()">Tune</button></div>
-   <div><label>Step</label><br><select id="panStep" onchange="panStepChanged()">
+  <div class="row">
+   <div class="rxonly"><label>Mode</label><br><span class="seg" id="panModes"></span></div>
+   <div class="rxonly"><label>Bandwidth</label><br><select id="panBw" onchange="panSetBw(+this.value)"></select></div>
+   <div class="rxonly"><label>Tuned (MHz)</label><br><input type="number" id="panTune" step="0.001" style="width:130px" onkeydown="panTuneKey(event)" onchange="panGoTune()"> <button class="sm" onclick="panGoTune()">Tune</button></div>
+   <div class="rxonly"><label>Step</label><br><select id="panStep" onchange="panStepChanged()">
      <option value="10">10 Hz</option><option value="100">100 Hz</option><option value="500">500 Hz</option><option value="1000" selected>1 kHz</option>
      <option value="5000">5 kHz</option><option value="10000">10 kHz</option><option value="12500">12.5 kHz</option><option value="25000">25 kHz</option></select></div>
-   <div><label>Volume</label><br><input type="range" id="panVol" min="0" max="100" value="70" oninput="panVol()"> <label class="chk" style="display:inline-flex;margin:0"><input type="checkbox" id="panMute" onchange="panVol()"> <span>Mute</span></label></div>
-   <div><label>Squelch <span id="panSqV">off</span></label><br><input type="range" id="panSq" min="-120" max="-20" value="-120" oninput="panSquelch()"></div>
+   <div class="rxonly"><label>Volume</label><br><input type="range" id="panVol" min="0" max="100" value="70" oninput="panVol()"> <label class="chk" style="display:inline-flex;margin:0"><input type="checkbox" id="panMute" onchange="panVol()"> <span>Mute</span></label></div>
+   <div class="rxonly"><label>Squelch <span id="panSqV">off</span></label><br><input type="range" id="panSq" min="-120" max="-20" value="-120" oninput="panSquelch()"></div>
+   <div style="flex:1 1 210px;min-width:200px" title="Strength of the signal inside the filter, in dB relative to the radio's full scale. Good for comparing, not an absolute calibration."><label>Signal level: <b id="panLvl">&ndash;</b> dBFS</label><div class="smeter"><i id="panLvlBar"></i></div></div>
   </div>
   <div id="panWrap">
    <canvas id="cvSpec" class="pcan" width="1000" height="210"></canvas>
@@ -186,16 +187,16 @@ details summary{cursor:pointer;color:var(--acc);font-size:13.5px;margin:6px 0}
   </div>
   <div class="row" style="margin-top:6px">
    <div class="rxonly" style="flex:1 1 320px"><label>What you hear (audio, 0&ndash;7.8 kHz)</label><canvas id="cvAud" class="pcan" width="500" height="70"></canvas></div>
-   <div style="flex:1 1 220px"><label>Signal level in the filter: <b id="panLvl">&ndash;</b> (dBFS, not calibrated)</label><div class="smeter"><i id="panLvlBar"></i></div>
+   <div style="flex:1 1 220px">
      <div class="mut" id="panHover" style="margin-top:6px">Click a signal to tune. Drag the picture left or right (or swipe sideways on a trackpad) to move the view. The wheel, or the Up/Down keys in the Tuned box, change frequency by one step.</div></div>
   </div>
   <div class="row">
    <label class="chk"><input type="checkbox" id="panScale" checked> <span>Auto scale the picture</span></label>
-   <label class="chk rxonly"><input type="checkbox" id="panAuto" checked onchange="panGain()"> <span>Automatic radio gain</span></label>
-   <div class="rxonly"><label>IF gain reduction</label><br><input type="number" id="panIf" min="20" max="59" value="40" onchange="panGain()"></div>
-   <div class="rxonly"><label>RF gain reduction</label><br><input type="number" id="panRf" min="0" max="8" value="0" onchange="panGain()"></div>
+   <div><label>IF attenuation (dB, 20&ndash;59)</label><br><input type="number" id="panIf" min="20" max="59" value="40" onchange="panGain()"></div>
+   <div><label>RF attenuation (0&ndash;27)</label><br><input type="number" id="panRf" min="0" max="27" value="0" onchange="panGain()"></div>
+   <label class="chk rxonly"><input type="checkbox" id="panAuto" onchange="panGain()"> <span>Automatic gain (for listening only)</span></label>
   </div>
-  <div class="mut rxonly">The two gain boxes only work with Automatic radio gain off. Mapping always uses fixed gain so dots can be compared, so leave this on automatic while you listen.</div>
+  <div class="mut"><b>Attenuation</b> reduces how strongly the radio amplifies, so strong signals do not overload it. The two boxes are the <b>same settings used for recording</b> (also under More settings in box 1), so what you see is what gets recorded. Raise the numbers if the picture fills with false signals or is crowded by strong stations; lower them to hear weak signals. <b>Automatic gain is never used while recording</b>; recording always uses these fixed numbers. If you change attenuation while logging, later dots are no longer directly comparable with earlier ones.</div>
   <div class="rxonly" style="margin-top:8px"><b>Use the tuned frequency for mapping:</b> <span class="mut">(replaces that slot in the list above)</span>
    <div class="row" style="margin-top:4px">
     <button id="panSlot0" onclick="panUseSlot(0)"></button><button id="panSlot1" onclick="panUseSlot(1)"></button>
@@ -299,7 +300,7 @@ const BUSY_MSG={"/api/fulltest":"Full test running: checking the software, radio
 let busyN=0, busyT=null, busyTick=null, busyStart=0, busyTxt="";
 function busyShow(){const b=document.getElementById("busy"); if(!b)return; const sec=Math.round((Date.now()-busyStart)/1000);
   b.innerHTML='<span class="sp"></span>'+busyTxt+"... "+sec+" s"; b.style.display="block";}
-function busyBegin(path){ if(path in BUSY_MSG===false && ["/api/config","/api/live","/api/state","/api/drives","/api/ports","/api/blockers","/api/pause","/api/pan/set","/api/pan/stop","/api/pan/watch","/api/spacing","/api/reveal","/api/open_folder","/api/drive/meta","/api/quit"].includes(path)) return false;
+function busyBegin(path){ if(path in BUSY_MSG===false && ["/api/config","/api/live","/api/state","/api/drives","/api/ports","/api/blockers","/api/pause","/api/pan/set","/api/pan/stop","/api/pan/watch","/api/spacing","/api/gain","/api/reveal","/api/open_folder","/api/drive/meta","/api/quit"].includes(path)) return false;
   busyN++; if(busyN===1){busyStart=Date.now(); busyTxt=BUSY_MSG[path]||"Working";
     busyT=setTimeout(()=>{busyShow(); busyTick=setInterval(busyShow,1000);},500);} return true;}
 function busyEnd(){ busyN=Math.max(0,busyN-1); if(busyN===0){clearTimeout(busyT);clearInterval(busyTick);const b=document.getElementById("busy"); if(b)b.style.display="none";}}
@@ -325,7 +326,7 @@ function fillForm(cfg){
   $("route").value=cfg.route_name||""; $("practice").checked=!!cfg.practice;
   (document.querySelector(`input[name=gpsm][value=${cfg.gps_mode}]`)||document.querySelector("input[name=gpsm][value=usb]")).checked=true;
   $("gHost").value=cfg.gps_host; $("gPort").value=cfg.gps_port; $("gBaud").value=cfg.gps_baud;
-  $("autoMap").checked=!!cfg.auto_map; $("spacing").value=cfg.spacing_ft; spacingNote(); $("ifgr").value=cfg.if_gain_db; $("rfgr").value=cfg.rf_gain_state;
+  $("autoMap").checked=!!cfg.auto_map; $("spacing").value=cfg.spacing_ft; spacingNote(); $("ifgr").value=cfg.if_gain_db; $("rfgr").value=cfg.rf_gain_state; gainSync();
   let h="<tr><th>MHz</th><th>Width (kHz)</th><th>Calibration (dB)</th></tr>";
   for(let i=0;i<4;i++) h+=chRow(cfg.channels[i]||{mhz:"",bw_khz:5,cal_db:0},i);
   $("chTable").innerHTML=h; $("phoneAccess").checked=!!cfg.phone_access;
@@ -412,7 +413,7 @@ async function refreshLive(){
   $("bApply").style.display=lg?"":"none"; $("bPause").style.display=lg?"":"none";
   for(const id of ["practice","route"]) $(id).disabled=lg;
   PAN.logging=lg; if(!PAN.on) $("bPanStart").innerHTML=lg?"&#9654; Watch a band while logging":"&#9654; Start panadapter";
-  document.querySelectorAll("input[name=gpsm],#gHost,#gPort,#gSerial,#gBaud,#ifgr,#rfgr").forEach(e=>e.disabled=lg);
+  document.querySelectorAll("input[name=gpsm],#gHost,#gPort,#gSerial,#gBaud").forEach(e=>e.disabled=lg);
   $("liveBox").style.display=lg?"block":"none";
   if(lg&&st){
     const g=st.gps_status||"", good=/fix OK|simulated/i.test(g);
@@ -601,7 +602,17 @@ function panShift(f){panSetCenter(PAN.center+f*PAN.rate);}
 function panRecentre(){panSetCenter(PAN.tune);}
 function panBand(i){ if(i==="")return; const b=PAN_BANDS[+i]; PAN.rate=b[4]; PAN.mode=b[3]; PAN.bw=PAN_BW_DEF[b[3]]; PAN.tune=b[2]*1e6; PAN.center=b[1]*1e6; PAN.clearWf=true;
   panFillBw(); panShowControls(); panSave(); panPost({center:PAN.center,rate:PAN.rate,tune:PAN.tune,mode:PAN.mode,bw:PAN.bw}); $("panBand").value=""; }
-function panGain(){panPost({auto_gain:$("panAuto").checked,if_gain:+$("panIf").value||40,rf_state:+$("panRf").value||0});}
+function gainSync(){ if($("panIf")){ $("panIf").value=$("ifgr").value||40; $("panRf").value=$("rfgr").value||0; } }
+async function gainChanged(){
+  const a=Math.min(59,Math.max(20,Math.round(+$("ifgr").value||40))), r=Math.min(27,Math.max(0,Math.round(+$("rfgr").value||0)));
+  $("ifgr").value=a; $("rfgr").value=r; gainSync();
+  await guard(async()=>{ await api("/api/gain",{if_gain_db:a,rf_gain_state:r});
+    toast(PAN.logging?"Attenuation changed. Readings from now on are not directly comparable with the earlier dots in this drive.":"Attenuation saved (IF "+a+" dB, RF "+r+"). Recording uses these numbers.",PAN.logging?9000:5000); });
+}
+function panGain(){
+  $("ifgr").value=$("panIf").value; $("rfgr").value=$("panRf").value; gainChanged();
+  if(!PAN.viewOnly) panPost({auto_gain:$("panAuto").checked,if_gain:Math.min(59,Math.max(20,+$("panIf").value||40)),rf_state:Math.min(27,Math.max(0,+$("panRf").value||0))});
+}
 function panSquelch(){PAN.sq=+$("panSq").value; $("panSqV").textContent=PAN.sq<=-119?"off":PAN.sq+" dB"; panPost({squelch:PAN.sq});}
 function panVol(){ if(PAN.gain) PAN.gain.gain.value=$("panMute").checked?0:(+$("panVol").value/100)*2.5; }
 async function panUseSlot(i){
@@ -639,6 +650,7 @@ async function panPollAudio(){
 /* start / stop */
 async function panStart(){
   if(PAN.on)return;
+  gainSync();
   if(PAN.logging) return panWatch();
   try{panAudioStart();}catch(e){toast("&#9888; "+esc(e.message),8000);}
   await guard(async()=>{

@@ -605,6 +605,13 @@ class Handler(BaseHTTPRequestHandler):
                 raise ValueError("Start logging first. (To listen, use Start panadapter instead.)")
             APP.logger_call("/pan", {"channel": int(b.get("channel", -1))}, timeout=3)
             return {"ok": True}
+        if path == "/api/gain":                   # attenuation, also while driving
+            a = int(min(max(int(b.get("if_gain_db", 40)), 20), 59))
+            r = int(min(max(int(b.get("rf_gain_state", 0)), 0), 27))
+            APP.update_cfg({"if_gain_db": a, "rf_gain_state": r})
+            if APP.running():
+                APP.logger_call("/set", {"if_gain_db": a, "rf_gain_state": r}, timeout=3)
+            return {"ok": True, "if_gain_db": a, "rf_gain_state": r}
         if path == "/api/spacing":                # dot spacing, also while driving
             sp = min(max(2.0, float(b.get("spacing_ft", 10))), 5280.0)
             APP.update_cfg({"spacing_ft": sp})

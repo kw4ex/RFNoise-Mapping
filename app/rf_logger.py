@@ -592,6 +592,10 @@ def make_handler(settings, state, stop_event):
                         upd["channels"] = chans
                     if "spacing_ft" in req:
                         upd["spacing_ft"] = min(max(2.0, float(req["spacing_ft"])), 5280.0)
+                    if "if_gain_db" in req:
+                        upd["if_gain_db"] = int(min(max(int(req["if_gain_db"]), 20), 59))
+                    if "rf_gain_state" in req:
+                        upd["rf_gain_state"] = int(min(max(int(req["rf_gain_state"]), 0), 27))
                     if upd:
                         settings.update(upd)
                 self._send(200, "{}")

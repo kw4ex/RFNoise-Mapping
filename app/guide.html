@@ -135,7 +135,7 @@ th{background:#f0f3f7}
  <li><b>Drive the route.</b> Steady speed is best. You can change frequencies <b>while driving</b>: edit the boxes and press <span class="btn">Apply frequency changes now</span>. <span class="btn">Pause / resume</span> is there for stops.</li>
  <li>Press <span class="btn">&#9632; Stop logging</span> when finished. If <b>Make a map automatically</b> is ticked, the map opens.</li>
 </ol>
-<div class="box tip"><b>Good habits:</b> don't change gain mid-route; keep the computer plugged in (the program keeps it awake while logging); drive each important road twice, once in each direction; note the date and conditions in <b>Name / notes</b>.</div>
+<div class="box tip"><b>Good habits:</b> don't change attenuation mid-route (dots before and after would not be directly comparable); keep the computer plugged in (the program keeps it awake while logging); drive each important road twice, once in each direction; note the date and conditions in <b>Name / notes</b>.</div>
 <div class="box warn"><b>Safety:</b> have a passenger operate the computer, or set everything up while parked. Please don't use the screen while driving.</div>
 
 <h3>Panadapter: see and hear the band, then pick your frequencies</h3>
@@ -148,7 +148,7 @@ th{background:#f0f3f7}
  <li>To measure a frequency while driving, press <b>Mapping frequency 1&ndash;4</b>. The tuned frequency replaces that slot in the list in box 1. Pick a quiet one with no stations.</li>
 </ol>
 <p><b>While you are logging</b> the panadapter button changes to <span class="btn">&#9654; Watch a band while logging</span>. Pick which of your frequencies to watch. You see the spectrum and waterfall (2&nbsp;MHz around that frequency, which is marked by the red line), updated as the logger works, which is handy for spotting noise as you drive. You cannot tune or listen while logging, because the radio is busy measuring. Change the watched frequency at any time from the list.</p>
-<div class="box tip">The level shown is <b>dBFS, not calibrated</b>. It is good for comparing places, not for absolute measurements. Leave <b>Automatic radio gain</b> on while listening; mapping always uses fixed gain.</div>
+<div class="box tip">The level shown is <b>dBFS, not calibrated</b>. It is good for comparing places, not for absolute measurements. Recording <b>always uses fixed gain</b>, never automatic gain. The panadapter also uses the same fixed numbers by default, so what you see is what is recorded. Use <b>IF attenuation</b> (20&ndash;59&nbsp;dB) and <b>RF attenuation</b> (0&ndash;27) to turn the radio down when strong stations overload it or the picture fills with false signals, and turn it back up to hear weak signals. These boxes are the same settings used for recording. <b>Automatic gain (for listening only)</b> is an optional extra that only affects the panadapter.</div>
 
 <h2 id="where">7. Where your data is stored</h2>
 <p>Everything you create is in one folder: on a Mac, the <b>RF Noise Map</b> folder in your home folder (not inside Documents: macOS blocks programs from Documents); on Windows, the install folder itself (normally <b>C:\RadioScripts\RFNoise</b>). The window's footer shows its exact path, and <span class="btn">Open my data folder</span> opens it.</p>
@@ -210,7 +210,7 @@ th{background:#f0f3f7}
  <li><b>Position:</b> a GPS is typically good to about 10&ndash;15&nbsp;ft, so a dot can sit slightly off the road. Dots consistently 30&nbsp;ft or more off the road suggest a GPS problem (poor sky view, or a slow-updating GPS in turns).</li>
  <li><b>Spacing:</b> a new dot is saved each time you move the spacing distance (default 10&nbsp;ft; <b>More settings</b>). Measuring four frequencies takes a fraction of a second, so at 45&nbsp;mph spacing may be a little wider than 10&nbsp;ft. Fewer frequencies = tighter dots.</li>
  <li><b>Levels are relative</b> (dB below the receiver's maximum). To get true dBm: feed the receiver a known signal (a signal generator at, say, &minus;60&nbsp;dBm), note the reading, and enter <b>(known dBm) minus (reading)</b> in that frequency's <b>Calibration</b> box. Keep the same gain settings afterward.</li>
- <li><b>Gain:</b> automatic gain is switched off so readings along the route can be compared. If readings are stuck near the top or bottom of the scale, adjust <b>IF gain reduction</b> in <b>More settings</b> before the drive.</li>
+ <li><b>Gain and attenuation:</b> automatic gain is always switched off while recording, so readings along the route can be compared. The <b>IF attenuation</b> and <b>RF attenuation</b> numbers (in <b>More settings</b>, and beside the panadapter) set how much the radio is turned down. If readings are stuck near the top or bottom of the scale, or strong stations overload the radio, raise the attenuation before the drive. You can change it while driving if you must, but dots before and after the change are then not directly comparable.</li>
 </ul>
 
 <h2 id="trouble">11. Troubleshooting</h2>
