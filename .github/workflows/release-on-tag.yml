@@ -23,7 +23,7 @@ jobs:
           VER="${TAG#v}"
           notes="docs/release-notes/${TAG}.md"; test -f "$notes"
           mkdir -p dl
-          cp Install_RFNoise.bat docs/guides/RFNoise-Mapping-guide.pdf dl/
+          cp Install_RFNoise_Windows.bat docs/guides/RFNoise-Mapping-guide.pdf dl/
           zip -q -r "dl/RFNoise_Mac_${TAG}.zip" mac app
           title="$(head -n1 "$notes" | sed 's/^# *//')"
           flags=""

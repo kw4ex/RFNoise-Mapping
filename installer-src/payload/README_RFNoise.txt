@@ -31,7 +31,7 @@ WHAT IT IS
 PART 1 - INSTALL
 ---------------------------------------------------------------------
   EASY WAY (recommended)
-   1. Double-click  Install_RFNoise.bat
+   1. Double-click  Install_RFNoise_Windows.bat
       If Windows says "Windows protected your PC", click More info, then
       Run anyway.
    2. Answer the short questions. Press Enter to accept the answer shown in
@@ -49,7 +49,7 @@ PART 1 - INSTALL
       (this tells the program to keep your data next to it).
    4. Double-click Start_RFNoise.bat.
 
-  UPGRADE: run the newer Install_RFNoise.bat and give it the same folder. It
+  UPGRADE: run the newer Install_RFNoise_Windows.bat and give it the same folder. It
   keeps your Drives, Maps, Exports, Backups and Settings. The old program is
   kept in the folder app_previous (one copy) in case you want to go back.
 
@@ -64,7 +64,7 @@ PART 2 - THE RADIO (needed only for real measuring)
    3. Plug in the SDRplay, start RF Noise Map and press "Check setup".
   NOTE: PothosSDR's Python part is made for ONE Python version (Python 3.9).
   The installer notices this and uses (or installs) Python 3.9 by itself. If you
-  install PothosSDR AFTER this program, run Install_RFNoise.bat again.
+  install PothosSDR AFTER this program, run Install_RFNoise_Windows.bat again.
   Close other SDR programs (SDRuno, SDRconnect, SDR Console, HDSDR) first: only
   one program can use the radio at a time. RF Noise Map offers to close them.
   AUTOMATIC TESTS:  Test_Everything.bat checks the radio, the GPS and a pretend

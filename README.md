@@ -36,7 +36,7 @@ You do **not** need a GitHub account.
 ### Windows (main version, Windows 10 and 11)
 
 1. Go to the [**Releases** page](../../releases/latest).
-2. Under **Assets**, click **Install_RFNoise.bat**. Your browser saves it, normally in **Downloads**. (If it warns that the file may be harmful, choose **Keep**.)
+2. Under **Assets**, click **Install_RFNoise_Windows.bat**. Your browser saves it, normally in **Downloads**. (If it warns that the file may be harmful, choose **Keep**.)
 3. Double-click it. If Windows says "Windows protected your PC", click **More info**, then **Run anyway**.
 4. Answer the short questions. It finds (or installs) the right Python, installs the helpers, finds your GPS, and puts icons on your Desktop. Suggested folder: `C:\RadioScripts`.
 5. Plug in the radio and GPS, and say **yes** to the full test at the end.
@@ -67,7 +67,7 @@ The **Install and User Guide (PDF)** is here: [docs/guides/RFNoise-Mapping-guide
 | Folder | What is in it |
 |---|---|
 | `app/` | The program (Python) and the control panel |
-| `installer-src/` | Source used to build `Install_RFNoise.bat` |
+| `installer-src/` | Source used to build `Install_RFNoise_Windows.bat` |
 | `mac/` | Mac installer (experimental) |
 | `docs/guides/` | Install and User Guide (PDF) |
 | `docs/release-notes/` | What changed in each version |

@@ -1,11 +1,11 @@
-"""Builds Install_RFNoise.bat: stub + readable PowerShell + base64 zip payload (same layout as the KPA installer)."""
+"""Builds Install_RFNoise_Windows.bat: stub + readable PowerShell + base64 zip payload (same layout as the KPA installer)."""
 import base64, io, os, sys, zipfile
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PAYLOAD = os.path.join(ROOT, "payload")
 APP = os.path.join(os.path.dirname(ROOT), "app")
 REPO = os.path.dirname(ROOT)
-OUT = sys.argv[1] if len(sys.argv) > 1 else os.path.join(REPO, "Install_RFNoise.bat")
+OUT = sys.argv[1] if len(sys.argv) > 1 else os.path.join(REPO, "Install_RFNoise_Windows.bat")
 
 STUB = r'''@echo off
 setlocal

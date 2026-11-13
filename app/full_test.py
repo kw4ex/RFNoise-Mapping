@@ -71,13 +71,13 @@ def test_software(r):
         import numpy
         r.add("Software", "ok", f"numpy {numpy.__version__} (math library)")
     except ImportError:
-        r.add("Software", "fix", "numpy is missing. Run Install_RFNoise.bat again.")
+        r.add("Software", "fix", "numpy is missing. Run Install_RFNoise_Windows.bat again.")
     try:
         import serial
         r.add("Software", "ok", f"pyserial {getattr(serial, '__version__', '?')} (USB GPS library)")
     except ImportError:
         r.add("Software", "warn", "pyserial is missing, so a USB GPS cannot be used (iPhone GPS still works). "
-                                  "Run Install_RFNoise.bat again.")
+                                  "Run Install_RFNoise_Windows.bat again.")
     soapy, note = C.find_soapy()
     if soapy is None:
         r.add("Software", "fix", "Radio library (SoapySDR) not usable. " + note)
