@@ -192,6 +192,11 @@ details summary{cursor:pointer;color:var(--acc);font-size:13.5px;margin:6px 0}
    <canvas id="cvWf" class="pcan" width="1000" height="220" style="margin-top:2px"></canvas>
    <canvas id="cvOv" width="1000" height="432"></canvas>
   </div>
+  <div class="row" style="margin:6px 0 2px;align-items:center;gap:6px 16px" id="mkBar">
+   <label class="chk" style="font-weight:600"><input type="checkbox" id="mkOn" onchange="mkChanged()"> <span>Show known-frequency markers</span></label>
+   <span id="mkCats" class="mut"></span>
+   <span class="mut">Click a marker to tune and centre on it.</span>
+  </div>
   <div class="row" style="margin-top:6px">
    <div class="rxonly" style="flex:1 1 320px"><label>What you hear (audio, 0&ndash;7.8 kHz)</label><canvas id="cvAud" class="pcan" width="500" height="70"></canvas></div>
    <div style="flex:1 1 220px">
@@ -572,6 +577,43 @@ const PAN_BANDS=[   // name, default centre MHz, default tune MHz, mode, default
  ["30 m",10.125,10.125,"CW",25e4,10.1,10.15],["20 m",14.175,14.25,"USB",5e5,14.0,14.35],["17 m",18.12,18.12,"USB",25e4,18.068,18.168],["15 m",21.225,21.25,"USB",5e5,21.0,21.45],
  ["12 m",24.94,24.94,"USB",25e4,24.89,24.99],["CB (11 m, channels 1-40)",27.185,27.185,"AM",5e5,26.965,27.405],["10 m",28.85,28.4,"USB",2e6,28.0,29.7],["6 m",52.0,50.125,"USB",4e6,50.0,54.0],
  ["AM airband",127.0,127.0,"AM",2e6,118.0,137.0],["2 m",146.0,146.52,"NFM",4e6,144.0,148.0],["70 cm",440.0,446.0,"NFM",8e6,420.0,450.0]];
+/* known-frequency markers */
+const MK_CATS={cb:"CB channels",time:"Time stations &amp; weather",ham:"Ham calling &amp; beacons",air:"Airband &amp; marine",frs:"FRS / GMRS"};
+const PAN_MARKS=(()=>{ const L=[];
+  const cb=[26965,26975,26985,27005,27015,27025,27035,27055,27065,27075,27085,27105,27115,27125,27135,27155,27165,27175,27185,27205,27215,27225,27255,27235,27245,27265,27275,27285,27295,27305,27315,27325,27335,27345,27355,27365,27375,27385,27395,27405];
+  cb.forEach((k,i)=>{const n=i+1; const m=n===36?"USB":n===38?"LSB":"AM"; L.push([k*1e3,"CB "+n,"cb",m,"CB channel "+n+(n===9?" (emergency)":n===19?" (highway)":n===36?" (SSB calling)":n===38?" (SSB calling)":"")]);});
+  [2.5,5,10,15,20].forEach(m=>L.push([m*1e6,"WWV "+m,"time","AM","WWV time station, "+m+" MHz"]));
+  [[3.33,"CHU 3.33"],[7.85,"CHU 7.85"],[14.67,"CHU 14.67"]].forEach(x=>L.push([x[0]*1e6,x[1],"time","AM","CHU time station (Canada), "+x[0]+" MHz"]));
+  [162.4,162.425,162.45,162.475,162.5,162.525,162.55].forEach((m,i)=>L.push([m*1e6,"WX "+m.toFixed(3),"time","NFM","NOAA weather radio, "+m+" MHz"]));
+  [[14.1,"Beacons 20m"],[18.11,"Beacons 17m"],[21.15,"Beacons 15m"],[24.93,"Beacons 12m"],[28.2,"Beacons 10m"]].forEach(x=>L.push([x[0]*1e6,x[1],"ham","CW","NCDXF/IARU beacon frequency, "+x[0]+" MHz"]));
+  [[29.6,"10m FM","NFM","10 m FM calling"],[52.525,"6m FM","NFM","6 m FM calling"],[146.52,"2m call","NFM","2 m national simplex calling"],[223.5,"1.25m call","NFM","1.25 m calling"],[446.0,"70cm call","NFM","70 cm national simplex calling"]].forEach(x=>L.push([x[0]*1e6,x[1],"ham",x[2],x[3]]));
+  [[121.5,"Guard 121.5","AM","Aircraft emergency (guard)"],[122.8,"Unicom","AM","Unicom, small airports"],[123.45,"Air-air","AM","Air-to-air, 123.45"],
+   [156.8,"Marine 16","NFM","Marine VHF channel 16 (calling and distress)"],[156.45,"Marine 9","NFM","Marine VHF channel 9"],[156.65,"Marine 13","NFM","Marine VHF channel 13 (bridge to bridge)"]].forEach(x=>L.push([x[0]*1e6,x[1],"air",x[2],x[3]]));
+  [462.5625,462.5875,462.6125,462.6375,462.6625,462.6875,462.7125,467.5625,467.5875,467.6125,467.6375,467.6625,467.6875,467.7125,462.55,462.575,462.6,462.625,462.65,462.675,462.7,462.725]
+   .forEach((m,i)=>L.push([Math.round(m*1e6),"FRS "+(i+1),"frs","NFM","FRS/GMRS channel "+(i+1)+", "+m+" MHz"]));
+  return L.sort((a,b)=>a[0]-b[0]); })();
+PAN.mk={on:true,cats:{cb:1,time:1,ham:1,air:1,frs:1}}; PAN.mkHits=[];
+function mkLoad(){ try{const j=JSON.parse(localStorage.getItem("rfmapPanMk")||"null"); if(j&&j.cats) PAN.mk={on:j.on!==false,cats:Object.assign(PAN.mk.cats,j.cats)};}catch(e){}
+  $("mkOn").checked=PAN.mk.on;
+  $("mkCats").innerHTML=Object.keys(MK_CATS).map(k=>`<label class="chk" style="display:inline-flex;margin-right:12px"><input type="checkbox" class="mkc" data-k="${k}" ${PAN.mk.cats[k]?"checked":""} onchange="mkChanged()"> <span>${MK_CATS[k]}</span></label>`).join(""); }
+function mkChanged(){ PAN.mk.on=$("mkOn").checked; document.querySelectorAll(".mkc").forEach(c=>{PAN.mk.cats[c.dataset.k]=c.checked?1:0;});
+  document.querySelectorAll(".mkc").forEach(c=>{c.disabled=!PAN.mk.on;}); try{localStorage.setItem("rfmapPanMk",JSON.stringify(PAN.mk));}catch(e){} panOverlay(null); }
+function panMarkers(ox,f,W){
+  PAN.mkHits=[]; if(!PAN.mk.on)return;
+  const lo=f.center-f.rate/2, hi=f.center+f.rate/2, rowEnd=[-9,-9,-9,-9], ys=[34,52,70,88];
+  ox.font="bold 13px sans-serif";
+  for(const m of PAN_MARKS){
+    if(m[0]<lo||m[0]>hi||!PAN.mk.cats[m[2]])continue;
+    const x=panXOf(m[0],f); ox.strokeStyle="rgba(255,212,94,.55)"; ox.lineWidth=1; ox.setLineDash([3,3]); ox.beginPath(); ox.moveTo(x,20); ox.lineTo(x,196); ox.stroke(); ox.setLineDash([]);
+    const w=ox.measureText(m[1]).width+8; let row=-1; for(let r=0;r<4;r++){ if(x-w/2>rowEnd[r]+3){row=r;break;} }
+    if(row<0)continue;
+    const x0=Math.min(Math.max(x-w/2,2),W-w-2); rowEnd[row]=x0+w;
+    ox.fillStyle="rgba(10,16,28,.82)"; ox.fillRect(x0,ys[row]-13,w,18); ox.strokeStyle="rgba(255,212,94,.9)"; ox.strokeRect(x0+.5,ys[row]-13+.5,w-1,17);
+    ox.fillStyle="#ffe08a"; ox.fillText(m[1],x0+4,ys[row]);
+    PAN.mkHits.push({x0,x1:x0+w,y0:ys[row]-13,y1:ys[row]+5,m});
+  }
+}
+function panMarkAt(mx,my){ for(const h of PAN.mkHits){ if(mx>=h.x0&&mx<=h.x1&&my>=h.y0&&my<=h.y1) return h.m; } return null; }
 const WF_LUT=(()=>{const L=new Uint8ClampedArray(256*3);const st=[[0,[0,0,40]],[0.25,[0,40,200]],[0.5,[0,200,200]],[0.7,[240,240,0]],[0.9,[255,100,0]],[1,[255,255,255]]];
  for(let i=0;i<256;i++){const t=i/255;let k=0;while(k<st.length-2&&t>st[k+1][0])k++;const a=st[k],b=st[k+1];
   const u=Math.min(1,Math.max(0,(t-a[0])/(b[0]-a[0])));for(let c=0;c<3;c++)L[i*3+c]=a[1][c]+(b[1][c]-a[1][c])*u;}return L;})();
@@ -688,11 +730,12 @@ async function panMemSave(){
   await panMemStore(); toast("Saved "+fmtMHz(PAN.tune)+" MHz "+PAN.mode+" to memory.",3000);
 }
 async function panMemDel(i){ const m=PAN.mem[i]; if(!m||!confirm("Delete this memory?\n\n"+fmtMHz(m.hz)+" MHz "+m.mode+(m.name?"  "+m.name:"")))return; PAN.mem.splice(i,1); panMemRender(); await panMemStore(); }
-function panMemGo(i){
-  const m=PAN.mem[i]; if(!m)return; if(PAN.locked){panLockMsg();return;}
-  PAN.mode=m.mode; PAN.bw=(PAN_BW[m.mode]||[]).includes(m.bw)?m.bw:PAN_BW_DEF[m.mode]; PAN.tune=m.hz; PAN.center=m.hz; PAN.clearWf=true;
+function panGoFreq(hz,mode,bw){
+  if(PAN.locked){panLockMsg();return;}
+  PAN.mode=mode; PAN.bw=(PAN_BW[mode]||[]).includes(bw)?bw:PAN_BW_DEF[mode]; PAN.tune=hz; PAN.center=hz; PAN.clearWf=true;
   panFillBw(); panShowControls(); panSave(); panPost({center:PAN.center,tune:PAN.tune,mode:PAN.mode,bw:PAN.bw});
 }
+function panMemGo(i){ const m=PAN.mem[i]; if(m) panGoFreq(m.hz,m.mode,m.bw); }
 
 /* audio recording */
 const REC={on:false,t0:0};
@@ -872,6 +915,7 @@ function panOverlay(mx){
   const f0=f.center-sp/2; for(let hz=Math.ceil(f0/st)*st; hz<f0+sp; hz+=st){const x=panXOf(hz,f);ox.beginPath();ox.moveTo(x,0);ox.lineTo(x,432);ox.stroke();ox.fillText((hz/1e6).toFixed(st<1000?4:st<100000?3:2),x+4,213);}
   // edges of the picture are less reliable (radio filter roll-off)
   ox.fillStyle="rgba(120,120,120,.18)";ox.fillRect(0,0,W*0.06,H);ox.fillRect(W*0.94,0,W*0.06,H);
+  panMarkers(ox,f,W);
   // tuned marker and passband
   const tn=f.viewonly?f.tune:PAN.tune, [e0,e1]=panEdges(f), xt=panXOf(tn,f);
   ox.fillStyle="rgba(255,60,60,.18)";ox.fillRect(panXOf(tn+e0,f),0,Math.max(2,panXOf(tn+e1,f)-panXOf(tn+e0,f)),H);
@@ -883,6 +927,9 @@ function panMouse(e,click){
   if(click&&PAN.viewOnly){toast("You cannot tune while logging (the radio is busy measuring). Stop logging, then use Start panadapter to listen.",7000);return;}
   const oc=$("cvOv"),r=oc.getBoundingClientRect(),f=PAN.last; if(!f)return;
   const mx=(e.clientX-r.left)*oc.width/r.width, hz=f.center-f.rate/2+(mx/oc.width)*f.rate;
+  const my=(e.clientY-r.top)*oc.height/r.height, mk=panMarkAt(mx,my);
+  oc.style.cursor=mk?"pointer":"crosshair";
+  if(mk){ if(click){ panGoFreq(mk[0],mk[3],0); return; } $("panHover").textContent=mk[4]+": "+fmtMHz(mk[0])+" MHz "+(mk[3]==="NFM"?"FM":mk[3])+"  (click to tune and centre)"; panOverlay(mx); return; }
   const snap=Math.round(hz/PAN.step)*PAN.step;
   $("panHover").textContent="Pointer: "+fmtMHz(snap)+" MHz"+(click?"":"  (click to tune)");
   if(click) panSetTune(snap,true); else panOverlay(mx);
@@ -911,7 +958,7 @@ function panWire(){
 document.querySelectorAll("input[name=gpsm]").forEach(r=>r.onchange=showGpsFields);
 checkBlockers();
 $("practice").onchange=showGpsFields;
-panInit(); panWire(); setInterval(panSlotLabels,1500); recList(); setInterval(recPoll,1000);
+panInit(); mkLoad(); mkChanged(); panWire(); setInterval(panSlotLabels,1500); recList(); setInterval(recPoll,1000);
 $("phoneAccess").onchange=()=>guard(async()=>{await api("/api/config",{phone_access:$("phoneAccess").checked});toast("Saved. Quit and reopen RF Noise Map to apply.");});
 refreshAll().then(()=>refreshLive()).catch(()=>{});
 setInterval(refreshLive,1200);
