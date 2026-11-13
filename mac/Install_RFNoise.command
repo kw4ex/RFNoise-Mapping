@@ -195,13 +195,20 @@ cat > "$APPBUNDLE/Contents/Info.plist" <<'PLIST'
 <key>CFBundleIconFile</key><string>icon</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleVersion</key><string>1.0</string>
+<key>LSArchitecturePriority</key><array><string>arm64</string><string>x86_64</string></array>
 </dict></plist>
 PLIST
 cat > "$APPBUNDLE/Contents/MacOS/launcher" <<LAUNCH
 #!/bin/bash
 cd "$DEST/app" || exit 1
 mkdir -p "\$HOME/Library/Logs"
-exec "$DEST/venv/bin/python" rfmap_app.py >> "\$HOME/Library/Logs/RFNoiseMap.log" 2>&1
+PY="$DEST/venv/bin/python"
+# Apple-silicon Mac: always start natively. An icon with no declared processor type can be started under
+# Rosetta (Intel emulation), which cannot load the arm64 libraries (numpy then fails to import).
+if [ "\$(sysctl -n hw.optional.arm64 2>/dev/null)" = "1" ]; then
+    exec arch -arm64 "\$PY" rfmap_app.py >> "\$HOME/Library/Logs/RFNoiseMap.log" 2>&1
+fi
+exec "\$PY" rfmap_app.py >> "\$HOME/Library/Logs/RFNoiseMap.log" 2>&1
 LAUNCH
 chmod +x "$APPBUNDLE/Contents/MacOS/launcher"
 if command -v sips >/dev/null 2>&1 && sips -s format icns "$DEST/app/icon.png" --out "$APPBUNDLE/Contents/Resources/icon.icns" >/dev/null 2>&1; then

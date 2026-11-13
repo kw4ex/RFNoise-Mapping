@@ -693,6 +693,10 @@ class Handler(BaseHTTPRequestHandler):
                     msg += (" (macOS is blocking this program from that folder. Documents, Desktop and Downloads are protected. "
                             "Open System Settings > Privacy & Security > Full Disk Access and switch on Terminal, "
                             "or tell KW4EX.)")
+                if isinstance(e, ImportError) and "numpy" in str(e):
+                    import platform
+                    msg += (f" [This program is running as '{platform.machine()}'. On an Apple-silicon Mac it must run as arm64; "
+                            "close RF Noise Map and open it again from the Desktop icon, or run the installer again.]")
                 warns.append(f"{label}: {msg}")
                 return default
 
