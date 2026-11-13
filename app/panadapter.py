@@ -25,7 +25,7 @@ FFT_N = 4096                    # spectrum resolution (bins across the whole spa
 AUDIO_RATE = 62500              # samples per second of the audio sent to the browser
 BLOCK_S = 0.04                  # one block of radio samples = 40 ms
 SPANS = [250_000, 500_000, 1_000_000, 2_000_000, 4_000_000, 8_000_000]
-MODES = ("AM", "USB", "LSB", "CW", "NFM")
+MODES = ("AM", "SAM", "USB", "LSB", "CW", "NFM", "WFM")
 DB_LO, DB_HI = -120.0, 0.0      # spectrum is sent as bytes: DB_LO -> 0, DB_HI -> 255
 CW_PITCH = 700.0                # the tone you hear in CW mode
 AUDIO_NFFT = 1024               # audio spectrum: 0 to AUDIO_RATE/2 in 1024-point FFT
@@ -227,7 +227,7 @@ def _design(mode, bw, block):
     """Channel filter at AUDIO_RATE. Returns (complex taps FFT, ntaps, fft size, shift_hz)."""
     bw = float(max(bw, 50.0))
     shift = 0.0
-    if mode in ("AM", "NFM"):
+    if mode in ("AM", "SAM", "NFM"):
         lo, hi = -bw / 2, bw / 2
     elif mode == "USB":
         lo, hi = 250.0, 250.0 + bw
@@ -259,6 +259,9 @@ class Receiver:
         self.mix_phase = 0.0
         self.cw_phase = 0.0
         self.prev_fm = np.complex64(0)
+        self.sam_tail = None        # SAM: carrier-tracking filter memory
+        self.wfm_tail = None        # wide FM: audio filter memory
+        self.wfm_prev = np.complex64(0)
         self.dc = 0.0
         self.agc_gain = 1.0
         self.lvl = 1e-4
@@ -279,9 +282,16 @@ class Receiver:
         self.mix_phase = (self.mix_phase + w * n) % (2 * np.pi)
         y = x * np.exp(1j * ph).astype(np.complex64)
         # 2) bring the sample rate down to AUDIO_RATE
-        for i in range(self.nstages):
+        wide = (mode == "WFM")                     # broadcast FM needs a wider picture (250,000 samples/s) than the other modes
+        nst = max(self.nstages - 2, 0) if wide else self.nstages
+        for i in range(nst):
             y, self.states[i] = _half_decimate(y, self.states[i])
         L = y.size
+        if wide:
+            a, p = self._wfm(y)
+            db = 10.0 * math.log10(p)
+            self.smeter = db if self.smeter < -119 else 0.6 * self.smeter + 0.4 * db
+            return self._finish(a.astype(np.float32), p, squelch_db)
         # 3) sharp channel filter for the chosen mode and bandwidth
         key = (mode, round(float(bw)), L)
         if key != self._design_key:
@@ -296,7 +306,26 @@ class Receiver:
         db = 10.0 * math.log10(p)
         self.smeter = db if self.smeter < -119 else 0.6 * self.smeter + 0.4 * db
         # 4) demodulate
-        if mode == "AM":
+        if mode == "SAM":
+            # synchronous AM: a narrow filter picks out the carrier, and the signal is
+            # multiplied by the carrier's phase. Selective fading and tuning errors then
+            # distort the sound far less than in plain AM.
+            K = 400
+            ker = np.exp(-np.arange(K) / 80.0).astype(np.float32)
+            ker /= ker.sum()
+            if self.sam_tail is None or self.sam_tail.size != K - 1:
+                self.sam_tail = np.zeros(K - 1, np.complex64)
+                self.sam_tail[:] = yf[:K - 1].mean() if yf.size >= K - 1 else 0
+            buf = np.concatenate((self.sam_tail, yf))
+            self.sam_tail = buf[-(K - 1):]
+            car = np.convolve(buf, ker, mode="valid")[:L]
+            car = car / (np.abs(car) + 1e-12)
+            a = (yf * np.conj(car)).real
+            m = float(a.mean())
+            dc0 = self.dc if self.dc else m
+            self.dc = dc0 + 0.25 * (m - dc0)
+            a = a - np.linspace(dc0, self.dc, L, dtype=np.float32)
+        elif mode == "AM":
             a = np.abs(yf)
             m = float(a.mean())
             dc0 = self.dc if self.dc else m
@@ -315,6 +344,34 @@ class Receiver:
         else:                                  # USB / LSB
             a = yf.real
         a = a.astype(np.float32)
+        return self._finish(a, p, squelch_db)
+
+    def _wfm(self, y):
+        """Broadcast (wide) FM at 250,000 samples/s: demodulate, 15 kHz audio filter, 75 us de-emphasis, down to AUDIO_RATE."""
+        n = y.size
+        z = np.concatenate(([self.wfm_prev], y))
+        self.wfm_prev = y[-1]
+        p = float(np.mean(np.abs(y) ** 2)) + 1e-20
+        a = np.angle(z[1:] * np.conj(z[:-1])).astype(np.float32)
+        a *= 250_000.0 / (2 * np.pi * 75_000.0)
+        fs = 250_000.0
+        taps = 63
+        k = np.arange(taps) - (taps - 1) / 2.0
+        lp = np.sinc(2 * 15_000.0 / fs * k) * np.hanning(taps)
+        lp /= lp.sum()
+        de = np.exp(-np.arange(160) / (fs * 75e-6))
+        de /= de.sum()
+        h = np.convolve(de, lp).astype(np.float32)
+        if self.wfm_tail is None or self.wfm_tail.size != h.size - 1:
+            self.wfm_tail = np.zeros(h.size - 1, np.float32)
+        buf = np.concatenate((self.wfm_tail, a))
+        self.wfm_tail = buf[-(h.size - 1):]
+        f = np.convolve(buf, h, mode="valid")[:n]
+        ratio = int(round(fs / AUDIO_RATE))
+        return f[::ratio], p
+
+    def _finish(self, a, p, squelch_db):
+        L = a.size
         # 5) squelch, then automatic audio level (AGC)
         if squelch_db > -119 and self.smeter < squelch_db:
             self.agc_gain = max(self.agc_gain * 0.9, 1.0)
@@ -536,7 +593,7 @@ class Panadapter:
                     raise ValueError("Unknown mode.")
                 o["mode"] = m
             if "bw" in b:
-                o["bw"] = float(min(max(float(b["bw"]), 50.0), 20_000.0))
+                o["bw"] = float(min(max(float(b["bw"]), 50.0), 300_000.0))
             if "squelch" in b:
                 o["squelch"] = float(min(max(float(b["squelch"]), -120.0), 0.0))
             if "auto_gain" in b:

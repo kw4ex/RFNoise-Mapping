@@ -138,6 +138,7 @@ details summary{cursor:pointer;color:var(--acc);font-size:13.5px;margin:6px 0}
     <div class="row">
       <div><label>IF attenuation (dB, 20&ndash;59)</label><br><input type="number" id="ifgr" min="20" max="59" onchange="gainChanged()"></div>
       <div><label>RF attenuation (0&ndash;27)</label><br><input type="number" id="rfgr" min="0" max="27" onchange="gainChanged()"></div>
+      <div><br><button class="sm" onclick="gainReset()">Reset to defaults (IF 40, RF 0)</button></div>
     </div>
     <div class="mut">Recording always uses these fixed numbers (never automatic gain). Pick values before a drive and leave them alone so dots can be compared. If readings are pinned at the top or bottom, or strong stations overload the radio, raise the attenuation; raise it more for stronger signals. You can change it while driving if you must, but dots before and after the change are then not directly comparable.</div>
    </details>
@@ -210,6 +211,7 @@ details summary{cursor:pointer;color:var(--acc);font-size:13.5px;margin:6px 0}
    <label class="chk"><input type="checkbox" id="panScale" checked> <span>Auto scale the picture</span></label>
    <div><label>IF attenuation (dB, 20&ndash;59)</label><br><input type="number" id="panIf" min="20" max="59" value="40" onchange="panGain()"></div>
    <div><label>RF attenuation (0&ndash;27)</label><br><input type="number" id="panRf" min="0" max="27" value="0" onchange="panGain()"></div>
+   <div><br><button class="sm" onclick="gainReset()" title="Put IF attenuation back to 40 dB and RF attenuation to 0">Reset to defaults (IF 40, RF 0)</button></div>
    <label class="chk rxonly"><input type="checkbox" id="panAuto" onchange="panGain()"> <span>Automatic gain (for listening only)</span></label>
   </div>
   <div class="mut"><b>Attenuation</b> reduces how strongly the radio amplifies, so strong signals do not overload it. The two boxes are the <b>same settings used for recording</b> (also under More settings in box 1), so what you see is what gets recorded. Raise the numbers if the picture fills with false signals or is crowded by strong stations; lower them to hear weak signals. <b>Automatic gain is never used while recording</b>; recording always uses these fixed numbers. If you change attenuation while logging, later dots are no longer directly comparable with earlier ones.</div>
@@ -591,14 +593,16 @@ function setSpacing(v){$("spacing").value=v; spacingChanged();}
 /* ---------- panadapter ---------- */
 const PAN={viewOnly:false,logging:false,on:false,seq:-1,center:7150000,rate:2000000,tune:7200000,mode:"LSB",bw:2400,step:1000,sq:-120,
   last:null,peak:null,lo:150,hi:230,timer:null,atimer:null,aAfter:0,aNext:0,actx:null,gain:null,pt:null};
-const PAN_BW={AM:[3000,4000,6000,8000,10000,12000],USB:[1800,2100,2400,2700,3000,3600],LSB:[1800,2100,2400,2700,3000,3600],
+const PAN_BW={AM:[3000,4000,6000,8000,10000,12000],SAM:[3000,4000,6000,8000,10000,12000],WFM:[100000,150000,200000],USB:[1800,2100,2400,2700,3000,3600],LSB:[1800,2100,2400,2700,3000,3600],
   CW:[100,200,300,500,800,1200],NFM:[8000,10000,12000,15000,20000]};
-const PAN_BW_DEF={AM:6000,USB:2400,LSB:2400,CW:300,NFM:12000};
+const PAN_BW_DEF={AM:6000,SAM:6000,USB:2400,LSB:2400,CW:300,NFM:12000,WFM:150000};
+const PAN_MODES=["AM","SAM","USB","LSB","CW","NFM","WFM"];
+const MODE_LBL={NFM:"FM (narrow)",WFM:"FM (broadcast)",SAM:"SAM (sync AM)"};
 const PAN_BANDS=[   // name, default centre MHz, default tune MHz, mode, default width Hz, band start MHz, band end MHz
  ["AM broadcast",1.1,1.01,"AM",2e6,0.53,1.70],["160 m",1.9,1.9,"LSB",5e5,1.8,2.0],["80 m",3.75,3.85,"LSB",5e5,3.5,4.0],["40 m",7.15,7.2,"LSB",5e5,7.0,7.3],
  ["30 m",10.125,10.125,"CW",25e4,10.1,10.15],["20 m",14.175,14.25,"USB",5e5,14.0,14.35],["17 m",18.12,18.12,"USB",25e4,18.068,18.168],["15 m",21.225,21.25,"USB",5e5,21.0,21.45],
  ["12 m",24.94,24.94,"USB",25e4,24.89,24.99],["CB (11 m, channels 1-40)",27.185,27.185,"AM",5e5,26.965,27.405],["10 m",28.85,28.4,"USB",2e6,28.0,29.7],["6 m",52.0,50.125,"USB",4e6,50.0,54.0],
- ["AM airband",127.0,127.0,"AM",2e6,118.0,137.0],["2 m",146.0,146.52,"NFM",4e6,144.0,148.0],["70 cm",440.0,446.0,"NFM",8e6,420.0,450.0]];
+ ["FM broadcast",98.0,98.1,"WFM",8e6,88.0,108.0],["AM airband",127.0,127.0,"AM",2e6,118.0,137.0],["2 m",146.0,146.52,"NFM",4e6,144.0,148.0],["70 cm",440.0,446.0,"NFM",8e6,420.0,450.0]];
 /* known-frequency markers */
 const MK_CATS={cb:"CB channels",time:"Time stations &amp; weather",ham:"Ham calling &amp; beacons",air:"Airband &amp; marine",frs:"FRS / GMRS"};
 const PAN_MARKS=(()=>{ const L=[];
@@ -644,7 +648,7 @@ const b64Bytes=b=>{const s=atob(b),u=new Uint8Array(s.length);for(let i=0;i<s.le
 
 function panInit(){
   $("panBand").innerHTML='<option value="">Choose...</option>'+PAN_BANDS.map((b,i)=>`<option value="${i}">${b[0]}</option>`).join("");
-  $("panModes").innerHTML=["AM","USB","LSB","CW","NFM"].map(m=>`<button id="pm_${m}" onclick="panSetMode('${m}')">${m==="NFM"?"FM (narrow)":m}</button>`).join("");
+  $("panModes").innerHTML=PAN_MODES.map(m=>`<button id="pm_${m}" onclick="panSetMode('${m}')">${MODE_LBL[m]||m}</button>`).join("");
   try{const j=JSON.parse(localStorage.getItem("rfmapPan")||"null"); if(j&&j.center){Object.assign(PAN,{center:j.center,rate:j.rate,tune:j.tune,mode:j.mode,bw:j.bw});}}catch(e){}
   try{const st=+localStorage.getItem("rfmapPanStep"); if(st>0&&[...$("panStep").options].some(o=>+o.value===st)) $("panStep").value=String(st);}catch(e){}
   try{PAN.locked=localStorage.getItem("rfmapPanLock")==="1"; $("panWide").checked=localStorage.getItem("rfmapPanWide")==="1";}catch(e){}
@@ -656,7 +660,7 @@ function panFillBw(){
   $("panBw").innerHTML=l.map(b=>`<option value="${b}"${b===PAN.bw?" selected":""}>${b>=1000?(b/1000)+" kHz":b+" Hz"}</option>`).join("");
 }
 function panShowControls(){
-  for(const m of ["AM","USB","LSB","CW","NFM"]) $("pm_"+m).className=(m===PAN.mode?"on":"");
+  for(const m of PAN_MODES) $("pm_"+m).className=(m===PAN.mode?"on":"");
   $("panCenter").value=fmtMHz(PAN.center); $("panTune").value=fmtMHz(PAN.tune); panSpanShow(PAN.rate);
   panSlotLabels();
 }
@@ -683,6 +687,17 @@ function panSetTune(hz,typed){
   if(PAN.on) $("panStatus").textContent=PAN.practiceNote||"";
 }
 function panStepChanged(){ PAN.step=+$("panStep").value; $("panTune").step=PAN.step/1e6; try{localStorage.setItem("rfmapPanStep",String(PAN.step));}catch(e){} }
+/* Left / Right arrow keys tune down / up by the chosen step (hold Shift for 10 steps). Works anywhere except while typing in another box or moving a slider. */
+document.addEventListener("keydown",function(e){
+  if(e.key!=="ArrowLeft"&&e.key!=="ArrowRight") return;
+  if(e.ctrlKey||e.altKey||e.metaKey) return;
+  const t=e.target, tag=(t&&t.tagName)||"";
+  if(t&&t.id!=="panTune"){ if(tag==="TEXTAREA"||tag==="SELECT"||(tag==="INPUT"&&t.type!=="checkbox"&&t.type!=="radio"&&t.type!=="button")) return; }
+  if(!PAN.on||PAN.viewOnly) return;
+  e.preventDefault();
+  const base=PAN.tune>0?PAN.tune:parseFloat($("panTune").value)*1e6;
+  panSetTune(Math.round(base/PAN.step)*PAN.step+(e.key==="ArrowRight"?1:-1)*PAN.step*(e.shiftKey?10:1));
+});
 function panTuneKey(e){
   if(e.key==="Enter"){panGoTune();}
   else if(e.key==="ArrowUp"||e.key==="ArrowDown"){ e.preventDefault(); const cur=parseFloat($("panTune").value); const base=cur>0?cur*1e6:PAN.tune;
@@ -713,6 +728,8 @@ function panBand(i){ if(i==="")return; if(PAN.locked){ panLockMsg(); $("panBand"
   panFillBw(); panShowControls(); panSave(); panPost({center:PAN.center,rate:PAN.rate,tune:PAN.tune,mode:PAN.mode,bw:PAN.bw}); $("panBand").value=""; }
 function panWideChanged(){ try{localStorage.setItem("rfmapPanWide",$("panWide").checked?"1":"0");}catch(e){} }
 function gainSync(){ if($("panIf")){ $("panIf").value=$("ifgr").value||40; $("panRf").value=$("rfgr").value||0; } }
+function gainReset(){ $("ifgr").value=40; $("rfgr").value=0; gainChanged();
+  if($("panAuto")&&$("panAuto").checked){ $("panAuto").checked=false; } if(!PAN.viewOnly&&PAN.on) panPost({auto_gain:false,if_gain:40,rf_state:0}); }
 async function gainChanged(){
   const a=Math.min(59,Math.max(20,Math.round(+$("ifgr").value||40))), r=Math.min(27,Math.max(0,Math.round(+$("rfgr").value||0)));
   $("ifgr").value=a; $("rfgr").value=r; gainSync();
