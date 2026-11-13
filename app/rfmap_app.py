@@ -38,10 +38,12 @@ import check_setup
 import gps_detect
 import device_guard
 import make_map
+from panadapter import PAN
 
 DEFAULT_PORT = 8780
 LOGGER_PORT = 8765
 HERE = C.app_dir()
+from panadapter import AUDIO_RATE as C_AUDIO_RATE
 
 DEFAULT_CONFIG = {
     "route_name": "",
@@ -197,6 +199,7 @@ class App:
     def start(self):
         if self.running():
             raise ValueError("Already logging.")
+        PAN.stop()                          # the radio can only do one job: close the panadapter first
         c = self.cfg
         spec = self.gps_spec()
         chans = self.clean_channels(c["channels"])
@@ -522,6 +525,12 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(self.live_state())
             if path == "/api/drives":
                 return self._json({"drives": APP.drives(), "maps": APP.maps(), "exports": APP.exports()})
+            if path == "/api/pan/frame":
+                return self._json(PAN.get_frame(int((q.get("after") or ["-1"])[0] or -1)))
+            if path == "/api/pan/audio":
+                data, last = PAN.get_audio(int((q.get("after") or ["0"])[0] or 0))
+                return self._send(200, data, "application/octet-stream",
+                                  {"X-Seq": str(last), "X-Rate": str(C_AUDIO_RATE)})
             if path == "/api/blockers":
                 return self._json(device_guard.find_blockers())
             if path == "/api/ports":
@@ -575,6 +584,17 @@ class Handler(BaseHTTPRequestHandler):
     def route_post(self, path, b):
         if path == "/api/config":
             APP.update_cfg(b)
+            return {"ok": True}
+        if path == "/api/pan/start":
+            if APP.running():
+                raise ValueError("Stop logging first. The radio can only do one job at a time.")
+            PAN.start(b, bool(APP.cfg.get("practice")))
+            return {"ok": True, "radio": PAN.name}
+        if path == "/api/pan/set":
+            PAN.set(b)
+            return {"ok": True}
+        if path == "/api/pan/stop":
+            PAN.stop()
             return {"ok": True}
         if path == "/api/start":
             APP.update_cfg(b)
@@ -632,6 +652,8 @@ class Handler(BaseHTTPRequestHandler):
             return {"ok": True, "file": os.path.basename(out)}
         if path == "/api/demo":
             return dict(ok=True, **APP.demo())
+        if path in ("/api/check", "/api/fulltest", "/api/gps_detect"):
+            PAN.stop()
         if path == "/api/check":
             if APP.running():
                 return {"ok": True, "results": [{"name": "Logging", "status": "info",
@@ -668,6 +690,7 @@ class Handler(BaseHTTPRequestHandler):
             res = gps_detect.find_gps(budget_s=45, listen=2.5)
             return {"ok": True, **res}
         if path == "/api/quit":
+            PAN.stop()
             APP.stop()
             threading.Timer(0.4, lambda: os._exit(0)).start()
             return {"ok": True}

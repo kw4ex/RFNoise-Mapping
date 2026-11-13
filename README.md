@@ -14,6 +14,7 @@ An **SDRplay RSP1** receiver and a **GPS** log the signal level about every 10 f
 - Logs a reading about every **10 feet** while you drive, with the position from your GPS.
 - Draws a **Leaflet street map**. Each dot is a reading: **blue = weak, red = strong**. Pick which frequency to look at.
 - Has a **practice mode** with pretend radio and GPS, so you can try everything at home.
+- Has a **panadapter**: a live spectrum and waterfall of the band with a built-in receiver (AM, USB, LSB, CW, narrow FM), so you can see and hear signals and pick frequencies to measure. (New, untested on the road.)
 - Has built-in checks: **Check setup**, **Find my GPS** and a one-minute **Full test**.
 
 ![Example map (practice data)](docs/images/map-example.png)

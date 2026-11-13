@@ -137,6 +137,17 @@ th{background:#f0f3f7}
 <div class="box tip"><b>Good habits:</b> don't change gain mid-route; keep the computer plugged in (the program keeps it awake while logging); drive each important road twice, once in each direction; note the date and conditions in <b>Name / notes</b>.</div>
 <div class="box warn"><b>Safety:</b> have a passenger operate the computer, or set everything up while parked. Please don't use the screen while driving.</div>
 
+<h3>Panadapter: see and hear the band, then pick your frequencies</h3>
+<p>The <b>Panadapter</b> box (just below Collect data) is a live picture of a slice of the radio spectrum, like the display on a ham SDR. The top picture shows signal strength for every frequency in view; the coloured picture below it is the <b>waterfall</b>, which scrolls so you can see signals come and go over time.</p>
+<ol>
+ <li>Press <span class="btn">&#9654; Start panadapter</span>. Allow sound if the browser asks. (It cannot run while logging, because the radio can only do one job at a time. Starting a log closes it automatically.)</li>
+ <li>Pick a band in <b>Jump to band</b>, or type a <b>Centre</b> frequency in MHz. <b>Width of view</b> is how much spectrum you see (250&nbsp;kHz to 8&nbsp;MHz). The grey edges of the picture are less accurate.</li>
+ <li><b>Click a signal</b> to tune to it and hear it. The red line is the tuned frequency and the red band is the receiver filter. The mouse wheel changes frequency one <b>Step</b> at a time, or type a frequency in <b>Tuned</b>.</li>
+ <li>Choose the <b>Mode</b> (AM, USB, LSB, CW or narrow FM) and the <b>Bandwidth</b> of the filter, as on any ham radio. The small green picture shows the audio you are hearing. Use <b>Squelch</b> to silence the audio when nothing is there.</li>
+ <li>To measure a frequency while driving, press <b>Mapping frequency 1&ndash;4</b>. The tuned frequency replaces that slot in the list in box 1. Pick a quiet one with no stations.</li>
+</ol>
+<div class="box tip">The level shown is <b>dBFS, not calibrated</b>. It is good for comparing places, not for absolute measurements. Leave <b>Automatic radio gain</b> on while listening; mapping always uses fixed gain.</div>
+
 <h2 id="where">7. Where your data is stored</h2>
 <p>Everything you create is in one folder: on a Mac, the <b>RF Noise Map</b> folder in your home folder (not inside Documents: macOS blocks programs from Documents); on Windows, the install folder itself (normally <b>C:\RadioScripts\RFNoise</b>). The window's footer shows its exact path, and <span class="btn">Open my data folder</span> opens it.</p>
 <table>

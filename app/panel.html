@@ -60,6 +60,15 @@ details summary{cursor:pointer;color:var(--acc);font-size:13.5px;margin:6px 0}
 #busy{position:fixed;left:50%;transform:translateX(-50%);top:70px;background:#1d4ed8;color:#fff;padding:12px 20px;border-radius:10px;font-size:15px;display:none;z-index:100;max-width:90%;box-shadow:0 4px 18px rgba(0,0,0,.35)}
 #busy .sp{display:inline-block;width:14px;height:14px;border:3px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:bspin .8s linear infinite;vertical-align:-2px;margin-right:9px}
 @keyframes bspin{to{transform:rotate(360deg)}}
+.pcan{width:100%;display:block;border-radius:6px;background:#0b1522}
+#panWrap{position:relative;margin-top:8px}
+#cvOv{position:absolute;left:0;top:0;width:100%;height:100%;cursor:crosshair}
+.seg button{border-radius:0;margin-left:-1px}
+.seg button:first-child{border-radius:8px 0 0 8px;margin-left:0}
+.seg button:last-child{border-radius:0 8px 8px 0}
+.seg button.on{background:var(--acc);border-color:var(--acc);color:#fff;font-weight:600}
+.smeter{height:12px;border-radius:6px;background:#e3e8ee;position:relative;overflow:hidden;min-width:180px}
+.smeter i{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(to right,#35d07f,#f3d34a,#e8553f);width:0}
 </style></head><body>
 <header>
  <h1>RF Noise Map</h1>
@@ -129,6 +138,60 @@ details summary{cursor:pointer;color:var(--acc);font-size:13.5px;margin:6px 0}
  <div id="liveBox" style="display:none">
   <div class="mut" id="liveLine"></div>
   <div class="live" id="liveCards"></div>
+ </div>
+</section>
+
+
+<!-- ======================= PANADAPTER ======================= -->
+<section class="card" id="cPan">
+ <h2>Panadapter: see and hear the band <span class="tag" id="panTag"></span></h2>
+ <p class="sub">A live picture of a slice of the radio spectrum, like the display on a ham SDR. <b>Click a signal to listen to it.</b> Use it to find a quiet channel to measure, or to hunt for a noise source. The radio can do only one job at a time, so the panadapter closes by itself when you start logging.</p>
+ <div class="row">
+  <button class="pri" id="bPanStart" onclick="panStart()">&#9654; Start panadapter</button>
+  <button class="stop" id="bPanStop" onclick="panStop()" style="display:none">&#9632; Stop panadapter</button>
+  <span class="mut" id="panStatus"></span>
+ </div>
+ <div id="panBox" style="display:none">
+  <div class="row">
+   <div><label>Jump to band</label><br><select id="panBand" onchange="panBand(this.value)"></select></div>
+   <div><label>Centre (MHz)</label><br><input type="number" id="panCenter" step="any" style="width:130px" onkeydown="if(event.key==='Enter')panGoCenter()"> <button class="sm" onclick="panGoCenter()">Go</button></div>
+   <div><label>Width of view</label><br><select id="panSpan" onchange="panSetSpan(+this.value)">
+     <option value="250000">250 kHz</option><option value="500000">500 kHz</option><option value="1000000">1 MHz</option>
+     <option value="2000000" selected>2 MHz</option><option value="4000000">4 MHz</option><option value="8000000">8 MHz</option></select></div>
+   <div><label>Move view</label><br><button class="sm" onclick="panShift(-0.25)">&#9664; left</button> <button class="sm" onclick="panShift(0.25)">right &#9654;</button> <button class="sm" onclick="panRecentre()">Centre on tuned</button></div>
+  </div>
+  <div class="row">
+   <div><label>Mode</label><br><span class="seg" id="panModes"></span></div>
+   <div><label>Bandwidth</label><br><select id="panBw" onchange="panSetBw(+this.value)"></select></div>
+   <div><label>Tuned (MHz)</label><br><input type="number" id="panTune" step="any" style="width:130px" onkeydown="if(event.key==='Enter')panGoTune()"> <button class="sm" onclick="panGoTune()">Tune</button></div>
+   <div><label>Step</label><br><select id="panStep" onchange="PAN.step=+this.value">
+     <option value="10">10 Hz</option><option value="100">100 Hz</option><option value="500">500 Hz</option><option value="1000" selected>1 kHz</option>
+     <option value="5000">5 kHz</option><option value="10000">10 kHz</option><option value="12500">12.5 kHz</option><option value="25000">25 kHz</option></select></div>
+   <div><label>Volume</label><br><input type="range" id="panVol" min="0" max="100" value="70" oninput="panVol()"> <label class="chk" style="display:inline-flex;margin:0"><input type="checkbox" id="panMute" onchange="panVol()"> <span>Mute</span></label></div>
+   <div><label>Squelch <span id="panSqV">off</span></label><br><input type="range" id="panSq" min="-120" max="-20" value="-120" oninput="panSquelch()"></div>
+  </div>
+  <div id="panWrap">
+   <canvas id="cvSpec" class="pcan" width="1000" height="210"></canvas>
+   <canvas id="cvWf" class="pcan" width="1000" height="220" style="margin-top:2px"></canvas>
+   <canvas id="cvOv" width="1000" height="432"></canvas>
+  </div>
+  <div class="row" style="margin-top:6px">
+   <div style="flex:1 1 320px"><label>What you hear (audio, 0&ndash;7.8 kHz)</label><canvas id="cvAud" class="pcan" width="500" height="70"></canvas></div>
+   <div style="flex:1 1 220px"><label>Signal level in the filter: <b id="panLvl">&ndash;</b> (dBFS, not calibrated)</label><div class="smeter"><i id="panLvlBar"></i></div>
+     <div class="mut" id="panHover" style="margin-top:6px">Click the picture to tune. Mouse wheel changes frequency by one step.</div></div>
+  </div>
+  <div class="row">
+   <label class="chk"><input type="checkbox" id="panScale" checked> <span>Auto scale the picture</span></label>
+   <label class="chk"><input type="checkbox" id="panAuto" checked onchange="panGain()"> <span>Automatic radio gain</span></label>
+   <div><label>IF gain reduction</label><br><input type="number" id="panIf" min="20" max="59" value="40" onchange="panGain()"></div>
+   <div><label>RF gain reduction</label><br><input type="number" id="panRf" min="0" max="8" value="0" onchange="panGain()"></div>
+  </div>
+  <div class="mut">The two gain boxes only work with Automatic radio gain off. Mapping always uses fixed gain so dots can be compared, so leave this on automatic while you listen.</div>
+  <div style="margin-top:8px"><b>Use the tuned frequency for mapping:</b> <span class="mut">(replaces that slot in the list above)</span>
+   <div class="row" style="margin-top:4px">
+    <button id="panSlot0" onclick="panUseSlot(0)"></button><button id="panSlot1" onclick="panUseSlot(1)"></button>
+    <button id="panSlot2" onclick="panUseSlot(2)"></button><button id="panSlot3" onclick="panUseSlot(3)"></button>
+   </div></div>
  </div>
 </section>
 
@@ -222,11 +285,12 @@ const BUSY_MSG={"/api/fulltest":"Full test running: checking the software, radio
  "/api/free_devices":"Closing the other programs that are using the radio or GPS",
  "/api/email":"Sending the email",
  "/api/apply":"Updating the frequencies",
- "/api/drive/delete":"Deleting that drive"};
+ "/api/drive/delete":"Deleting that drive",
+ "/api/pan/start":"Starting the radio for the panadapter (a few seconds)"};
 let busyN=0, busyT=null, busyTick=null, busyStart=0, busyTxt="";
 function busyShow(){const b=document.getElementById("busy"); if(!b)return; const sec=Math.round((Date.now()-busyStart)/1000);
   b.innerHTML='<span class="sp"></span>'+busyTxt+"... "+sec+" s"; b.style.display="block";}
-function busyBegin(path){ if(path in BUSY_MSG===false && ["/api/config","/api/live","/api/state","/api/drives","/api/ports","/api/blockers","/api/pause","/api/reveal","/api/open_folder","/api/drive/meta","/api/quit"].includes(path)) return false;
+function busyBegin(path){ if(path in BUSY_MSG===false && ["/api/config","/api/live","/api/state","/api/drives","/api/ports","/api/blockers","/api/pause","/api/pan/set","/api/pan/stop","/api/reveal","/api/open_folder","/api/drive/meta","/api/quit"].includes(path)) return false;
   busyN++; if(busyN===1){busyStart=Date.now(); busyTxt=BUSY_MSG[path]||"Working";
     busyT=setTimeout(()=>{busyShow(); busyTick=setInterval(busyShow,1000);},500);} return true;}
 function busyEnd(){ busyN=Math.max(0,busyN-1); if(busyN===0){clearTimeout(busyT);clearInterval(busyTick);const b=document.getElementById("busy"); if(b)b.style.display="none";}}
@@ -338,6 +402,7 @@ async function refreshLive(){
   $("bStart").style.display=lg?"none":""; $("bStop").style.display=lg?"":"none";
   $("bApply").style.display=lg?"":"none"; $("bPause").style.display=lg?"":"none";
   for(const id of ["practice","route"]) $(id).disabled=lg;
+  $("bPanStart").disabled=lg; $("bPanStart").title=lg?"Stop logging first: the radio can only do one job at a time.":"";
   document.querySelectorAll("input[name=gpsm],#gHost,#gPort,#gSerial,#gBaud,#spacing,#ifgr,#rfgr").forEach(e=>e.disabled=lg);
   $("liveBox").style.display=lg?"block":"none";
   if(lg&&st){
@@ -452,10 +517,205 @@ async function runCheck(again){
   }catch(e){$("chkBody").textContent=e.message;}
 }
 
+
+/* ---------- panadapter ---------- */
+const PAN={on:false,seq:-1,center:7150000,rate:2000000,tune:7200000,mode:"LSB",bw:2400,step:1000,sq:-120,
+  last:null,peak:null,lo:150,hi:230,timer:null,atimer:null,aAfter:0,aNext:0,actx:null,gain:null,pt:null};
+const PAN_BW={AM:[3000,4000,6000,8000,10000,12000],USB:[1800,2100,2400,2700,3000,3600],LSB:[1800,2100,2400,2700,3000,3600],
+  CW:[100,200,300,500,800,1200],NFM:[8000,10000,12000,15000,20000]};
+const PAN_BW_DEF={AM:6000,USB:2400,LSB:2400,CW:300,NFM:12000};
+const PAN_BANDS=[
+ ["AM broadcast",1.1,1.01,"AM",2e6],["160 m",1.9,1.9,"LSB",5e5],["80 m",3.75,3.85,"LSB",5e5],["40 m",7.15,7.2,"LSB",5e5],
+ ["30 m",10.125,10.125,"CW",25e4],["20 m",14.175,14.25,"USB",5e5],["17 m",18.12,18.12,"USB",25e4],["15 m",21.225,21.25,"USB",5e5],
+ ["12 m",24.94,24.94,"USB",25e4],["10 m",28.85,28.4,"USB",2e6],["6 m",52.0,50.125,"USB",4e6],
+ ["AM airband",127.0,127.0,"AM",2e6],["2 m",146.0,146.52,"NFM",4e6],["70 cm",440.0,446.0,"NFM",8e6]];
+const WF_LUT=(()=>{const L=new Uint8ClampedArray(256*3);const st=[[0,[0,0,40]],[0.25,[0,40,200]],[0.5,[0,200,200]],[0.7,[240,240,0]],[0.9,[255,100,0]],[1,[255,255,255]]];
+ for(let i=0;i<256;i++){const t=i/255;let k=0;while(k<st.length-2&&t>st[k+1][0])k++;const a=st[k],b=st[k+1];
+  const u=Math.min(1,Math.max(0,(t-a[0])/(b[0]-a[0])));for(let c=0;c<3;c++)L[i*3+c]=a[1][c]+(b[1][c]-a[1][c])*u;}return L;})();
+const fmtMHz=hz=>(hz/1e6).toFixed(5).replace(/0+$/,"").replace(/\.$/,".0");
+const b64Bytes=b=>{const s=atob(b),u=new Uint8Array(s.length);for(let i=0;i<s.length;i++)u[i]=s.charCodeAt(i);return u;};
+
+function panInit(){
+  $("panBand").innerHTML='<option value="">Choose...</option>'+PAN_BANDS.map((b,i)=>`<option value="${i}">${b[0]}</option>`).join("");
+  $("panModes").innerHTML=["AM","USB","LSB","CW","NFM"].map(m=>`<button id="pm_${m}" onclick="panSetMode('${m}')">${m==="NFM"?"FM (narrow)":m}</button>`).join("");
+  try{const j=JSON.parse(localStorage.getItem("rfmapPan")||"null"); if(j&&j.center){Object.assign(PAN,{center:j.center,rate:j.rate,tune:j.tune,mode:j.mode,bw:j.bw});}}catch(e){}
+  panFillBw(); panShowControls();
+}
+function panSave(){try{localStorage.setItem("rfmapPan",JSON.stringify({center:PAN.center,rate:PAN.rate,tune:PAN.tune,mode:PAN.mode,bw:PAN.bw}));}catch(e){}}
+function panFillBw(){
+  const l=PAN_BW[PAN.mode]; if(!l.includes(PAN.bw)) PAN.bw=PAN_BW_DEF[PAN.mode];
+  $("panBw").innerHTML=l.map(b=>`<option value="${b}"${b===PAN.bw?" selected":""}>${b>=1000?(b/1000)+" kHz":b+" Hz"}</option>`).join("");
+}
+function panShowControls(){
+  for(const m of ["AM","USB","LSB","CW","NFM"]) $("pm_"+m).className=(m===PAN.mode?"on":"");
+  $("panCenter").value=fmtMHz(PAN.center); $("panTune").value=fmtMHz(PAN.tune); $("panSpan").value=String(PAN.rate);
+  panSlotLabels();
+}
+function panSlotLabels(){
+  const m=[...document.querySelectorAll(".cm")];
+  for(let i=0;i<4;i++){const e=$("panSlot"+i); if(e) e.textContent="Mapping frequency "+(i+1)+(m[i]&&m[i].value?" ("+m[i].value+" MHz)":" (empty)");}
+}
+function panPost(f){ clearTimeout(PAN.pt); PAN.pend=Object.assign(PAN.pend||{},f);
+  PAN.pt=setTimeout(()=>{const b=PAN.pend;PAN.pend=null; if(PAN.on) api("/api/pan/set",b).catch(e=>toast("&#9888; "+esc(e.message),6000));},60); }
+function panSetMode(m){PAN.mode=m; PAN.bw=PAN_BW_DEF[m]; panFillBw(); panShowControls(); panSave(); panPost({mode:m,bw:PAN.bw});}
+function panSetBw(b){PAN.bw=b; panSave(); panPost({bw:b});}
+function panSetTune(hz,fromUser){
+  hz=Math.max(10000,hz); PAN.tune=hz; $("panTune").value=fmtMHz(hz); panSave(); panPost({tune:hz}); panSlotLabels();
+  const sp=PAN.rate; if(PAN.on&&Math.abs(hz-PAN.center)>0.47*sp) $("panStatus").textContent="The tuned frequency is outside the picture. Press 'Centre on tuned' to see it."; else if(PAN.on) $("panStatus").textContent=PAN.practiceNote||"";
+}
+function panGoTune(){const v=parseFloat($("panTune").value); if(!(v>0)){toast("Type the frequency in MHz, for example 7.255");return;} panSetTune(v*1e6);}
+function panSetCenter(hz){hz=Math.max(10000,hz); PAN.center=hz; $("panCenter").value=fmtMHz(hz); PAN.last=null; panSave(); panPost({center:hz});}
+function panGoCenter(){const v=parseFloat($("panCenter").value); if(!(v>0)){toast("Type the centre frequency in MHz, for example 7.15");return;} panSetCenter(v*1e6);}
+function panSetSpan(r){PAN.rate=r; PAN.last=null; panSave(); panPost({rate:r});}
+function panShift(f){panSetCenter(PAN.center+f*PAN.rate);}
+function panRecentre(){panSetCenter(PAN.tune);}
+function panBand(i){ if(i==="")return; const b=PAN_BANDS[+i]; PAN.rate=b[4]; PAN.mode=b[3]; PAN.bw=PAN_BW_DEF[b[3]]; PAN.tune=b[2]*1e6; PAN.center=b[1]*1e6; PAN.last=null;
+  panFillBw(); panShowControls(); panSave(); panPost({center:PAN.center,rate:PAN.rate,tune:PAN.tune,mode:PAN.mode,bw:PAN.bw}); $("panBand").value=""; }
+function panGain(){panPost({auto_gain:$("panAuto").checked,if_gain:+$("panIf").value||40,rf_state:+$("panRf").value||0});}
+function panSquelch(){PAN.sq=+$("panSq").value; $("panSqV").textContent=PAN.sq<=-119?"off":PAN.sq+" dB"; panPost({squelch:PAN.sq});}
+function panVol(){ if(PAN.gain) PAN.gain.gain.value=$("panMute").checked?0:(+$("panVol").value/100)*2.5; }
+async function panUseSlot(i){
+  const mhz=+(PAN.tune/1e6).toFixed(6), m=[...document.querySelectorAll(".cm")]; if(!m[i])return;
+  m[i].value=mhz;
+  await guard(async()=>{await api("/api/config",readForm()); panSlotLabels();
+    toast(`Mapping frequency ${i+1} is now ${mhz} MHz. Press Start logging (or 'Apply frequency changes now' if you are already logging).`,9000);});
+}
+
+/* audio */
+function panAudioStart(){
+  const AC=window.AudioContext||window.webkitAudioContext; if(!AC) throw new Error("This browser cannot play sound.");
+  if(PAN.actx){try{PAN.actx.close();}catch(e){}}
+  PAN.actx=new AC(); PAN.gain=PAN.actx.createGain(); PAN.gain.connect(PAN.actx.destination); panVol();
+  PAN.actx.resume&&PAN.actx.resume(); PAN.aNext=0; PAN.aAfter=0;
+}
+async function panPollAudio(){
+  if(!PAN.on)return;
+  try{
+    const r=await fetch("/api/pan/audio?after="+PAN.aAfter,{cache:"no-store"});
+    const seq=+r.headers.get("X-Seq"), rate=+r.headers.get("X-Rate")||62500, buf=await r.arrayBuffer();
+    if(seq<PAN.aAfter) PAN.aNext=0;
+    if(buf.byteLength>=2 && PAN.actx){
+      const i16=new Int16Array(buf), f=new Float32Array(i16.length); for(let i=0;i<i16.length;i++) f[i]=i16[i]/32768;
+      const ab=PAN.actx.createBuffer(1,f.length,rate); ab.copyToChannel(f,0);
+      const src=PAN.actx.createBufferSource(); src.buffer=ab; src.connect(PAN.gain);
+      const now=PAN.actx.currentTime; if(PAN.aNext<now+0.03||PAN.aNext>now+0.9) PAN.aNext=now+0.18;
+      src.start(PAN.aNext); PAN.aNext+=ab.duration;
+    }
+    PAN.aAfter=seq;
+  }catch(e){}
+  PAN.atimer=setTimeout(panPollAudio,80);
+}
+
+/* start / stop */
+async function panStart(){
+  if(PAN.on)return;
+  try{panAudioStart();}catch(e){toast("&#9888; "+esc(e.message),8000);}
+  await guard(async()=>{
+    const r=await api("/api/pan/start",{center:PAN.center,rate:PAN.rate,tune:PAN.tune,mode:PAN.mode,bw:PAN.bw,squelch:PAN.sq,
+      auto_gain:$("panAuto").checked,if_gain:+$("panIf").value||40,rf_state:+$("panRf").value||0});
+    PAN.on=true; PAN.seq=-1; PAN.last=null; PAN.peak=null; PAN.practiceNote=$("practice").checked?"Practice mode: these are made-up signals, not your radio.":"";
+    $("panTag").textContent=$("practice").checked?"practice signals":(r.radio||"");
+    $("panBox").style.display="block"; $("bPanStart").style.display="none"; $("bPanStop").style.display="";
+    $("panStatus").textContent=PAN.practiceNote; panShowControls(); panClearWf(); panFrameLoop(); panPollAudio();
+  });
+}
+async function panStop(){ panUiStop(""); try{await api("/api/pan/stop",{});}catch(e){} }
+function panUiStop(msg){
+  PAN.on=false; clearTimeout(PAN.timer); clearTimeout(PAN.atimer);
+  if(PAN.actx){try{PAN.actx.close();}catch(e){} PAN.actx=null; PAN.gain=null;}
+  $("bPanStart").style.display=""; $("bPanStop").style.display="none"; $("panStatus").textContent=msg||"";
+  if(msg) toast("&#9888; "+esc(msg),9000);
+}
+async function panFrameLoop(){
+  if(!PAN.on)return;
+  try{
+    const r=await fetch("/api/pan/frame?after="+PAN.seq,{cache:"no-store"}), j=await r.json();
+    if(!j.running && PAN.on){ panUiStop(j.error?("The panadapter stopped: "+j.error):"The panadapter stopped (logging or a test needed the radio, or this window was idle)."); return; }
+    if(!j.same){PAN.seq=j.seq; panDraw(j);}
+  }catch(e){}
+  PAN.timer=setTimeout(panFrameLoop,45);
+}
+
+/* drawing */
+function panClearWf(){const c=$("cvWf"),x=c.getContext("2d");x.fillStyle="#000028";x.fillRect(0,0,c.width,c.height);}
+const panXOf=(hz,f)=>((hz-(f.center-f.rate/2))/f.rate)*1000;
+function panEdges(){ const m=PAN.mode,b=PAN.bw; if(m==="USB")return[250,250+b]; if(m==="LSB")return[-250-b,-250]; return[-b/2,b/2]; }
+function panDraw(f){
+  if(PAN.last&&(PAN.last.center!==f.center||PAN.last.rate!==f.rate)){panClearWf();PAN.peak=null;}
+  PAN.last=f;
+  const bytes=b64Bytes(f.spec), N=bytes.length, W=1000, px=new Float32Array(W);
+  for(let x=0;x<W;x++){const a=Math.floor(x*N/W),b=Math.max(a+1,Math.floor((x+1)*N/W));let m=0;for(let i=a;i<b;i++)if(bytes[i]>m)m=bytes[i];px[x]=m;}
+  const scale=255/(f.db_hi-f.db_lo);
+  if($("panScale").checked){
+    const smp=Array.from(px).filter((_,i)=>i%8===0).sort((a,b)=>a-b), med=smp[smp.length>>1], mx=smp[smp.length-1];
+    const tlo=med-12*scale, thi=Math.max(mx+8*scale,tlo+45*scale); PAN.lo+=0.15*(tlo-PAN.lo); PAN.hi+=0.15*(thi-PAN.hi);
+  } else { PAN.lo=(-115-f.db_lo)*scale; PAN.hi=(-25-f.db_lo)*scale; }
+  const lo=PAN.lo, hi=PAN.hi, span=Math.max(hi-lo,10);
+  // spectrum
+  const sc=$("cvSpec"),sx=sc.getContext("2d"),H=sc.height;
+  sx.fillStyle="#0b1522";sx.fillRect(0,0,W,H);
+  sx.strokeStyle="#22344f";sx.lineWidth=1;sx.fillStyle="#7f93aa";sx.font="11px sans-serif";
+  const dbLo=f.db_lo+lo/scale, dbHi=f.db_lo+hi/scale, gstep=(dbHi-dbLo)>70?20:10;
+  for(let d=Math.ceil(dbLo/gstep)*gstep; d<=dbHi; d+=gstep){const y=H-((d-dbLo)/(dbHi-dbLo))*(H-6)-3; sx.beginPath();sx.moveTo(0,y);sx.lineTo(W,y);sx.stroke();sx.fillText(d+" dB",4,y-2);}
+  if(!PAN.peak||PAN.peak.length!==W) PAN.peak=Float32Array.from(px);
+  for(let x=0;x<W;x++) PAN.peak[x]=Math.max(px[x],PAN.peak[x]-0.35);
+  const yOf=v=>H-3-Math.min(1,Math.max(0,(v-lo)/span))*(H-6);
+  sx.beginPath();sx.moveTo(0,H);for(let x=0;x<W;x++)sx.lineTo(x,yOf(px[x]));sx.lineTo(W-1,H);sx.closePath();
+  const g=sx.createLinearGradient(0,0,0,H);g.addColorStop(0,"rgba(80,200,255,.75)");g.addColorStop(1,"rgba(20,70,160,.25)");sx.fillStyle=g;sx.fill();
+  sx.beginPath();for(let x=0;x<W;x++){const y=yOf(px[x]);x?sx.lineTo(x,y):sx.moveTo(x,y);}sx.strokeStyle="#7fe0ff";sx.lineWidth=1.2;sx.stroke();
+  sx.beginPath();for(let x=0;x<W;x++){const y=yOf(PAN.peak[x]);x?sx.lineTo(x,y):sx.moveTo(x,y);}sx.strokeStyle="rgba(255,220,90,.55)";sx.lineWidth=1;sx.stroke();
+  // waterfall: scroll down one line, new line on top
+  const wc=$("cvWf"),wx=wc.getContext("2d"); wx.drawImage(wc,0,0,wc.width,wc.height-1,0,1,wc.width,wc.height-1);
+  const row=wx.createImageData(W,1);
+  for(let x=0;x<W;x++){const t=Math.min(255,Math.max(0,Math.round(((px[x]-lo)/span)*255)));row.data[x*4]=WF_LUT[t*3];row.data[x*4+1]=WF_LUT[t*3+1];row.data[x*4+2]=WF_LUT[t*3+2];row.data[x*4+3]=255;}
+  wx.putImageData(row,0,0);
+  // audio spectrum
+  const ab=b64Bytes(f.aspec),ac=$("cvAud"),ax=ac.getContext("2d"),AW=ac.width,AH=ac.height;
+  ax.fillStyle="#0b1522";ax.fillRect(0,0,AW,AH);
+  const hzPerBin=(f.audio_rate/2)/(1024/2)/1, binsHz=f.audio_rate/1024;
+  let e0,e1; if(PAN.mode==="USB"||PAN.mode==="LSB"){e0=250;e1=250+PAN.bw;} else if(PAN.mode==="CW"){e0=700-PAN.bw/2;e1=700+PAN.bw/2;} else {e0=0;e1=PAN.bw/2;}
+  const xa=h=>h/(binsHz*ab.length)*AW; ax.fillStyle="rgba(255,255,255,.08)";ax.fillRect(xa(Math.max(0,e0)),0,xa(e1)-xa(Math.max(0,e0)),AH);
+  ax.fillStyle="#6fe29b";for(let i=0;i<ab.length;i++){const h=Math.max(0,Math.min(1,ab[i]/255))*(AH-4);const bw=AW/ab.length;ax.fillRect(i*bw,AH-h,Math.max(1,bw-0.5),h);}
+  ax.fillStyle="#7f93aa";ax.font="10px sans-serif";for(let k=0;k<=7;k+=1){const x=xa(k*1000);ax.fillText(k+"k",x+2,AH-2);}
+  // level
+  $("panLvl").textContent=f.smeter.toFixed(0); $("panLvlBar").style.width=Math.max(0,Math.min(100,(f.smeter+110)/110*100))+"%";
+  panOverlay(null);
+}
+function panOverlay(mx){
+  const oc=$("cvOv"),ox=oc.getContext("2d"),W=oc.width,H=oc.height,f=PAN.last; ox.clearRect(0,0,W,H); if(!f)return;
+  // frequency scale along the bottom of the spectrum picture
+  const sp=f.rate, want=sp/9, mag=Math.pow(10,Math.floor(Math.log10(want))); let st=mag; for(const k of [1,2,5,10]){if(mag*k>=want){st=mag*k;break;}}
+  ox.fillStyle="rgba(0,0,0,.45)";ox.fillRect(0,198,W,14);ox.fillStyle="#cfe1f5";ox.font="11px sans-serif";ox.strokeStyle="rgba(255,255,255,.18)";
+  const f0=f.center-sp/2; for(let hz=Math.ceil(f0/st)*st; hz<f0+sp; hz+=st){const x=panXOf(hz,f);ox.beginPath();ox.moveTo(x,0);ox.lineTo(x,432);ox.stroke();ox.fillText((hz/1e6).toFixed(st<1000?4:st<100000?3:2),x+3,209);}
+  // edges of the picture are less reliable (radio filter roll-off)
+  ox.fillStyle="rgba(120,120,120,.18)";ox.fillRect(0,0,W*0.06,H);ox.fillRect(W*0.94,0,W*0.06,H);
+  // tuned marker and passband
+  const [e0,e1]=panEdges(), xt=panXOf(PAN.tune,f);
+  ox.fillStyle="rgba(255,60,60,.18)";ox.fillRect(panXOf(PAN.tune+e0,f),0,Math.max(2,panXOf(PAN.tune+e1,f)-panXOf(PAN.tune+e0,f)),H);
+  ox.strokeStyle="#ff5a4a";ox.lineWidth=1.5;ox.beginPath();ox.moveTo(xt,0);ox.lineTo(xt,H);ox.stroke();
+  ox.fillStyle="#ff5a4a";ox.font="bold 12px sans-serif";ox.fillText(fmtMHz(PAN.tune)+" MHz  "+PAN.mode,Math.min(Math.max(xt+6,4),W-190),14);
+  if(mx!==null){ox.strokeStyle="rgba(255,255,255,.5)";ox.lineWidth=1;ox.beginPath();ox.moveTo(mx,0);ox.lineTo(mx,H);ox.stroke();}
+}
+function panMouse(e,click){
+  const oc=$("cvOv"),r=oc.getBoundingClientRect(),f=PAN.last; if(!f)return;
+  const mx=(e.clientX-r.left)*oc.width/r.width, hz=f.center-f.rate/2+(mx/oc.width)*f.rate;
+  const snap=Math.round(hz/PAN.step)*PAN.step;
+  $("panHover").textContent="Pointer: "+fmtMHz(snap)+" MHz"+(click?"":"  (click to tune)");
+  if(click) panSetTune(snap,true); else panOverlay(mx);
+}
+function panWire(){
+  const oc=$("cvOv");
+  oc.addEventListener("mousemove",e=>panMouse(e,false));
+  oc.addEventListener("mouseleave",()=>panOverlay(null));
+  oc.addEventListener("click",e=>panMouse(e,true));
+  oc.addEventListener("wheel",e=>{e.preventDefault();panSetTune(PAN.tune+(e.deltaY<0?1:-1)*PAN.step,true);},{passive:false});
+}
+
 /* ---------- wiring ---------- */
 document.querySelectorAll("input[name=gpsm]").forEach(r=>r.onchange=showGpsFields);
 checkBlockers();
 $("practice").onchange=showGpsFields;
+panInit(); panWire(); setInterval(panSlotLabels,1500);
 $("phoneAccess").onchange=()=>guard(async()=>{await api("/api/config",{phone_access:$("phoneAccess").checked});toast("Saved. Quit and reopen RF Noise Map to apply.");});
 refreshAll().then(()=>refreshLive()).catch(()=>{});
 setInterval(refreshLive,1200);
