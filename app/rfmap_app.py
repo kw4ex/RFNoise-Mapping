@@ -526,7 +526,17 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/drives":
                 return self._json({"drives": APP.drives(), "maps": APP.maps(), "exports": APP.exports()})
             if path == "/api/pan/frame":
-                return self._json(PAN.get_frame(int((q.get("after") or ["-1"])[0] or -1)))
+                after = int((q.get("after") or ["-1"])[0] or -1)
+                if APP.running():                      # logging: show the logger's own band picture
+                    try:
+                        j = APP.logger_call("/spectrum?after=%d" % after, timeout=1.0)
+                    except Exception:
+                        j = {"same": True, "seq": after}
+                    out = {"ok": True, "running": True, "viewonly": True, "logging": True,
+                           "practice": bool(APP.cfg.get("practice")), "error": ""}
+                    out.update(j)
+                    return self._json(out)
+                return self._json(PAN.get_frame(after))
             if path == "/api/pan/audio":
                 data, last = PAN.get_audio(int((q.get("after") or ["0"])[0] or 0))
                 return self._send(200, data, "application/octet-stream",
@@ -590,6 +600,17 @@ class Handler(BaseHTTPRequestHandler):
                 raise ValueError("Stop logging first. The radio can only do one job at a time.")
             PAN.start(b, bool(APP.cfg.get("practice")))
             return {"ok": True, "radio": PAN.name}
+        if path == "/api/pan/watch":              # while logging: choose which frequency to watch (-1 = none)
+            if not APP.running():
+                raise ValueError("Start logging first. (To listen, use Start panadapter instead.)")
+            APP.logger_call("/pan", {"channel": int(b.get("channel", -1))}, timeout=3)
+            return {"ok": True}
+        if path == "/api/spacing":                # dot spacing, also while driving
+            sp = min(max(2.0, float(b.get("spacing_ft", 10))), 5280.0)
+            APP.update_cfg({"spacing_ft": sp})
+            if APP.running():
+                APP.logger_call("/set", {"spacing_ft": sp}, timeout=3)
+            return {"ok": True, "spacing_ft": sp}
         if path == "/api/pan/set":
             PAN.set(b)
             return {"ok": True}

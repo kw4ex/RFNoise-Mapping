@@ -63,8 +63,25 @@ DEFAULT_SETTINGS = {
     "paused": False,          # pause button on the settings page
     "if_gain_db": 40,         # SDRplay "IF gain reduction" (higher = less gain)
     "rf_gain_state": 0,       # SDRplay "RF gain reduction" (0 = most gain)
+    "pan_channel": -1,        # which frequency (0-3) to show as a live spectrum; -1 = none
 }
 MAX_CHANNELS = 4
+
+
+PAN_DB_LO, PAN_DB_HI = -120.0, 0.0
+PAN_FRAME = {"seq": 0, "f": None, "lock": threading.Lock()}
+
+
+def publish_spectrum(lo_hz, rate, spec, tune_hz, bw_hz, level_db, idx):
+    """Keep the newest band picture so the control panel can show it while logging."""
+    import base64
+    db = 10.0 * np.log10(np.asarray(spec, dtype=np.float64) + 1e-12)
+    b = np.clip((db - PAN_DB_LO) * (255.0 / (PAN_DB_HI - PAN_DB_LO)), 0, 255).astype(np.uint8)
+    with PAN_FRAME["lock"]:
+        PAN_FRAME["seq"] += 1
+        PAN_FRAME["f"] = {"seq": PAN_FRAME["seq"], "center": float(lo_hz), "rate": int(rate), "tune": float(tune_hz),
+                          "bw": float(bw_hz), "channel": int(idx), "smeter": round(float(level_db), 1),
+                          "db_lo": PAN_DB_LO, "db_hi": PAN_DB_HI, "spec": base64.b64encode(b.tobytes()).decode()}
 
 
 class Settings:
@@ -313,7 +330,26 @@ class SimSdr:
         reach = 250.0 if mhz < 10 else 80.0             # VHF is more local
         floor = -92.0 if mhz < 10 else -100.0
         level = floor + strength * math.exp(-d / reach) + self.rng.normal(0, 1.2)
+        self._last = self._make_spec(freq_hz, bw_hz, level)
         return float(level)
+
+    def _make_spec(self, freq_hz, bw_hz, level):
+        n, rate = 4096, 2_000_000
+        lo = freq_hz - 200_000
+        hz = (np.arange(n) / n - 0.5) * rate + lo
+        floor = 10 ** (-10.4) * (1 + 0.35 * self.rng.standard_normal(n)).clip(0.2, None)
+        hump = 10 ** (level / 10.0) / max(bw_hz / (rate / n), 1) * np.exp(-0.5 * ((hz - freq_hz) / max(bw_hz, 3000.0)) ** 2)
+        carriers = np.zeros(n)
+        for off, amp in ((-450_000, 3e-9), (350_000, 1.2e-9), (120_000, 6e-10)):
+            carriers[int((off + 200_000 + rate / 2) / rate * n) % n] += amp * 1e1
+        return lo, rate, floor + hump + carriers, level
+
+    def spectrum(self, freq_hz, bw_hz, lat, lon, settings):
+        level = self.measure(freq_hz, bw_hz, lat, lon, settings)
+        return self._last
+
+    def last_frame(self):
+        return getattr(self, "_last", None)
 
 
 class SoapySdr:
@@ -399,7 +435,17 @@ class SoapySdr:
         centre = self.FFT_N // 2 + int(round(offset / binw))
         half = max(int(round(bw_hz / binw / 2)), 1)
         band = spec[centre - half: centre + half + 1]
-        return 10.0 * math.log10(float(band.sum()) + 1e-20)    # dBFS
+        level = 10.0 * math.log10(float(band.sum()) + 1e-20)    # dBFS
+        self._last = (lo, self.SAMPLE_RATE, spec, level)
+        return level
+
+    def last_frame(self):
+        return getattr(self, "_last", None)
+
+    def spectrum(self, freq_hz, bw_hz, lat, lon, settings):
+        """A fresh capture used to keep the live picture moving between dots."""
+        self.measure(freq_hz, bw_hz, lat, lon, settings)
+        return self._last
 
     def close(self):
         try:
@@ -499,6 +545,17 @@ def make_handler(settings, state, stop_event):
         def do_GET(self):
             if self.path.startswith("/status"):
                 self._send(200, json.dumps(dict(state, settings=settings.get())))
+            elif self.path.startswith("/spectrum"):
+                try:
+                    after = int(self.path.split("after=")[1].split("&")[0])
+                except Exception:
+                    after = -1
+                with PAN_FRAME["lock"]:
+                    f = PAN_FRAME["f"]
+                if f is None or f["seq"] == after:
+                    self._send(200, json.dumps({"same": True, "seq": after if f is None else f["seq"]}))
+                else:
+                    self._send(200, json.dumps(f))
             else:
                 self._send(200, PAGE, "text/html; charset=utf-8")
 
@@ -511,20 +568,32 @@ def make_handler(settings, state, stop_event):
                 elif self.path == "/pause":
                     cur = settings.get()
                     settings.update({"paused": not cur["paused"]})
+                elif self.path == "/pan":
+                    req = json.loads(body)
+                    ch = int(req.get("channel", -1))
+                    settings.update({"pan_channel": ch if 0 <= ch < MAX_CHANNELS else -1})
+                    if ch < 0:
+                        with PAN_FRAME["lock"]:
+                            PAN_FRAME["f"] = None
                 elif self.path == "/set":
                     req = json.loads(body)
-                    chans = []
-                    for c in req.get("channels", [])[:MAX_CHANNELS]:
-                        mhz = float(c["mhz"])
-                        if not (0.001 <= mhz <= 2000):
-                            raise ValueError("frequency must be 0.001 to 2000 MHz")
-                        chans.append({"mhz": mhz,
-                                      "bw_khz": max(0.5, float(c.get("bw_khz", 5))),
-                                      "cal_db": float(c.get("cal_db", 0))})
-                    if not chans:
-                        raise ValueError("need at least one frequency")
-                    sp = max(2.0, float(req.get("spacing_ft", 10)))
-                    settings.update({"channels": chans, "spacing_ft": sp})
+                    upd = {}
+                    if "channels" in req:
+                        chans = []
+                        for c in req.get("channels", [])[:MAX_CHANNELS]:
+                            mhz = float(c["mhz"])
+                            if not (0.001 <= mhz <= 2000):
+                                raise ValueError("frequency must be 0.001 to 2000 MHz")
+                            chans.append({"mhz": mhz,
+                                          "bw_khz": max(0.5, float(c.get("bw_khz", 5))),
+                                          "cal_db": float(c.get("cal_db", 0))})
+                        if not chans:
+                            raise ValueError("need at least one frequency")
+                        upd["channels"] = chans
+                    if "spacing_ft" in req:
+                        upd["spacing_ft"] = min(max(2.0, float(req["spacing_ft"])), 5280.0)
+                    if upd:
+                        settings.update(upd)
                 self._send(200, "{}")
             except Exception as e:
                 self._send(400, json.dumps({"error": str(e)}))
@@ -624,6 +693,25 @@ def main():
     except Exception:
         pass
 
+    pan_state = {"t": 0.0}
+
+    def pan_idle(cfg, lat, lon):
+        """While waiting for the next dot, keep the live band picture moving. True if we did work."""
+        ci = cfg.get("pan_channel", -1)
+        chans = cfg["channels"][:MAX_CHANNELS]
+        if not (0 <= ci < len(chans)) or not hasattr(sdr, "spectrum"):
+            return False
+        if time.time() - pan_state["t"] < 0.04:
+            return False
+        pan_state["t"] = time.time()
+        ch = chans[ci]
+        try:
+            lo, rate, spec, level = sdr.spectrum(ch["mhz"] * 1e6, ch["bw_khz"] * 1e3, lat, lon, cfg)
+            publish_spectrum(lo, rate, spec, ch["mhz"] * 1e6, ch["bw_khz"] * 1e3, level, ci)
+        except Exception:
+            return False
+        return True
+
     last_lat = last_lon = None
     dots = 0
     last_print = 0.0
@@ -638,6 +726,7 @@ def main():
                 print("Simulated route finished.")
                 break
             if fix is None or cfg["paused"]:
+                pan_idle(cfg, 0.0, 0.0)
                 time.sleep(0.05)
                 continue
 
@@ -650,17 +739,21 @@ def main():
             moved = (distance_m(last_lat, last_lon, lat, lon) * FT_PER_M
                      if last_lat is not None else 1e9)
             if moved < cfg["spacing_ft"]:
-                if args.gps != "sim":
+                if not pan_idle(cfg, lat, lon) and args.gps != "sim":
                     time.sleep(0.01)
                 continue
 
             # --- one measurement cycle: every frequency in turn
             t_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
             last = []
-            for ch in cfg["channels"][:MAX_CHANNELS]:
+            for ci, ch in enumerate(cfg["channels"][:MAX_CHANNELS]):
                 level = sdr.measure(ch["mhz"] * 1e6, ch["bw_khz"] * 1e3, lat, lon, cfg)
                 if math.isnan(level):
                     continue
+                if ci == cfg.get("pan_channel", -1):
+                    lf = sdr.last_frame() if hasattr(sdr, "last_frame") else None
+                    if lf:
+                        publish_spectrum(lf[0], lf[1], lf[2], ch["mhz"] * 1e6, ch["bw_khz"] * 1e3, lf[3], ci)
                 w.writerow([t_iso, f"{lat:.7f}", f"{lon:.7f}", f"{fix.speed_mps*MPH_PER_MPS:.1f}",
                             f"{ch['mhz']:.4f}", f"{ch['bw_khz']:.1f}",
                             f"{level:.2f}", f"{level + ch['cal_db']:.2f}",

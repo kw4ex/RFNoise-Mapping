@@ -116,9 +116,14 @@ details summary{cursor:pointer;color:var(--acc);font-size:13.5px;margin:6px 0}
    <b>Frequencies to measure (up to 4)</b>
    <table id="chTable"></table>
    <div class="mut">Low bands (0.75, 3.7, 7.3&nbsp;MHz) show the general area. A VHF or <b>AM airband</b> (118&ndash;137&nbsp;MHz) channel pinpoints a pole or house. Pick a quiet channel with no stations. You can change these <b>while driving</b>.</div>
+   <div class="row" style="margin-top:10px">
+     <div><label><b>Dot spacing</b>: one reading every</label><br>
+       <input type="number" id="spacing" min="2" max="5280" step="1" style="width:80px" onchange="spacingChanged()"> ft <span class="mut" id="spacingM"></span></div>
+     <div><span class="seg"><button class="sm" onclick="setSpacing(5)">5</button><button class="sm" onclick="setSpacing(10)">10</button><button class="sm" onclick="setSpacing(20)">20</button><button class="sm" onclick="setSpacing(50)">50</button><button class="sm" onclick="setSpacing(100)">100</button></span> <span class="mut">ft</span></div>
+   </div>
+   <div class="mut">10&nbsp;ft is a good start. Smaller gives more detail (slow streets, walking); larger suits highways and gives smaller files. <b>You can change it while driving</b>: it applies from the next dot. If you drive faster than the radio can keep up, dots end up farther apart than this setting.</div>
    <details><summary>More settings</summary>
     <div class="row">
-      <div><label>Dot spacing (ft)</label><br><input type="number" id="spacing" min="2" step="1"></div>
       <div><label>IF gain reduction (dB)</label><br><input type="number" id="ifgr" min="20" max="59"></div>
       <div><label>RF gain reduction (0&ndash;27)</label><br><input type="number" id="rfgr" min="0" max="27"></div>
     </div>
@@ -145,14 +150,18 @@ details summary{cursor:pointer;color:var(--acc);font-size:13.5px;margin:6px 0}
 <!-- ======================= PANADAPTER ======================= -->
 <section class="card" id="cPan">
  <h2>Panadapter: see and hear the band <span class="tag" id="panTag"></span></h2>
- <p class="sub">A live picture of a slice of the radio spectrum, like the display on a ham SDR. <b>Click a signal to listen to it.</b> Use it to find a quiet channel to measure, or to hunt for a noise source. The radio can do only one job at a time, so the panadapter closes by itself when you start logging.</p>
+ <p class="sub">A live picture of a slice of the radio spectrum, like the display on a ham SDR. <b>Click a signal to listen to it.</b> Use it to find a quiet channel to measure, or to hunt for a noise source. The radio can do only one job at a time, so the full panadapter closes when you start logging. <b>While logging you can still watch one of your frequencies</b> (picture only, no sound), which is handy for spotting noise.</p>
  <div class="row">
   <button class="pri" id="bPanStart" onclick="panStart()">&#9654; Start panadapter</button>
   <button class="stop" id="bPanStop" onclick="panStop()" style="display:none">&#9632; Stop panadapter</button>
   <span class="mut" id="panStatus"></span>
  </div>
  <div id="panBox" style="display:none">
-  <div class="row">
+  <div class="row" id="panWatchBar" style="display:none">
+   <div><label>Watching (while logging)</label><br><select id="panWatchSel" onchange="panWatchChange()"></select></div>
+   <div class="mut" style="flex:1 1 300px">Logging is using the radio, so you can <b>see</b> this band but not tune or listen. The picture shows 2&nbsp;MHz around your frequency (the red line). Stop logging, then press Start panadapter, to tune and listen.</div>
+  </div>
+  <div class="row rxonly">
    <div><label>Jump to band</label><br><select id="panBand" onchange="panBand(this.value)"></select></div>
    <div><label>Centre (MHz)</label><br><input type="number" id="panCenter" step="any" style="width:130px" onkeydown="if(event.key==='Enter')panGoCenter()"> <button class="sm" onclick="panGoCenter()">Go</button></div>
    <div><label>Width of view</label><br><select id="panSpan" onchange="panSetSpan(+this.value)">
@@ -160,7 +169,7 @@ details summary{cursor:pointer;color:var(--acc);font-size:13.5px;margin:6px 0}
      <option value="2000000" selected>2 MHz</option><option value="4000000">4 MHz</option><option value="8000000">8 MHz</option></select></div>
    <div><label>Move view</label><br><button class="sm" onclick="panShift(-0.25)">&#9664; left</button> <button class="sm" onclick="panShift(0.25)">right &#9654;</button> <button class="sm" onclick="panRecentre()">Centre on tuned</button></div>
   </div>
-  <div class="row">
+  <div class="row rxonly">
    <div><label>Mode</label><br><span class="seg" id="panModes"></span></div>
    <div><label>Bandwidth</label><br><select id="panBw" onchange="panSetBw(+this.value)"></select></div>
    <div><label>Tuned (MHz)</label><br><input type="number" id="panTune" step="any" style="width:130px" onkeydown="if(event.key==='Enter')panGoTune()"> <button class="sm" onclick="panGoTune()">Tune</button></div>
@@ -176,18 +185,18 @@ details summary{cursor:pointer;color:var(--acc);font-size:13.5px;margin:6px 0}
    <canvas id="cvOv" width="1000" height="432"></canvas>
   </div>
   <div class="row" style="margin-top:6px">
-   <div style="flex:1 1 320px"><label>What you hear (audio, 0&ndash;7.8 kHz)</label><canvas id="cvAud" class="pcan" width="500" height="70"></canvas></div>
+   <div class="rxonly" style="flex:1 1 320px"><label>What you hear (audio, 0&ndash;7.8 kHz)</label><canvas id="cvAud" class="pcan" width="500" height="70"></canvas></div>
    <div style="flex:1 1 220px"><label>Signal level in the filter: <b id="panLvl">&ndash;</b> (dBFS, not calibrated)</label><div class="smeter"><i id="panLvlBar"></i></div>
      <div class="mut" id="panHover" style="margin-top:6px">Click the picture to tune. Mouse wheel changes frequency by one step.</div></div>
   </div>
   <div class="row">
    <label class="chk"><input type="checkbox" id="panScale" checked> <span>Auto scale the picture</span></label>
-   <label class="chk"><input type="checkbox" id="panAuto" checked onchange="panGain()"> <span>Automatic radio gain</span></label>
-   <div><label>IF gain reduction</label><br><input type="number" id="panIf" min="20" max="59" value="40" onchange="panGain()"></div>
-   <div><label>RF gain reduction</label><br><input type="number" id="panRf" min="0" max="8" value="0" onchange="panGain()"></div>
+   <label class="chk rxonly"><input type="checkbox" id="panAuto" checked onchange="panGain()"> <span>Automatic radio gain</span></label>
+   <div class="rxonly"><label>IF gain reduction</label><br><input type="number" id="panIf" min="20" max="59" value="40" onchange="panGain()"></div>
+   <div class="rxonly"><label>RF gain reduction</label><br><input type="number" id="panRf" min="0" max="8" value="0" onchange="panGain()"></div>
   </div>
-  <div class="mut">The two gain boxes only work with Automatic radio gain off. Mapping always uses fixed gain so dots can be compared, so leave this on automatic while you listen.</div>
-  <div style="margin-top:8px"><b>Use the tuned frequency for mapping:</b> <span class="mut">(replaces that slot in the list above)</span>
+  <div class="mut rxonly">The two gain boxes only work with Automatic radio gain off. Mapping always uses fixed gain so dots can be compared, so leave this on automatic while you listen.</div>
+  <div class="rxonly" style="margin-top:8px"><b>Use the tuned frequency for mapping:</b> <span class="mut">(replaces that slot in the list above)</span>
    <div class="row" style="margin-top:4px">
     <button id="panSlot0" onclick="panUseSlot(0)"></button><button id="panSlot1" onclick="panUseSlot(1)"></button>
     <button id="panSlot2" onclick="panUseSlot(2)"></button><button id="panSlot3" onclick="panUseSlot(3)"></button>
@@ -290,7 +299,7 @@ const BUSY_MSG={"/api/fulltest":"Full test running: checking the software, radio
 let busyN=0, busyT=null, busyTick=null, busyStart=0, busyTxt="";
 function busyShow(){const b=document.getElementById("busy"); if(!b)return; const sec=Math.round((Date.now()-busyStart)/1000);
   b.innerHTML='<span class="sp"></span>'+busyTxt+"... "+sec+" s"; b.style.display="block";}
-function busyBegin(path){ if(path in BUSY_MSG===false && ["/api/config","/api/live","/api/state","/api/drives","/api/ports","/api/blockers","/api/pause","/api/pan/set","/api/pan/stop","/api/reveal","/api/open_folder","/api/drive/meta","/api/quit"].includes(path)) return false;
+function busyBegin(path){ if(path in BUSY_MSG===false && ["/api/config","/api/live","/api/state","/api/drives","/api/ports","/api/blockers","/api/pause","/api/pan/set","/api/pan/stop","/api/pan/watch","/api/spacing","/api/reveal","/api/open_folder","/api/drive/meta","/api/quit"].includes(path)) return false;
   busyN++; if(busyN===1){busyStart=Date.now(); busyTxt=BUSY_MSG[path]||"Working";
     busyT=setTimeout(()=>{busyShow(); busyTick=setInterval(busyShow,1000);},500);} return true;}
 function busyEnd(){ busyN=Math.max(0,busyN-1); if(busyN===0){clearTimeout(busyT);clearInterval(busyTick);const b=document.getElementById("busy"); if(b)b.style.display="none";}}
@@ -316,7 +325,7 @@ function fillForm(cfg){
   $("route").value=cfg.route_name||""; $("practice").checked=!!cfg.practice;
   (document.querySelector(`input[name=gpsm][value=${cfg.gps_mode}]`)||document.querySelector("input[name=gpsm][value=usb]")).checked=true;
   $("gHost").value=cfg.gps_host; $("gPort").value=cfg.gps_port; $("gBaud").value=cfg.gps_baud;
-  $("autoMap").checked=!!cfg.auto_map; $("spacing").value=cfg.spacing_ft; $("ifgr").value=cfg.if_gain_db; $("rfgr").value=cfg.rf_gain_state;
+  $("autoMap").checked=!!cfg.auto_map; $("spacing").value=cfg.spacing_ft; spacingNote(); $("ifgr").value=cfg.if_gain_db; $("rfgr").value=cfg.rf_gain_state;
   let h="<tr><th>MHz</th><th>Width (kHz)</th><th>Calibration (dB)</th></tr>";
   for(let i=0;i<4;i++) h+=chRow(cfg.channels[i]||{mhz:"",bw_khz:5,cal_db:0},i);
   $("chTable").innerHTML=h; $("phoneAccess").checked=!!cfg.phone_access;
@@ -402,8 +411,8 @@ async function refreshLive(){
   $("bStart").style.display=lg?"none":""; $("bStop").style.display=lg?"":"none";
   $("bApply").style.display=lg?"":"none"; $("bPause").style.display=lg?"":"none";
   for(const id of ["practice","route"]) $(id).disabled=lg;
-  $("bPanStart").disabled=lg; $("bPanStart").title=lg?"Stop logging first: the radio can only do one job at a time.":"";
-  document.querySelectorAll("input[name=gpsm],#gHost,#gPort,#gSerial,#gBaud,#spacing,#ifgr,#rfgr").forEach(e=>e.disabled=lg);
+  PAN.logging=lg; if(!PAN.on) $("bPanStart").innerHTML=lg?"&#9654; Watch a band while logging":"&#9654; Start panadapter";
+  document.querySelectorAll("input[name=gpsm],#gHost,#gPort,#gSerial,#gBaud,#ifgr,#rfgr").forEach(e=>e.disabled=lg);
   $("liveBox").style.display=lg?"block":"none";
   if(lg&&st){
     const g=st.gps_status||"", good=/fix OK|simulated/i.test(g);
@@ -518,8 +527,16 @@ async function runCheck(again){
 }
 
 
+/* ---------- dot spacing ---------- */
+function spacingNote(){const v=+$("spacing").value; $("spacingM").textContent=v>0?"(about "+(v*0.3048).toFixed(1)+" m)":"";}
+async function spacingChanged(){
+  let v=+$("spacing").value; if(!(v>=2)) v=10; v=Math.min(5280,Math.max(2,Math.round(v*10)/10)); $("spacing").value=v; spacingNote();
+  await guard(async()=>{await api("/api/spacing",{spacing_ft:v}); toast("Dot spacing is now "+v+" ft"+(PAN.logging?" (applies from the next dot).":"."));});
+}
+function setSpacing(v){$("spacing").value=v; spacingChanged();}
+
 /* ---------- panadapter ---------- */
-const PAN={on:false,seq:-1,center:7150000,rate:2000000,tune:7200000,mode:"LSB",bw:2400,step:1000,sq:-120,
+const PAN={viewOnly:false,logging:false,on:false,seq:-1,center:7150000,rate:2000000,tune:7200000,mode:"LSB",bw:2400,step:1000,sq:-120,
   last:null,peak:null,lo:150,hi:230,timer:null,atimer:null,aAfter:0,aNext:0,actx:null,gain:null,pt:null};
 const PAN_BW={AM:[3000,4000,6000,8000,10000,12000],USB:[1800,2100,2400,2700,3000,3600],LSB:[1800,2100,2400,2700,3000,3600],
   CW:[100,200,300,500,800,1200],NFM:[8000,10000,12000,15000,20000]};
@@ -609,6 +626,7 @@ async function panPollAudio(){
 /* start / stop */
 async function panStart(){
   if(PAN.on)return;
+  if(PAN.logging) return panWatch();
   try{panAudioStart();}catch(e){toast("&#9888; "+esc(e.message),8000);}
   await guard(async()=>{
     const r=await api("/api/pan/start",{center:PAN.center,rate:PAN.rate,tune:PAN.tune,mode:PAN.mode,bw:PAN.bw,squelch:PAN.sq,
@@ -619,17 +637,48 @@ async function panStart(){
     $("panStatus").textContent=PAN.practiceNote; panShowControls(); panClearWf(); panFrameLoop(); panPollAudio();
   });
 }
-async function panStop(){ panUiStop(""); try{await api("/api/pan/stop",{});}catch(e){} }
+function panViewMode(on){
+  PAN.viewOnly=on;
+  document.querySelectorAll("#cPan .rxonly").forEach(e=>{e.style.display=on?"none":"";});
+  $("panWatchBar").style.display=on?"flex":"none";
+}
+function panWatchOptions(){
+  const m=[...document.querySelectorAll(".cm")]; const keep=$("panWatchSel").value;
+  $("panWatchSel").innerHTML=m.map((x,i)=>x.value?`<option value="${i}">${i+1}: ${esc(x.value)} MHz</option>`:"").join("");
+  if(keep) $("panWatchSel").value=keep;
+}
+async function panWatch(){
+  if(PAN.on)return;
+  panWatchOptions(); const sel=$("panWatchSel");
+  if(!sel.options.length){toast("Enter at least one frequency first.");return;}
+  await guard(async()=>{
+    await api("/api/pan/watch",{channel:+sel.value});
+    PAN.on=true; PAN.seq=-1; PAN.last=null; PAN.peak=null; panViewMode(true);
+    $("panTag").textContent="watching while logging";
+    $("panBox").style.display="block"; $("bPanStart").style.display="none"; $("bPanStop").style.display="";
+    $("bPanStop").innerHTML="&#9632; Stop watching"; $("panStatus").textContent="";
+    panClearWf(); panFrameLoop();
+  });
+}
+function panWatchChange(){
+  PAN.last=null; PAN.seq=-1; PAN.peak=null; panClearWf();
+  api("/api/pan/watch",{channel:+$("panWatchSel").value}).catch(e=>toast("&#9888; "+esc(e.message),6000));
+}
+async function panStop(){ const was=PAN.viewOnly; panUiStop(""); try{ if(was) await api("/api/pan/watch",{channel:-1}); else await api("/api/pan/stop",{});}catch(e){} }
 function panUiStop(msg){
   PAN.on=false; clearTimeout(PAN.timer); clearTimeout(PAN.atimer);
   if(PAN.actx){try{PAN.actx.close();}catch(e){} PAN.actx=null; PAN.gain=null;}
-  $("bPanStart").style.display=""; $("bPanStop").style.display="none"; $("panStatus").textContent=msg||"";
+  const wasView=PAN.viewOnly; panViewMode(false); $("panTag").textContent="";
+  $("bPanStart").style.display=""; $("bPanStop").style.display="none"; $("bPanStop").innerHTML="&#9632; Stop panadapter"; $("panStatus").textContent=msg||"";
+  $("bPanStart").innerHTML=PAN.logging?"&#9654; Watch a band while logging":"&#9654; Start panadapter";
   if(msg) toast("&#9888; "+esc(msg),9000);
 }
 async function panFrameLoop(){
   if(!PAN.on)return;
   try{
     const r=await fetch("/api/pan/frame?after="+PAN.seq,{cache:"no-store"}), j=await r.json();
+    if(j.viewonly && !PAN.viewOnly && PAN.on){ panUiStop("Logging started, so listening stopped. To keep watching, press 'Watch a band while logging'."); return; }
+    if(!j.running && PAN.on && PAN.viewOnly){ panUiStop("Logging stopped, so the band view closed. Press Start panadapter to listen."); return; }
     if(!j.running && PAN.on){ panUiStop(j.error?("The panadapter stopped: "+j.error):"The panadapter stopped (logging or a test needed the radio, or this window was idle)."); return; }
     if(!j.same){PAN.seq=j.seq; panDraw(j);}
   }catch(e){}
@@ -639,7 +688,7 @@ async function panFrameLoop(){
 /* drawing */
 function panClearWf(){const c=$("cvWf"),x=c.getContext("2d");x.fillStyle="#000028";x.fillRect(0,0,c.width,c.height);}
 const panXOf=(hz,f)=>((hz-(f.center-f.rate/2))/f.rate)*1000;
-function panEdges(){ const m=PAN.mode,b=PAN.bw; if(m==="USB")return[250,250+b]; if(m==="LSB")return[-250-b,-250]; return[-b/2,b/2]; }
+function panEdges(f){ if(f&&f.viewonly) return [-f.bw/2,f.bw/2]; const m=PAN.mode,b=PAN.bw; if(m==="USB")return[250,250+b]; if(m==="LSB")return[-250-b,-250]; return[-b/2,b/2]; }
 function panDraw(f){
   if(PAN.last&&(PAN.last.center!==f.center||PAN.last.rate!==f.rate)){panClearWf();PAN.peak=null;}
   PAN.last=f;
@@ -670,6 +719,7 @@ function panDraw(f){
   for(let x=0;x<W;x++){const t=Math.min(255,Math.max(0,Math.round(((px[x]-lo)/span)*255)));row.data[x*4]=WF_LUT[t*3];row.data[x*4+1]=WF_LUT[t*3+1];row.data[x*4+2]=WF_LUT[t*3+2];row.data[x*4+3]=255;}
   wx.putImageData(row,0,0);
   // audio spectrum
+  if(f.aspec){
   const ab=b64Bytes(f.aspec),ac=$("cvAud"),ax=ac.getContext("2d"),AW=ac.width,AH=ac.height;
   ax.fillStyle="#0b1522";ax.fillRect(0,0,AW,AH);
   const hzPerBin=(f.audio_rate/2)/(1024/2)/1, binsHz=f.audio_rate/1024;
@@ -677,6 +727,7 @@ function panDraw(f){
   const xa=h=>h/(binsHz*ab.length)*AW; ax.fillStyle="rgba(255,255,255,.08)";ax.fillRect(xa(Math.max(0,e0)),0,xa(e1)-xa(Math.max(0,e0)),AH);
   ax.fillStyle="#6fe29b";for(let i=0;i<ab.length;i++){const h=Math.max(0,Math.min(1,ab[i]/255))*(AH-4);const bw=AW/ab.length;ax.fillRect(i*bw,AH-h,Math.max(1,bw-0.5),h);}
   ax.fillStyle="#7f93aa";ax.font="10px sans-serif";for(let k=0;k<=7;k+=1){const x=xa(k*1000);ax.fillText(k+"k",x+2,AH-2);}
+  }
   // level
   $("panLvl").textContent=f.smeter.toFixed(0); $("panLvlBar").style.width=Math.max(0,Math.min(100,(f.smeter+110)/110*100))+"%";
   panOverlay(null);
@@ -690,13 +741,14 @@ function panOverlay(mx){
   // edges of the picture are less reliable (radio filter roll-off)
   ox.fillStyle="rgba(120,120,120,.18)";ox.fillRect(0,0,W*0.06,H);ox.fillRect(W*0.94,0,W*0.06,H);
   // tuned marker and passband
-  const [e0,e1]=panEdges(), xt=panXOf(PAN.tune,f);
-  ox.fillStyle="rgba(255,60,60,.18)";ox.fillRect(panXOf(PAN.tune+e0,f),0,Math.max(2,panXOf(PAN.tune+e1,f)-panXOf(PAN.tune+e0,f)),H);
+  const tn=f.viewonly?f.tune:PAN.tune, [e0,e1]=panEdges(f), xt=panXOf(tn,f);
+  ox.fillStyle="rgba(255,60,60,.18)";ox.fillRect(panXOf(tn+e0,f),0,Math.max(2,panXOf(tn+e1,f)-panXOf(tn+e0,f)),H);
   ox.strokeStyle="#ff5a4a";ox.lineWidth=1.5;ox.beginPath();ox.moveTo(xt,0);ox.lineTo(xt,H);ox.stroke();
-  ox.fillStyle="#ff5a4a";ox.font="bold 12px sans-serif";ox.fillText(fmtMHz(PAN.tune)+" MHz  "+PAN.mode,Math.min(Math.max(xt+6,4),W-190),14);
+  ox.fillStyle="#ff5a4a";ox.font="bold 12px sans-serif";ox.fillText(fmtMHz(tn)+" MHz  "+(f.viewonly?"being measured":PAN.mode),Math.min(Math.max(xt+6,4),W-190),14);
   if(mx!==null){ox.strokeStyle="rgba(255,255,255,.5)";ox.lineWidth=1;ox.beginPath();ox.moveTo(mx,0);ox.lineTo(mx,H);ox.stroke();}
 }
 function panMouse(e,click){
+  if(click&&PAN.viewOnly){toast("You cannot tune while logging (the radio is busy measuring). Stop logging, then use Start panadapter to listen.",7000);return;}
   const oc=$("cvOv"),r=oc.getBoundingClientRect(),f=PAN.last; if(!f)return;
   const mx=(e.clientX-r.left)*oc.width/r.width, hz=f.center-f.rate/2+(mx/oc.width)*f.rate;
   const snap=Math.round(hz/PAN.step)*PAN.step;
@@ -708,7 +760,7 @@ function panWire(){
   oc.addEventListener("mousemove",e=>panMouse(e,false));
   oc.addEventListener("mouseleave",()=>panOverlay(null));
   oc.addEventListener("click",e=>panMouse(e,true));
-  oc.addEventListener("wheel",e=>{e.preventDefault();panSetTune(PAN.tune+(e.deltaY<0?1:-1)*PAN.step,true);},{passive:false});
+  oc.addEventListener("wheel",e=>{e.preventDefault();if(PAN.viewOnly)return;panSetTune(PAN.tune+(e.deltaY<0?1:-1)*PAN.step,true);},{passive:false});
 }
 
 /* ---------- wiring ---------- */
