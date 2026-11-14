@@ -415,10 +415,11 @@ function toast(html,ms=6000){const t=$("toast");t.innerHTML=html;t.style.display
 async function guard(fn){try{return await fn();}catch(e){toast("&#9888; "+esc(e.message),9000);}}
 
 /* ---------- form <-> config ---------- */
-function chRow(c,i){const r=c.radio||"auto";
+function chRow(c,i){const r=c.radio||"auto", md=(c.mode||"AM").toUpperCase();
  const opt=(v,t)=>`<option value="${v}" ${r===v?"selected":""}>${t}</option>`;
  return `<tr><td><input type="number" step="any" class="cm" value="${esc(c.mhz)}" placeholder="MHz"></td>
  <td><input type="number" step="any" class="cb" value="${esc(c.bw_khz)}"></td>
+ <td><select class="cmd" title="Sets which side of the frequency is measured: below for LSB, above for USB, both sides for AM / SAM / NFM. Also the listening mode.">${["AM","SAM","USB","LSB","NFM"].map(m=>`<option ${m===md?"selected":""}>${m}</option>`).join("")}</select></td>
  <td><input type="number" step="any" class="cc" value="${esc(c.cal_db)}"></td>
  <td class="radcol"><select class="cr">${opt("auto","Auto")}${opt("hl2","Hermes")}${opt("sdrplay","SDRplay")}</select></td>
  <td class="lvlcell" id="lvl${i}" style="min-width:120px"><span class="mut">&ndash;</span></td></tr>`;}
@@ -478,7 +479,8 @@ function slDraw(cv,f,zoom){
   g.strokeStyle="#223445"; g.lineWidth=1; for(let k=1;k<4;k++){ g.beginPath(); g.moveTo(0,H*k/4); g.lineTo(W,H*k/4); g.stroke(); }
   // measured stripe
   cv._map={w0:w0,span:span};
-  const x0=toX(f.tune-f.bw/2), x1=toX(f.tune+f.bw/2), pb=cv._pb;
+  const mw=(+f.bw)||5000;
+  const x0=toX(f.tune+(cv._mode==="LSB"?-mw:cv._mode==="USB"?0:-mw/2)), x1=toX(f.tune+(cv._mode==="LSB"?0:cv._mode==="USB"?mw:mw/2)), pb=cv._pb;
   if(pb){   // the receive filter follows the mode: LSB below the tuned frequency, USB above, AM/NFM both sides
     const p0=toX(f.tune+pb.lo), p1=toX(f.tune+pb.hi);
     g.fillStyle="rgba(80,220,120,.30)"; g.fillRect(Math.max(0,p0),0,Math.max(2,p1-p0),H);
@@ -521,13 +523,13 @@ function slRender(j){
       '<option value="0.1">100 Hz</option><option value="0.5">500 Hz</option><option value="1" selected>1 kHz</option><option value="5">5 kHz</option>'+
       '<option value="10">10 kHz</option><option value="100">100 kHz</option><option value="1000">1 MHz</option></select>'+
       '<label class="mut" style="font-size:12px" title="The signal power inside this many kHz around the frequency is what gets logged and mapped (the yellow bar). It is not the listening filter - that is the Filter box by the sound controls.">Measure width</label><input type="number" step="any" class="slW" style="width:64px" title="The signal power inside this many kHz around the frequency is what gets logged and mapped (the yellow bar). It is not the listening filter - that is the Filter box by the sound controls."><span class="mut" style="font-size:12px">kHz</span>'+
+      '<label class="mut" style="font-size:12px">Mode</label><select class="sm slsMode" title="LSB measures and listens below the frequency, USB above, AM / SAM / NFM both sides"><option>AM</option><option>SAM</option><option>USB</option><option>LSB</option><option>NFM</option></select>'+
       '<select class="sm slR radcol" title="Which radio measures this slice"><option value="auto">Auto</option><option value="hl2">Hermes</option><option value="sdrplay">SDRplay</option></select></div>'+
       '<div style="display:flex;gap:8px;align-items:center;margin-top:3px;flex-wrap:wrap"><label class="mut" style="font-size:12px">Zoom</label>'+
       '<input type="range" class="slzoom" min="0" max="16" step="1" value="0" style="width:130px;vertical-align:middle"><span class="mut slspan" style="font-size:12px"></span></div>'+
       '<div class="slsnd" style="display:none;gap:8px;align-items:center;margin-top:4px;flex-wrap:wrap">'+
-      '<button class="sm slsListen"></button><select class="sm slsMode"><option>AM</option><option>SAM</option><option>USB</option><option>LSB</option><option>NFM</option></select>'+
-      '<label class="mut" style="font-size:12px">Filter</label><select class="sm slsBw" title="Receive filter width: the green band on the picture">'+
-      '<option value="">Auto</option><option value="500">500 Hz</option><option value="1000">1.0 kHz</option><option value="1800">1.8 kHz</option><option value="2400">2.4 kHz</option>'+
+      '<button class="sm slsListen"></button><label class="mut" style="font-size:12px">Filter</label><select class="sm slsBw" title="Receive filter width: the green band on the picture">'+
+      '<option value="">Auto</option><option value="match">= Measure width</option><option value="500">500 Hz</option><option value="1000">1.0 kHz</option><option value="1800">1.8 kHz</option><option value="2400">2.4 kHz</option>'+
       '<option value="2800">2.8 kHz</option><option value="3600">3.6 kHz</option><option value="6000">6 kHz</option><option value="8000">8 kHz</option><option value="12000">12 kHz</option></select>'+
       '<label class="mut" style="font-size:12px">AGC</label><select class="sm slsAgc" title="Off keeps the background noise at its true level next to the signals. Slow, Medium and Fast level the volume.">'+
       '<option value="off">Off</option><option value="slow">Slow</option><option value="medium" selected>Medium</option><option value="fast">Fast</option></select>'+
@@ -550,11 +552,11 @@ function slRender(j){
       snd.style.display="flex";
       const lb=d.querySelector(".slsListen"); lb.textContent=st.listen?"\u25A0 Sound off":"\uD83D\uDD0A Listen"; lb.onclick=()=>slsListen(ch,!st.listen);
       const ms=d.querySelector(".slsMode"), bs=d.querySelector(".slsBw"), ag=d.querySelector(".slsAgc");
-      if(!d.dataset.synced&&st.mode){ ms.value=st.mode; bs.value=(st.bw&&BWDEF[st.mode]!==st.bw)?String(Math.round(st.bw)):""; if(st.agc) ag.value=st.agc; d.dataset.synced="1"; }
-      ms.onchange=bs.onchange=ag.onchange=()=>{ slsMode(ch); const cv=d.querySelector("canvas"); cv._pb=slPassband(ms.value,bs.value); slDraw(cv,f,SLZ[String(f.channel)]||1); };
+      if(!d.dataset.synced&&st.mode){ bs.value=(st.bw&&BWDEF[st.mode]!==st.bw&&Math.abs(st.bw-f.bw)>1)?String(Math.round(st.bw)):""; if(st.agc) ag.value=st.agc; d.dataset.synced="1"; }
+      bs.onchange=ag.onchange=()=>{ slsMode(ch); const cv=d.querySelector("canvas"); cv._pb=slPassband(ms.value,bs.value,f.bw); slDraw(cv,f,SLZ[String(f.channel)]||1); };
       const rb=d.querySelector(".slsRec"); const on=!!st.rec_file;
       rb.textContent=on?"\u25A0 Stop recording":"\u25CF Record"; rb.onclick=()=>slsRec(ch,!on);
-      d.querySelector("canvas")._pb=slPassband(ms.value,bs.value);
+      d.querySelector("canvas")._pb=slPassband(ms.value,bs.value,f.bw);
       d.querySelector(".slsRecInfo").textContent=on?(st.rec_file+"  "+Math.floor((st.rec_s||0)/60)+":"+String(Math.floor((st.rec_s||0)%60)).padStart(2,"0")):"";
     } else { snd.style.display="none"; d.querySelector("canvas")._pb=null; } });
   const h=j.health||{}, w=$("slWarn"), msg=[];
@@ -563,10 +565,11 @@ function slRender(j){
   w.style.display=msg.length?"block":"none"; w.innerHTML=msg.join("<br>");
 }
 const BWDEF={AM:8000,SAM:8000,USB:2800,LSB:2800,NFM:12000};
-function slPassband(mode,bwSel){ const bw=+bwSel||BWDEF[mode]||8000;
+function slPassband(mode,bwSel,measHz){ const bw=(bwSel==="match"?+measHz:+bwSel)||BWDEF[mode]||8000;
   if(mode==="LSB") return {lo:-bw,hi:0}; if(mode==="USB") return {lo:0,hi:bw}; return {lo:-bw/2,hi:bw/2}; }
 function slsPrefs(ch){ const box=[...document.querySelectorAll("#slGrid .slbox")].find(b=>b.dataset.ch===String(ch)); if(!box) return {};
-  const bw=box.querySelector(".slsBw").value; return {mode:box.querySelector(".slsMode").value, bw:bw?+bw:undefined, agc:box.querySelector(".slsAgc").value}; }
+  const bw=box.querySelector(".slsBw").value, mw=(+box.querySelector(".slW").value||5)*1000;
+  return {mode:box.querySelector(".slsMode").value, bw:bw==="match"?mw:(bw?+bw:undefined), agc:box.querySelector(".slsAgc").value}; }
 /* tune a slice: frequency, step, width and radio, live in the preview and while logging */
 const SLSTEP={};
 function slRowOf(ch){ const m=[...document.querySelectorAll(".cm")]; let n=-1;
@@ -587,8 +590,12 @@ function slTuneWire(d,f){
   st.onchange=()=>{ SLSTEP[ch]=st.value; };
   fi.onchange=()=>{ if(fi.value.trim()!=="") slTune(ch,{mhz:fi.value.trim()}); };
   fi.onwheel=e=>{ e.preventDefault(); move(e.deltaY<0?1:-1); };
-  wi.onchange=()=>{ if(+wi.value>0) slTune(ch,{bw:wi.value}); };
+  wi.onchange=()=>{ if(+wi.value>0){ slTune(ch,{bw:wi.value}); if(f.radio==="hl2"&&d.querySelector(".slsBw").value==="match") setTimeout(()=>slsMode(ch),400); } };
   ri.onchange=()=>slTune(ch,{radio:ri.value});
+  const ms=d.querySelector(".slsMode"), cmd=document.querySelectorAll(".cmd")[row], cv0=d.querySelector("canvas");
+  if(cmd&&document.activeElement!==ms&&ms.value!==cmd.value) ms.value=cmd.value;
+  cv0._mode=ms.value;
+  ms.onchange=()=>{ cv0._mode=ms.value; slTune(ch,{mode:ms.value}); if(f.radio==="hl2") slsMode(ch); };
   // the picture itself: wheel = step, click = tune to that spot, drag = grab the band and slide it
   const cv=d.querySelector("canvas"); cv.style.cursor="grab"; cv.style.touchAction="none";
   const setF=(mhz,delay)=>{ const nv=Math.max(0.001,Math.round(mhz*1e4)/1e4); fi.value=String(nv); slTune(ch,{mhz:String(nv)},delay); };
@@ -604,10 +611,11 @@ let slTuneTimer=null, slUndo=null;
 function slTune(ch,p,delay){ const r=slRowOf(ch); if(r<0) return;
   const cm=document.querySelectorAll(".cm")[r], cb=document.querySelectorAll(".cb")[r], cr=document.querySelectorAll(".cr")[r];
   if(!slUndo) slUndo=[...document.querySelectorAll(".cm")].map((_,i)=>({m:document.querySelectorAll(".cm")[i].value,
-      b:document.querySelectorAll(".cb")[i].value, r:document.querySelectorAll(".cr")[i].value}));   // to go back if refused
+      b:document.querySelectorAll(".cb")[i].value, r:document.querySelectorAll(".cr")[i].value, d:(document.querySelectorAll(".cmd")[i]||{}).value}));   // to go back if refused
   if(p.mhz!==undefined) cm.value=p.mhz;
   if(p.bw!==undefined) cb.value=p.bw;
   if(p.radio!==undefined) cr.value=p.radio;
+  if(p.mode!==undefined){ const cd=document.querySelectorAll(".cmd")[r]; if(cd) cd.value=p.mode; }
   clearTimeout(slTuneTimer); slTuneTimer=setTimeout(slPush,delay||250); }
 async function slPush(){
   const undo=slUndo; slUndo=null;
@@ -615,7 +623,8 @@ async function slPush(){
     if(SL.logging) await api("/api/apply",cfg); else await api("/api/slices/set",{channels:cfg.channels});
   }catch(e){
     if(undo){ const m=document.querySelectorAll(".cm"), b=document.querySelectorAll(".cb"), r=document.querySelectorAll(".cr");
-      undo.forEach((u,i)=>{ if(m[i]){ m[i].value=u.m; b[i].value=u.b; r[i].value=u.r; } });
+      const dm=document.querySelectorAll(".cmd");
+      undo.forEach((u,i)=>{ if(m[i]){ m[i].value=u.m; b[i].value=u.b; r[i].value=u.r; if(dm[i]&&u.d) dm[i].value=u.d; } });
       try{ await api("/api/config",readForm()); }catch(_){}
       document.querySelectorAll("#slGrid .slF,#slGrid .slW").forEach(e=>{ if(document.activeElement===e) e.blur(); }); }   // let the box show the restored value
     toast("&#9888; "+esc(e.message),7000); } }
@@ -681,18 +690,18 @@ function fillForm(cfg){
   $("gHost").value=cfg.gps_host; $("gPort").value=cfg.gps_port; $("gBaud").value=cfg.gps_baud;
   $("autoMap").checked=!!cfg.auto_map; $("spacing").value=cfg.spacing_ft; $("interval").value=cfg.interval_s||5; (document.querySelector(`input[name=smode][value=${cfg.sample_mode==="time"?"time":"distance"}]`)).checked=true; spacingNote(); $("ifgr").value=cfg.if_gain_db; $("rfgr").value=cfg.rf_gain_state; gainSync();
   $("useSdr").checked=(cfg.use_sdrplay!==false); $("useHl2").checked=!!cfg.use_hl2; $("hl2ip").value=cfg.hl2_ip||""; $("hl2rate").value=String(cfg.hl2_rate||96000); $("hl2g").value=(cfg.hl2_gain_db===undefined?15:cfg.hl2_gain_db);
-  let h="<tr><th>MHz</th><th>Width (kHz)</th><th>Calibration (dB)</th><th class=radcol title='Which radio measures this slot. Auto: the Hermes Lite 2 takes what it can hear; the SDRplay takes the rest.'>Radio</th><th>Level now (dB)</th></tr>";
+  let h="<tr><th>MHz</th><th title='The signal power inside this width is what is logged and mapped'>Measure width (kHz)</th><th title='LSB measures below the frequency, USB above, the others both sides'>Mode</th><th>Calibration (dB)</th><th class=radcol title='Which radio measures this slot. Auto: the Hermes Lite 2 takes what it can hear; the SDRplay takes the rest.'>Radio</th><th>Level now (dB)</th></tr>";
   for(let i=0;i<4;i++) h+=chRow(cfg.channels[i]||{mhz:"",bw_khz:5,cal_db:0},i);
   $("chTable").innerHTML=h; showRadioFields(); $("phoneAccess").checked=!!cfg.phone_access; panMemLoad(cfg);
 }
 function readForm(){
-  const m=[...document.querySelectorAll(".cm")],b=[...document.querySelectorAll(".cb")],c=[...document.querySelectorAll(".cc")],rr=[...document.querySelectorAll(".cr")];
+  const m=[...document.querySelectorAll(".cm")],b=[...document.querySelectorAll(".cb")],c=[...document.querySelectorAll(".cc")],rr=[...document.querySelectorAll(".cr")],md=[...document.querySelectorAll(".cmd")];
   return {route_name:$("route").value.trim(), practice:$("practice").checked,
     gps_mode:(document.querySelector("input[name=gpsm]:checked")||{value:"usb"}).value, gps_host:$("gHost").value.trim(),
     gps_port:+$("gPort").value||11123, gps_serial:$("gSerial").value, gps_baud:+$("gBaud").value,
     auto_map:$("autoMap").checked, spacing_ft:+$("spacing").value||10, sample_mode:smode(), interval_s:+$("interval").value||5, if_gain_db:+$("ifgr").value||40, rf_gain_state:+$("rfgr").value||0,
     use_sdrplay:useSdr(), use_hl2:useHl2(), hl2_ip:$("hl2ip").value.trim(), hl2_rate:+$("hl2rate").value||96000, hl2_gain_db:Math.round(+$("hl2g").value||0),
-    channels:m.map((x,i)=>({mhz:x.value, bw_khz:b[i].value||5, cal_db:c[i].value||0, radio:(rr[i]||{value:"auto"}).value}))};
+    channels:m.map((x,i)=>({mhz:x.value, bw_khz:b[i].value||5, cal_db:c[i].value||0, radio:(rr[i]||{value:"auto"}).value, mode:(md[i]||{value:"AM"}).value}))};
 }
 function showGpsFields(){
   const prac=$("practice").checked, mode=(document.querySelector("input[name=gpsm]:checked")||{value:"usb"}).value;

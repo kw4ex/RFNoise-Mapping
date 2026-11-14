@@ -283,6 +283,7 @@ class App:
                 raise ValueError(f"{mhz} MHz is outside the radio's range (0.001 to 2000 MHz).")
             out.append({"mhz": mhz, "bw_khz": max(0.5, float(ch.get("bw_khz") or 5)),
                         "cal_db": float(ch.get("cal_db") or 0),
+                        "mode": (str(ch.get("mode") or "AM").upper() if str(ch.get("mode") or "AM").upper() in ("AM", "SAM", "USB", "LSB", "NFM") else "AM"),
                         "radio": self.resolve_radio(mhz, str(ch.get("radio") or "auto"), practice)})
         if not out:
             raise ValueError("Enter at least one frequency.")

@@ -82,6 +82,14 @@ PAN_DB_LO, PAN_DB_HI = -120.0, 0.0
 PAN_FRAME = {"seq": 0, "f": None, "lock": threading.Lock(), "all": {}}
 
 
+def band_shift_hz(ch):
+    """Where the measured band sits relative to the tuned frequency, for the slot's mode: the band is bw wide and
+    lies BELOW the frequency for LSB, ABOVE it for USB, and is centred on it for AM, SAM and NFM."""
+    mode = str(ch.get("mode") or "AM").upper()
+    bw = float(ch.get("bw_khz") or 5.0) * 1e3
+    return -bw / 2.0 if mode == "LSB" else (bw / 2.0 if mode == "USB" else 0.0)
+
+
 def publish_spectrum(lo_hz, rate, spec, tune_hz, bw_hz, level_db, idx, radio=""):
     """Keep the newest band picture so the control panel can show it while logging."""
     import base64
@@ -585,7 +593,7 @@ class HermesLite2:
             self.client.set_gain(g)
             self._gain = g
 
-    def _level(self, x, bw_hz):
+    def _level(self, x, bw_hz, shift_hz=0.0):
         n = self.FFT_N
         nseg = len(x) // n
         segs = x[: nseg * n].reshape(nseg, n) * self.window
@@ -593,8 +601,9 @@ class HermesLite2:
         spec = spec.mean(axis=0) / (n * self.win_pow)
         binw = self.rate / n
         half = max(int(round(min(bw_hz, self.rate * 0.9) / binw / 2)), 1)
-        c = n // 2
-        level = 10.0 * math.log10(float(spec[c - half: c + half + 1].sum()) + 1e-20)
+        c = n // 2 + int(round(shift_hz / binw))                 # the band may sit beside the tuned frequency (LSB / USB)
+        lo_i, hi_i = max(0, c - half), min(n, c + half + 1)
+        level = 10.0 * math.log10(float(spec[lo_i:hi_i].sum()) + 1e-20)
         return spec, level
 
     def measure_all(self, chans, settings):
@@ -616,7 +625,7 @@ class HermesLite2:
             except self.hl2.Hl2Error:
                 out.append((float("nan"), time.time(), None))
                 continue
-            spec, level = self._level(x, float(ch["bw_khz"]) * 1e3)
+            spec, level = self._level(x, float(ch["bw_khz"]) * 1e3, band_shift_hz(ch))
             fr = (hz, self.rate, spec, level)
             self.frames[i] = fr
             out.append((level, t_mid, fr))
@@ -704,7 +713,7 @@ class MultiRadio:
             for i, c in enumerate(chans):
                 if (c.get("radio") or "sdrplay") == "hl2":
                     continue
-                lv = sp.measure(c["mhz"] * 1e6, c["bw_khz"] * 1e3, self.pos[0], self.pos[1], settings)
+                lv = sp.measure(c["mhz"] * 1e6 + band_shift_hz(c), c["bw_khz"] * 1e3, self.pos[0], self.pos[1], settings)
                 fr = sp.last_frame()
                 out[i] = (lv, time.time(), fr)
                 if fr:
@@ -920,6 +929,7 @@ def make_handler(settings, state, stop_event, sdr=None):
                             chans.append({"mhz": mhz,
                                           "bw_khz": max(0.5, float(c.get("bw_khz", 5))),
                                           "cal_db": float(c.get("cal_db", 0)),
+                                          "mode": str(c.get("mode") or "AM").upper() if str(c.get("mode") or "AM").upper() in ("AM", "SAM", "USB", "LSB", "NFM") else "AM",
                                           "radio": c.get("radio") if c.get("radio") in ("hl2", "sdrplay") else "sdrplay"})
                         if not chans:
                             raise ValueError("need at least one frequency")
@@ -1150,7 +1160,7 @@ def main():
                         publish_spectrum(fr[0], fr[1], fr[2], ch["mhz"] * 1e6, ch["bw_khz"] * 1e3, fr[3], ci,
                                          ch.get("radio", ""))
                 else:
-                    level = sdr.measure(ch["mhz"] * 1e6, ch["bw_khz"] * 1e3, lat, lon, cfg)
+                    level = sdr.measure(ch["mhz"] * 1e6 + band_shift_hz(ch), ch["bw_khz"] * 1e3, lat, lon, cfg)
                     t_read = time.time()
                 if math.isnan(level):
                     continue
