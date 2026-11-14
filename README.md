@@ -2,9 +2,9 @@
 
 Find power-line and other radio noise by driving a route.
 
-An **SDRplay RSP1** receiver and a **GPS** log the signal level about every 10 feet. The program then draws a **street map of colored dots, blue (weak) to red (strong)**, so you can see where the noise is loudest and drive straight to it.
+One or two software-defined radios (an **SDRplay RSP1**, a **Hermes Lite 2**, or both together) and a **GPS** log the signal level on up to four frequencies about every 10 feet. The program then draws a **street map of colored dots, blue (weak) to red (strong)**, so you can see where the noise is loudest and drive straight to it. Live panadapters, one per frequency, let you see and hear the noise as you drive.
 
-> **Status: early testing.** Tested with simulated hardware and on one Windows 11 PC with a real RSP1 and a USB GPS. A real drive has **not** been done yet. The **Mac version is experimental and untested on a real Mac.** Please report what you find.
+> **Status: early testing.** Tested with simulated hardware, and on one Windows 11 PC with a real RSP1 and a USB GPS. The **Hermes Lite 2 support has only been tested against a simulated radio so far**, and a real drive has **not** been done yet. The Mac version is experimental. Please report what you find.
 
 ![Control panel: route, radios, frequencies](docs/images/panel.png)
 
@@ -36,7 +36,7 @@ An **SDRplay RSP1** receiver and a **GPS** log the signal level about every 10 f
 
 ## How it works
 
-1. The **radio** (SDRplay RSP1) measures signal strength on each of your frequencies.
+1. The **radio** (SDRplay RSP1, Hermes Lite 2, or both, as you choose for each frequency) measures signal strength on each of your frequencies.
 2. The **GPS** (a USB puck, or an iPhone running the GPS2IP app) says where you are.
 3. The **logger** pairs each reading with a position and saves a CSV file in your drive folder.
 4. The **map maker** turns the CSV into a map (HTML file) you open in any web browser. Zoom in on the red spots.
