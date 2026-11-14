@@ -159,6 +159,13 @@ def _prepare_windows(d):
             os.environ["PATH"] = extra + os.pathsep + os.environ.get("PATH", "")
 
 
+def _quiet_soapy(soapy):
+    """PothosSDR prints a harmless 'no VOLK config file' note; only real errors are shown from here on."""
+    try:
+        soapy.SoapySDR_setLogLevel(soapy.SOAPY_SDR_ERROR)
+    except Exception:
+        pass
+
 def find_soapy():
     """
     Try to import SoapySDR. If it is not on Python's normal path, look in the usual
@@ -173,6 +180,7 @@ def find_soapy():
                 break
     try:
         import SoapySDR
+        _quiet_soapy(SoapySDR)
         return SoapySDR, ("found. " + PRELOAD_NOTE).strip()
     except ImportError:
         pass

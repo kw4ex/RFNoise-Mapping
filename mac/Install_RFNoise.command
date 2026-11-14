@@ -249,7 +249,7 @@ $out"; fi
     if [ -f /usr/local/include/sdrplay_api.h ]; then chk ok "SDRplay API installed"; else say "  [info ] SDRplay API not installed (only needed for the real radio; practice mode works without it)"; fi
     if pgrep -f sdrplay_apiService >/dev/null 2>&1; then chk ok "SDRplay service is running"; else say "  [info ] SDRplay service is not running (it starts after the API is installed and the Mac restarted)"; fi
     if [ -x "$PYV" ] && [ -f "$DEST/app/check_setup.py" ]; then
-        out="$(cd "$DEST/app" && "$PYV" check_setup.py 2>&1)"; printf '%s\n' "$out" >> "$LOG"
+        out="$(cd "$DEST/app" && "$PYV" check_setup.py 2>&1 | grep -v "SoapyVOLKConverters")"; printf '%s\n' "$out" >> "$LOG"
         say "  Radio and setup check:"; printf '%s\n' "$out" | sed 's/^/        /'
         txt="$txt
 $out"
@@ -610,7 +610,7 @@ rm -rf "$PCHK"
 echo
 say "Checking the radio (this is informational):"
 M5="$(log_mark)"
-( cd "$DEST/app" && "$DEST/venv/bin/python" check_setup.py 2>&1 | tee -a "$LOG" )
+( cd "$DEST/app" && "$DEST/venv/bin/python" check_setup.py 2>&1 | grep -v "SoapyVOLKConverters" | tee -a "$LOG" )
 if log_since "$M5" | grep -Eiq "no sdrplay|not (found|available)|FIX"; then
     diagnose "$(log_since "$M5")"
     [ "$RADIO_OK" = "0" ] && note_warn "The radio is not set up yet (fine for practice mode)"

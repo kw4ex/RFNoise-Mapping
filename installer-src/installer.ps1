@@ -86,6 +86,8 @@ function Invoke-Py([string[]]$PyArgs) {
     $pre = @(); if ($parts.Count -gt 1) { $pre = $parts[1..($parts.Count - 1)] }
     $out = (& $parts[0] @pre @PyArgs 2>&1 | ForEach-Object { if ($_ -is [System.Management.Automation.ErrorRecord]) { $_.Exception.Message } else { $_ } } | Out-String)
     $script:PyExit = $LASTEXITCODE
+    # PothosSDR's harmless 'no VOLK config file' note is left out: it only means a speed test was never run
+    $out = (@($out -split "`r?`n" | Where-Object { $_ -notmatch 'SoapyVOLKConverters|volk_profile' }) -join "`n") + "`n"
     $script:Raw += "`n" + $out
     if ($script:Raw.Length -gt 60000) { $script:Raw = $script:Raw.Substring($script:Raw.Length - 40000) }
     return $out
