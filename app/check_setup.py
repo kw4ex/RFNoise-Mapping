@@ -10,6 +10,7 @@ Command line:
 """
 import argparse
 import glob
+import os
 import sys
 import time
 
@@ -33,8 +34,34 @@ def run_checks(gps_spec=None, listen_seconds=5):
         add("Math library", "fix", "numpy is missing. Run the installer again.")
 
     # Radio
-    soapy, note = C.find_soapy()
-    if soapy is None:
+    cfg = {}
+    try:
+        import json as _json
+        with open(os.path.join(C.data_dir(), "Settings", "config.json")) as _f:
+            cfg = _json.load(_f)
+    except Exception:
+        pass
+    if cfg.get("radio") == "hl2":
+        try:
+            import hl2
+            ip = str(cfg.get("hl2_ip", "")).strip()
+            found = hl2.discover(ip or None, timeout=3.0)
+        except Exception as e:
+            found = []
+            add("Hermes Lite 2", "fix", f"Could not search the network: {e}")
+        else:
+            if found:
+                d = found[0]
+                add("Hermes Lite 2", "ok", "Found at %s (%d receivers)%s" % (d["ip"], d["nrx"], "; another program is using it" if d["busy"] else ""))
+            else:
+                add("Hermes Lite 2", "fix", "No radio answered" + (" at " + ip if ip else " on the network") +
+                    ". Check the network cable and the radio's power, close Thetis / SDR Console, then press 'Find my radio'.")
+        soapy, note = ("skip", "")
+    else:
+        soapy, note = C.find_soapy()
+    if soapy == "skip":
+        pass
+    elif soapy is None:
         add("Radio library", "fix",
             "The SDRplay radio library (SoapySDR) is not available. " + note +
             "  You can still use Practice mode and make maps from existing logs. "

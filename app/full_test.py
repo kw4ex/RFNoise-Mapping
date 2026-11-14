@@ -64,7 +64,7 @@ def _python_exe():
 
 
 # ---------------------------------------------------------------- 1. software
-def test_software(r):
+def test_software(r, need_soapy=True):
     py = ".".join(map(str, sys.version_info[:3]))
     r.add("Software", "ok" if sys.version_info >= (3, 8) else "fix", f"Python {py}")
     try:
@@ -78,6 +78,9 @@ def test_software(r):
     except ImportError:
         r.add("Software", "warn", "pyserial is missing, so a USB GPS cannot be used (iPhone GPS still works). "
                                   "Run Install_RFNoise_Windows.bat again.")
+    if not need_soapy:
+        r.add("Software", "ok", "Hermes Lite 2 selected: the SDRplay radio library (SoapySDR) is not needed.")
+        return None
     soapy, note = C.find_soapy()
     if soapy is None:
         r.add("Software", "fix", "Radio library (SoapySDR) not usable. " + note)
@@ -174,6 +177,70 @@ def test_radio(r, soapy):
     return ok
 
 
+def _saved_config():
+    try:
+        with open(os.path.join(C.data_dir(), "Settings", "config.json")) as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def test_radio_hl2(r, cfg):
+    """Hermes Lite 2: found on the network, streams cleanly, readings on each saved frequency."""
+    import hl2
+    import rf_logger
+    ip = str(cfg.get("hl2_ip", "")).strip()
+    found = hl2.discover(ip or None, timeout=3.0)
+    if not found:
+        r.add("Radio", "fix", "No Hermes Lite 2 answered" + (" at " + ip if ip else " on the network") + ". Check the network cable "
+              "and the radio's power (wait 20 seconds after switching on), close Thetis / SDR Console, then use 'Find my radio' "
+              "on the control panel, or type its address.")
+        return False
+    d = found[0]
+    r.add("Radio", "ok", "Found %s at %s (%d receivers)" % ("a Hermes Lite 2" if d["is_hl2"] else "an HPSDR radio", d["ip"], d["nrx"]))
+    settings = copy.deepcopy(rf_logger.DEFAULT_SETTINGS)
+    settings["hl2_gain_db"] = int(cfg.get("hl2_gain_db", 15))
+    chans = [c for c in cfg.get("channels", []) if str(c.get("mhz", "")).strip() != ""]
+    ok_chans = [c for c in chans if float(c["mhz"]) <= 38][:4]
+    for c in chans:
+        if float(c["mhz"]) > 38:
+            r.add("Radio", "warn", "%g MHz is above what the Hermes Lite 2 can receive (about 38 MHz); it will be refused at Start." % float(c["mhz"]))
+    settings["channels"] = [{"mhz": float(c["mhz"]), "bw_khz": float(c.get("bw_khz") or 5), "cal_db": 0} for c in ok_chans] or \
+        [{"mhz": 3.7, "bw_khz": 5, "cal_db": 0}, {"mhz": 7.3, "bw_khz": 5, "cal_db": 0}]
+    try:
+        sdr = rf_logger.HermesLite2(settings, d["ip"], int(cfg.get("hl2_rate", 96000)), d["port"])
+    except RuntimeError as e:
+        r.add("Radio", "fix", "Could not start the radio: " + str(e)[:200])
+        return False
+    ok = True
+    try:
+        time.sleep(1.0)
+        p0, l0 = sdr.client.packets, sdr.client.lost
+        time.sleep(2.0)
+        pk, lost = sdr.client.packets - p0, sdr.client.lost - l0
+        if pk == 0:
+            r.add("Radio", "fix", "The radio is found but no samples are arriving.")
+            ok = False
+        elif lost > 0.01 * pk:
+            r.add("Radio", "warn", "%d of %d packets were lost: the network is dropping data. Use a direct cable." % (lost, pk + lost))
+        else:
+            r.add("Radio", "ok", "Data flow is clean (%.0f packets a second, %d lost)." % (pk / 2.0, lost))
+        res = sdr.measure_all(settings["channels"], settings)
+        for ch, (lv, _t, _f) in zip(settings["channels"], res):
+            if math.isnan(lv):
+                r.add("Radio", "fix", "%g MHz: no data." % ch["mhz"]); ok = False
+            elif lv > -12:
+                r.add("Radio", "warn", "%g MHz: %.1f dBFS - very strong, the radio may be overloaded. Lower the radio gain." % (ch["mhz"], lv))
+            else:
+                r.add("Radio", "ok", "%g MHz: %.1f dBFS" % (ch["mhz"], lv))
+        if sdr.health().get("overload"):
+            r.add("Radio", "warn", "The radio reports ADC overload. Lower the radio gain, or add an attenuator.")
+    finally:
+        sdr.close()
+        time.sleep(0.5)
+    return ok
+
+
 # ---------------------------------------------------------------- 3. GPS
 def test_gps(r, gps_wait, iphone):
     import gps_detect
@@ -263,8 +330,10 @@ def test_drive(r, radio_ok, seconds=25):
 
 def run_all(emit=None, gps_wait=0, iphone=False, skip_drive=False):
     r = Report(emit)
-    soapy = test_software(r)
-    radio_ok = test_radio(r, soapy)
+    cfg = _saved_config()
+    use_hl2 = cfg.get("radio") == "hl2"
+    soapy = test_software(r, need_soapy=not use_hl2)
+    radio_ok = test_radio_hl2(r, cfg) if use_hl2 else test_radio(r, soapy)
     test_gps(r, gps_wait, iphone)
     if not skip_drive:
         test_drive(r, radio_ok)

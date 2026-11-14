@@ -66,13 +66,20 @@ DEFAULT_SETTINGS = {
     "paused": False,          # pause button on the settings page
     "if_gain_db": 40,         # SDRplay "IF gain reduction" (higher = less gain)
     "rf_gain_state": 0,       # SDRplay "RF gain reduction" (0 = most gain)
+    "hl2_gain_db": 15,        # Hermes Lite 2 low-noise-amplifier gain, -12 to +48 dB
     "pan_channel": -1,        # which frequency (0-3) to show as a live spectrum; -1 = none
 }
 MAX_CHANNELS = 4
 
 
+def _iso_ms(t=None):
+    """UTC time as text with milliseconds, e.g. 2026-11-14T03:21:07.482Z"""
+    d = datetime.fromtimestamp(time.time() if t is None else t, timezone.utc)
+    return d.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
+
+
 PAN_DB_LO, PAN_DB_HI = -120.0, 0.0
-PAN_FRAME = {"seq": 0, "f": None, "lock": threading.Lock()}
+PAN_FRAME = {"seq": 0, "f": None, "lock": threading.Lock(), "all": {}}
 
 
 def publish_spectrum(lo_hz, rate, spec, tune_hz, bw_hz, level_db, idx):
@@ -85,6 +92,7 @@ def publish_spectrum(lo_hz, rate, spec, tune_hz, bw_hz, level_db, idx):
         PAN_FRAME["f"] = {"seq": PAN_FRAME["seq"], "center": float(lo_hz), "rate": int(rate), "tune": float(tune_hz),
                           "bw": float(bw_hz), "channel": int(idx), "smeter": round(float(level_db), 1),
                           "db_lo": PAN_DB_LO, "db_hi": PAN_DB_HI, "spec": base64.b64encode(b.tobytes()).decode()}
+        PAN_FRAME["all"][int(idx)] = PAN_FRAME["f"]          # the "slices" view shows all channels at once
 
 
 class Settings:
@@ -354,6 +362,17 @@ class SimSdr:
     def last_frame(self):
         return getattr(self, "_last", None)
 
+    # The practice radio also reports every channel together, so the "slices" view can be tried without hardware.
+    multi = True
+    pos = (0.0, 0.0)
+
+    def measure_all(self, chans, settings):
+        out = []
+        for ch in chans[:MAX_CHANNELS]:
+            lv = self.measure(ch["mhz"] * 1e6, ch["bw_khz"] * 1e3, self.pos[0], self.pos[1], settings)
+            out.append((lv, time.time(), self._last))
+        return out
+
 
 class SoapySdr:
     """Real SDRplay through the SoapySDR library."""
@@ -509,6 +528,113 @@ class SoapySdr:
             pass
 
 
+class HermesLite2:
+    """Hermes Lite 2 over the network (see hl2.py). Its receivers run at the same time, each on its own
+    frequency, so all channels are read at the SAME instant with no retuning in between."""
+
+    FFT_N = 4096
+    name = "Hermes Lite 2"
+    multi = True                      # every channel is measured together
+
+    def __init__(self, settings, ip="", rate=96000, port=1024):
+        import hl2
+        self.hl2 = hl2
+        found = hl2.discover(ip or None, timeout=3.0, port=port)
+        if not found:
+            L.error("no Hermes Lite 2 found (ip=%r)" % ip)
+            raise RuntimeError("No Hermes Lite 2 answered. Check the network cable and the radio's power, that nothing "
+                               "else (Thetis, SDR Console) is using the radio, and the address on the control panel.")
+        d = found[0]
+        self.info = d
+        self.rate = int(rate)
+        self.nrx = max(1, min(MAX_CHANNELS, d["nrx"]))
+        self.name = "Hermes Lite 2 (%s)" % d["ip"]
+        self.client = hl2.Hl2Client(d["ip"], d["port"], rate=self.rate, nrx=self.nrx)
+        self.client.lna_db = settings.get("hl2_gain_db", 15)
+        chans = settings.get("channels") or []
+        for i in range(self.nrx):
+            mhz = chans[i]["mhz"] if i < len(chans) else (chans[0]["mhz"] if chans else 7.0)
+            self.client.freq[i] = int(float(mhz) * 1e6)
+        try:
+            self.client.start()
+        except hl2.Hl2Error as e:
+            L.error(str(e))
+            raise RuntimeError(str(e))
+        self.window = np.hanning(self.FFT_N).astype(np.float32)
+        self.win_pow = float(np.sum(self.window ** 2))
+        self.nseg = max(1, int(round(0.064 * self.rate / self.FFT_N)))     # about 64 ms of data per reading
+        self._gain = self.client.lna_db
+        self.frames = {}
+
+    def apply_gain(self, settings):
+        g = settings.get("hl2_gain_db", 15)
+        if g != self._gain:
+            self.client.set_gain(g)
+            self._gain = g
+
+    def _level(self, x, bw_hz):
+        n = self.FFT_N
+        nseg = len(x) // n
+        segs = x[: nseg * n].reshape(nseg, n) * self.window
+        spec = np.abs(np.fft.fftshift(np.fft.fft(segs, axis=1), axes=1)) ** 2
+        spec = spec.mean(axis=0) / (n * self.win_pow)
+        binw = self.rate / n
+        half = max(int(round(min(bw_hz, self.rate * 0.9) / binw / 2)), 1)
+        c = n // 2
+        level = 10.0 * math.log10(float(spec[c - half: c + half + 1].sum()) + 1e-20)
+        return spec, level
+
+    def measure_all(self, chans, settings):
+        """One reading for every channel. Returns a list of (level_dbfs, time_of_reading, frame) per channel,
+        frame = (centre_hz, rate, spectrum, level)."""
+        self.apply_gain(settings)
+        out = []
+        for i, ch in enumerate(chans[:MAX_CHANNELS]):
+            rx = i % self.nrx
+            hz = float(ch["mhz"]) * 1e6
+            self.client.set_freq(rx, hz)
+        for i, ch in enumerate(chans[:MAX_CHANNELS]):
+            rx = i % self.nrx
+            hz = float(ch["mhz"]) * 1e6
+            if i >= self.nrx:                                  # fewer receivers than channels: share one
+                self.client.set_freq(rx, hz)
+            try:
+                x, t_mid = self.client.take(rx, self.nseg * self.FFT_N)
+            except self.hl2.Hl2Error:
+                out.append((float("nan"), time.time(), None))
+                continue
+            spec, level = self._level(x, float(ch["bw_khz"]) * 1e3)
+            fr = (hz, self.rate, spec, level)
+            self.frames[i] = fr
+            out.append((level, t_mid, fr))
+        return out
+
+    # single-channel interface, used by the self-tests
+    def measure(self, freq_hz, bw_hz, lat, lon, settings):
+        r = self.measure_all([{"mhz": freq_hz / 1e6, "bw_khz": bw_hz / 1e3}], settings)[0]
+        return r[0]
+
+    def last_frame(self):
+        return self.frames.get(0)
+
+    def spectrum(self, freq_hz, bw_hz, lat, lon, settings):
+        self.measure(freq_hz, bw_hz, lat, lon, settings)
+        return self.frames[0]
+
+    def health(self):
+        c = self.client
+        ov = c.overload
+        c.overload = False
+        return {"overload": bool(ov), "lost_packets": int(c.lost), "packets": int(c.packets),
+                "rate": self.rate, "receivers": self.nrx}
+
+    def close(self):
+        try:
+            self.client.stop()
+        except Exception:
+            pass
+
+
 # ----------------------------------------------------------------------------
 # Position helpers
 # ----------------------------------------------------------------------------
@@ -599,6 +725,10 @@ def make_handler(settings, state, stop_event):
         def do_GET(self):
             if self.path.startswith("/status"):
                 self._send(200, json.dumps(dict(state, settings=settings.get())))
+            elif self.path.startswith("/slices"):
+                with PAN_FRAME["lock"]:
+                    fr = [PAN_FRAME["all"][k] for k in sorted(PAN_FRAME["all"])]
+                self._send(200, json.dumps({"frames": fr, "health": state.get("radio_health", {})}))
             elif self.path.startswith("/spectrum"):
                 try:
                     after = int(self.path.split("after=")[1].split("&")[0])
@@ -654,6 +784,8 @@ def make_handler(settings, state, stop_event):
                         upd["if_gain_db"] = int(min(max(int(req["if_gain_db"]), 20), 59))
                     if "rf_gain_state" in req:
                         upd["rf_gain_state"] = int(min(max(int(req["rf_gain_state"]), 0), 27))
+                    if "hl2_gain_db" in req:
+                        upd["hl2_gain_db"] = int(min(max(int(req["hl2_gain_db"]), -12), 48))
                     if upd:
                         settings.update(upd)
                 self._send(200, "{}")
@@ -681,8 +813,12 @@ def main():
     ap.add_argument("--gps", required=True,
                     help="GPS source:  tcp:IP:PORT (iPhone GPS2IP) | "
                          "serial:/dev/cu.usbmodemXXXX[:baud] (USB GPS) | sim")
-    ap.add_argument("--sdr", default="sdrplay", choices=["sdrplay", "sim"],
-                    help="radio: sdrplay (default) or sim (fake data for testing)")
+    ap.add_argument("--sdr", default="sdrplay", choices=["sdrplay", "hl2", "sim"],
+                    help="radio: sdrplay (default), hl2 (Hermes Lite 2 over the network) or sim (fake data)")
+    ap.add_argument("--hl2-ip", default="", help="Hermes Lite 2 address (empty = search the network)")
+    ap.add_argument("--hl2-rate", type=int, default=96000, choices=[48000, 96000, 192000, 384000],
+                    help="Hermes Lite 2 sample rate per receiver")
+    ap.add_argument("--hl2-port", type=int, default=1024, help=argparse.SUPPRESS)
     ap.add_argument("--outdir", default="logs", help="folder for CSV files")
     ap.add_argument("--settings", default="settings.json", help="saved frequency settings")
     ap.add_argument("--port", type=int, default=8765, help="settings web page port")
@@ -707,7 +843,15 @@ def main():
         gps.start()
 
     # --- Radio
-    sdr = SimSdr() if args.sdr == "sim" else SoapySdr(settings.get())
+    if args.sdr == "sim":
+        sdr = SimSdr()
+    elif args.sdr == "hl2":
+        try:
+            sdr = HermesLite2(settings.get(), args.hl2_ip, args.hl2_rate, args.hl2_port)
+        except RuntimeError as e:
+            sys.exit("\nERROR: %s\n" % e)
+    else:
+        sdr = SoapySdr(settings.get())
 
     # --- Output file
     os.makedirs(args.outdir, exist_ok=True)
@@ -726,8 +870,11 @@ def main():
         pass
     fh = open(path, "w", newline="")
     w = csv.writer(fh)
+    # time_utc     = the moment THIS reading was taken (to the millisecond)
+    # pos_time_utc = the moment the lat/lon on the line refer to (also to the millisecond)
+    # Together they let the map builder work out speed and re-space the dots by distance later.
     w.writerow(["time_utc", "lat", "lon", "speed_mph", "freq_mhz", "bw_khz",
-                "level_dbfs", "level_cal", "sats", "hdop"])
+                "level_dbfs", "level_cal", "sats", "hdop", "pos_time_utc"])
     fh.flush()
 
     # --- Shared status for the web page
@@ -762,6 +909,20 @@ def main():
         """While waiting for the next dot, keep the live band picture moving. True if we did work."""
         ci = cfg.get("pan_channel", -1)
         chans = cfg["channels"][:MAX_CHANNELS]
+        if getattr(sdr, "multi", False):
+            if time.time() - pan_state["t"] < 0.12:
+                return False
+            pan_state["t"] = time.time()
+            try:
+                sdr.pos = (lat, lon)
+                for k, (lv, _t, fr) in enumerate(sdr.measure_all(chans, cfg)):
+                    if fr:
+                        publish_spectrum(fr[0], fr[1], fr[2], chans[k]["mhz"] * 1e6, chans[k]["bw_khz"] * 1e3, fr[3], k)
+                if hasattr(sdr, "health"):
+                    state["radio_health"] = sdr.health()
+            except Exception:
+                return False
+            return True
         if not (0 <= ci < len(chans)) or not hasattr(sdr, "spectrum"):
             return False
         if time.time() - pan_state["t"] < 0.04:
@@ -814,22 +975,37 @@ def main():
                 continue
 
             # --- one measurement cycle: every frequency in turn
-            t_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
+            pos_iso = _iso_ms()
             last = []
-            for ci, ch in enumerate(cfg["channels"][:MAX_CHANNELS]):
-                level = sdr.measure(ch["mhz"] * 1e6, ch["bw_khz"] * 1e3, lat, lon, cfg)
+            chans = cfg["channels"][:MAX_CHANNELS]
+            if getattr(sdr, "multi", False):
+                # all channels read at the same moment (Hermes Lite 2, practice radio)
+                sdr.pos = (lat, lon)
+                results = sdr.measure_all(chans, cfg)
+            else:
+                results = None
+            for ci, ch in enumerate(chans):
+                if results is not None:
+                    level, t_read, fr = results[ci]
+                    if fr:
+                        publish_spectrum(fr[0], fr[1], fr[2], ch["mhz"] * 1e6, ch["bw_khz"] * 1e3, fr[3], ci)
+                else:
+                    level = sdr.measure(ch["mhz"] * 1e6, ch["bw_khz"] * 1e3, lat, lon, cfg)
+                    t_read = time.time()
                 if math.isnan(level):
                     continue
-                if ci == cfg.get("pan_channel", -1):
+                if results is None and ci == cfg.get("pan_channel", -1):
                     lf = sdr.last_frame() if hasattr(sdr, "last_frame") else None
                     if lf:
                         publish_spectrum(lf[0], lf[1], lf[2], ch["mhz"] * 1e6, ch["bw_khz"] * 1e3, lf[3], ci)
-                w.writerow([t_iso, f"{lat:.7f}", f"{lon:.7f}", f"{fix.speed_mps*MPH_PER_MPS:.1f}",
+                w.writerow([_iso_ms(t_read), f"{lat:.7f}", f"{lon:.7f}", f"{fix.speed_mps*MPH_PER_MPS:.1f}",
                             f"{ch['mhz']:.4f}", f"{ch['bw_khz']:.1f}",
                             f"{level:.2f}", f"{level + ch['cal_db']:.2f}",
                             "" if fix.sats is None else fix.sats,
-                            "" if fix.hdop is None else fix.hdop])
+                            "" if fix.hdop is None else fix.hdop, pos_iso])
                 last.append({"ch": ci, "mhz": ch["mhz"], "level": level + ch["cal_db"]})
+            if hasattr(sdr, "health"):
+                state["radio_health"] = sdr.health()
             fh.flush()
             last_lat, last_lon = lat, lon
             last_t = time.time()

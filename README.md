@@ -17,6 +17,9 @@ An **SDRplay RSP1** receiver and a **GPS** log the signal level about every 10 f
 - Draws a **Leaflet street map**. Each dot is a reading: **blue = weak, red = strong**. Pick which frequency to look at.
 - Has a **practice mode** with pretend radio and GPS, so you can try everything at home.
 - Has a **panadapter**: a live spectrum and waterfall of the band with a built-in receiver (AM, USB, LSB, CW, narrow FM), so you can see and hear signals and pick frequencies to measure. (New, untested on the road.)
+- Works with the **SDRplay RSP1** (USB) or the **Hermes Lite 2** (network cable). The Hermes Lite 2 has several receivers that run at the same time, so all your frequencies are read at the same instant. (HF only; new, tested against a simulated radio, not yet on a real one.)
+- Shows a live **slices** view: a small panadapter for every frequency you measure, side by side.
+- Saves every reading with its time to the millisecond, so a map can be made with **one dot every X feet** worked out from the clock, whatever speed you drove.
 - Has built-in checks: **Check setup**, **Find my GPS** and a one-minute **Full test**.
 
 ![Example map (practice data)](docs/images/map-example.png)

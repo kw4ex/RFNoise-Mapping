@@ -15,11 +15,15 @@ HOW THE PROGRAM FLOWS
 
 import argparse
 import base64
+import bisect
+import calendar
 import csv
 import glob
 import json
+import math
 import os
 import sys
+from datetime import datetime, timezone
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
@@ -45,6 +49,7 @@ def load_rows(paths):
                         "t": r["time_utc"], "lat": float(r["lat"]), "lon": float(r["lon"]),
                         "mph": float(r["speed_mph"] or 0), "f": float(r["freq_mhz"]),
                         "bw": float(r["bw_khz"]), "v": float(r["level_cal"]),
+                        "pt": (r.get("pos_time_utc") or r["time_utc"]),
                     })
                 except (KeyError, ValueError):
                     continue
@@ -58,6 +63,109 @@ def group_rows(rows):
             {"lat": round(r["lat"], 7), "lon": round(r["lon"], 7), "v": round(r["v"], 2),
              "t": r["t"], "mph": r["mph"], "bw": r["bw"]})
     return groups
+
+
+# ----------------------------------------------------------------------------
+# Re-spacing the dots by distance (done when the map is made, not while driving)
+# ----------------------------------------------------------------------------
+FT_PER_M = 3.28084
+
+
+def _epoch(iso):
+    """'2026-11-14T03:21:07.482Z' -> seconds since 1970 (UTC), millisecond precision."""
+    s = iso.strip().rstrip("Z")
+    try:
+        d = datetime.strptime(s, "%Y-%m-%dT%H:%M:%S.%f")
+    except ValueError:
+        d = datetime.strptime(s[:19], "%Y-%m-%dT%H:%M:%S")
+    return calendar.timegm(d.timetuple()) + d.microsecond / 1e6
+
+
+def _iso(t):
+    d = datetime.fromtimestamp(t, timezone.utc)
+    return d.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
+
+
+def _dist_ft(lat1, lon1, lat2, lon2):
+    mlat = math.radians((lat1 + lat2) / 2.0)
+    dy = (lat2 - lat1) * 111_320.0
+    dx = (lon2 - lon1) * 111_320.0 * math.cos(mlat)
+    return math.hypot(dx, dy) * FT_PER_M
+
+
+def _build_track(rows):
+    """One position per moment in time, with how far along the route (feet) the vehicle was then.
+    Small wobbles while standing still (GPS drift) are ignored: the distance only grows after the
+    vehicle has moved at least 3 ft from the last counted spot."""
+    pts = {}
+    for r in rows:
+        pts.setdefault(_epoch(r["pt"]), (r["lat"], r["lon"]))
+    times = sorted(pts)
+    lats, lons, cum = [], [], []
+    total, anchor = 0.0, None
+    for t in times:
+        la, lo = pts[t]
+        if anchor is None:
+            anchor = (la, lo)
+        else:
+            step = _dist_ft(anchor[0], anchor[1], la, lo)
+            if step >= 3.0:
+                total += step
+                anchor = (la, lo)
+        lats.append(la)
+        lons.append(lo)
+        cum.append(total)
+    return times, lats, lons, cum
+
+
+def _interp(times, vals, t):
+    i = bisect.bisect_right(times, t)
+    if i <= 0:
+        return vals[0]
+    if i >= len(times):
+        return vals[-1]
+    t0, t1 = times[i - 1], times[i]
+    if t1 <= t0:
+        return vals[i]
+    u = (t - t0) / (t1 - t0)
+    return vals[i - 1] + (vals[i] - vals[i - 1]) * u
+
+
+def thin_rows(rows, spacing_ft, pick="peak"):
+    """Keep one dot per `spacing_ft` of route, per frequency.
+    pick = "peak"    -> the strongest reading in each stretch (best for hunting noise)
+           "average" -> the power average of the readings in each stretch
+    Distance comes from the clock: each reading's time is placed on the GPS track, so the spacing
+    follows how far the vehicle really travelled, whatever the sample rate was."""
+    if not spacing_ft or spacing_ft <= 0 or not rows:
+        return rows
+    times, lats, lons, cum = _build_track(rows)
+    buckets = {}
+    for r in rows:
+        t = _epoch(r["t"])
+        d = _interp(times, cum, t)
+        la = _interp(times, lats, t)
+        lo = _interp(times, lons, t)
+        key = (f"{r['f']:g}", int(d // spacing_ft))
+        buckets.setdefault(key, []).append((t, la, lo, r))
+    out = []
+    for (_, _b), items in buckets.items():
+        if pick == "average":
+            pw = [10 ** (it[3]["v"] / 10.0) for it in items]
+            v = 10.0 * math.log10(sum(pw) / len(pw))
+            t = sorted(it[0] for it in items)[len(items) // 2]
+            la = sum(it[1] for it in items) / len(items)
+            lo = sum(it[2] for it in items) / len(items)
+            base = dict(items[0][3])
+            base.update(lat=la, lon=lo, v=v, t=_iso(t),
+                        mph=sum(it[3]["mph"] for it in items) / len(items))
+        else:
+            t, la, lo, r0 = max(items, key=lambda it: it[3]["v"])
+            base = dict(r0)
+            base.update(lat=la, lon=lo)
+        out.append(base)
+    out.sort(key=lambda r: r["t"])
+    return out
 
 
 HTML = r"""<!doctype html>
@@ -206,14 +314,19 @@ if(location.search.indexOf("print=1")>=0){ setTimeout(doPrint,3500); }   // lets
 """
 
 
-def build_map(paths, out, title=None):
+def build_map(paths, out, title=None, spacing_ft=None, pick="peak"):
     """Create the HTML map. Returns (out_path, {freq: dot_count})."""
     rows = load_rows(paths)
     if not rows:
         raise ValueError("No usable rows found in the CSV (is it empty?).")
+    n_raw = len(rows)
+    if spacing_ft:
+        rows = thin_rows(rows, float(spacing_ft), pick)
     groups = group_rows(rows)
 
     title = title or "RF noise map - " + os.path.basename(paths[0])
+    if spacing_ft:
+        title += "  (one dot per %g ft, %s)" % (float(spacing_ft), "strongest" if pick != "average" else "average")
     css = read_vendor("leaflet.css")
     # The layer-switch icon is an image file; embed it so the map is one single file.
     css = css.replace("url(images/layers-2x.png)", f"url(data:image/png;base64,{b64('layers-2x.png')})")
@@ -239,9 +352,12 @@ def _kml_color(hexrgb, alpha="ff"):
     return alpha + b + g + r                      # KML wants aabbggrr
 
 
-def export_kml(paths, out, freq=None, title="RF noise map"):
+def export_kml(paths, out, freq=None, title="RF noise map", spacing_ft=None, pick="peak"):
     """Colored dots for Google Earth. One folder per frequency (or just `freq`)."""
-    groups = group_rows(load_rows(paths))
+    rows = load_rows(paths)
+    if spacing_ft:
+        rows = thin_rows(rows, float(spacing_ft), pick)
+    groups = group_rows(rows)
     if freq is not None:
         groups = {k: v for k, v in groups.items() if float(k) == float(freq)}
     if not groups:
@@ -278,6 +394,10 @@ def main():
     ap.add_argument("-o", "--out", help="output HTML file (default: next to the first CSV)")
     ap.add_argument("--title", default=None)
     ap.add_argument("--kml", action="store_true", help="write a Google Earth .kml instead")
+    ap.add_argument("--spacing-ft", type=float, default=None,
+                    help="show one dot every this many feet of route (worked out from the readings' times)")
+    ap.add_argument("--pick", choices=["peak", "average"], default="peak",
+                    help="with --spacing-ft: keep the strongest reading, or the average, in each stretch")
     args = ap.parse_args()
 
     paths = []
@@ -289,11 +409,11 @@ def main():
     try:
         if args.kml:
             out = args.out or os.path.splitext(paths[0])[0] + ".kml"
-            export_kml(paths, out, title=args.title or "RF noise map")
+            export_kml(paths, out, title=args.title or "RF noise map", spacing_ft=args.spacing_ft, pick=args.pick)
             print(f"KML written: {out}")
         else:
             out = args.out or os.path.splitext(paths[0])[0] + "_map.html"
-            out, counts = build_map(paths, out, args.title)
+            out, counts = build_map(paths, out, args.title, args.spacing_ft, args.pick)
             print(f"Map written: {out}\n  dots per frequency -> " +
                   ", ".join(f"{k} MHz: {v}" for k, v in sorted(counts.items(), key=lambda kv: float(kv[0]))))
     except ValueError as e:

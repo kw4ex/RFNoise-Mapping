@@ -40,6 +40,8 @@ import gps_detect
 import device_guard
 import make_map
 from panadapter import PAN, REC, REC_RATE, REC_HEADER
+from slices import SLICES
+import hl2
 
 DEFAULT_PORT = 8780
 LOGGER_PORT = 8765
@@ -60,6 +62,10 @@ DEFAULT_CONFIG = {
     "interval_s": 5,
     "if_gain_db": 40,
     "rf_gain_state": 0,
+    "radio": "sdrplay",              # sdrplay | hl2 (Hermes Lite 2, over the network)
+    "hl2_ip": "",                    # empty = search the network
+    "hl2_rate": 96000,               # samples per second per receiver: 48000, 96000, 192000 or 384000
+    "hl2_gain_db": 15,               # Hermes Lite 2 low-noise-amplifier gain, -12 to +48
     "channels": [
         {"mhz": 3.700, "bw_khz": 5.0, "cal_db": 0.0},
         {"mhz": 7.300, "bw_khz": 5.0, "cal_db": 0.0},
@@ -238,23 +244,34 @@ class App:
     def start(self):
         if self.running():
             raise ValueError("Already logging.")
-        PAN.stop()                          # the radio can only do one job: close the panadapter first
+        PAN.stop(); SLICES.stop()                          # the radio can only do one job: close the panadapter first
         c = self.cfg
         spec = self.gps_spec()
         chans = self.clean_channels(c["channels"])
+        radio = "hl2" if c.get("radio") == "hl2" else "sdrplay"
+        if radio == "hl2" and not c["practice"]:
+            bad = [ch["mhz"] for ch in chans if ch["mhz"] > 38.0]
+            if bad:
+                raise ValueError("The Hermes Lite 2 covers about 0.1 to 38 MHz, so %g MHz cannot be measured with it. "
+                                 "Change that frequency, or choose the SDRplay radio." % bad[0])
         settings_file = os.path.join(self.settings_dir, "logger_settings.json")
         with open(settings_file, "w") as f:
             json.dump({"channels": chans, "spacing_ft": max(2.0, float(c["spacing_ft"])), "paused": False,
                        "sample_mode": "time" if c.get("sample_mode") == "time" else "distance",
                        "interval_s": min(max(0.5, float(c.get("interval_s", 5))), 3600.0),
-                       "if_gain_db": int(c["if_gain_db"]), "rf_gain_state": int(c["rf_gain_state"])}, f)
+                       "if_gain_db": int(c["if_gain_db"]), "rf_gain_state": int(c["rf_gain_state"]),
+                       "hl2_gain_db": int(c.get("hl2_gain_db", 15))}, f)
         self.logger_port = free_port(LOGGER_PORT)
         cmd = [python_exe(), "-u", os.path.join(HERE, "rf_logger.py"),
-               "--gps", spec, "--sdr", "sim" if c["practice"] else "sdrplay",
+               "--gps", spec, "--sdr", "sim" if c["practice"] else radio,
                "--outdir", self.drives_dir, "--settings", settings_file,
                "--port", str(self.logger_port), "--local-only", "--name", c.get("route_name", "")]
         if c["practice"]:
             cmd += ["--sim-speed", os.environ.get("RFMAP_SIM_SPEED", "20")]
+        elif radio == "hl2":
+            rate = int(c.get("hl2_rate", 96000))
+            cmd += ["--hl2-ip", str(c.get("hl2_ip", "")).strip(),
+                    "--hl2-rate", str(rate if rate in (48000, 96000, 192000, 384000) else 96000)]
         log = open(self.logger_log, "w")
         kw = {}
         if C.IS_WIN:
@@ -381,7 +398,7 @@ class App:
                 for fn in sorted(os.listdir(self.exports_dir), reverse=True)]
 
     # ---- actions
-    def make_map(self, files, title=None):
+    def make_map(self, files, title=None, spacing_ft=None, pick="peak"):
         paths = [safe_name(f, self.drives_dir, (".csv",)) for f in files]
         if not paths:
             raise ValueError("Choose at least one drive.")
@@ -393,14 +410,29 @@ class App:
         else:
             base = f"combined_{stamp}"
             title = title or f"Combined map ({len(paths)} drives)"
-        out = os.path.join(self.maps_dir, base + "_map.html")
-        out, counts = make_map.build_map(paths, out, title)
+        sp = self._clean_spacing(spacing_ft)
+        pick = "average" if pick == "average" else "peak"
+        out = os.path.join(self.maps_dir, base + (("_%gft" % sp) if sp else "") + "_map.html")
+        out, counts = make_map.build_map(paths, out, title, sp, pick)
         return {"map": os.path.basename(out), "counts": counts}
 
-    def make_kml(self, fname):
+    @staticmethod
+    def _clean_spacing(v):
+        """Map-time dot spacing in feet (None = show every reading as recorded)."""
+        try:
+            v = float(v)
+        except (TypeError, ValueError):
+            return None
+        if v <= 0:
+            return None
+        return min(max(v, 2.0), 5280.0)
+
+    def make_kml(self, fname, spacing_ft=None, pick="peak"):
         path = safe_name(fname, self.drives_dir, (".csv",))
-        out = os.path.join(self.exports_dir, os.path.basename(path)[:-4] + ".kml")
-        make_map.export_kml([path], out, title=self.read_meta(path).get("name") or os.path.basename(path))
+        sp = self._clean_spacing(spacing_ft)
+        out = os.path.join(self.exports_dir, os.path.basename(path)[:-4] + (("_%gft" % sp) if sp else "") + ".kml")
+        make_map.export_kml([path], out, title=self.read_meta(path).get("name") or os.path.basename(path),
+                            spacing_ft=sp, pick="average" if pick == "average" else "peak")
         return out
 
     def backup(self):
@@ -578,6 +610,14 @@ class Handler(BaseHTTPRequestHandler):
                     out.update(j)
                     return self._json(out)
                 return self._json(PAN.get_frame(after))
+            if path == "/api/slices":
+                if APP.running():                      # logging: the logger supplies every channel's picture
+                    try:
+                        j = APP.logger_call("/slices", timeout=1.0)
+                    except Exception:
+                        j = {"frames": [], "health": {}}
+                    return self._json(dict({"ok": True, "running": True, "logging": True, "error": ""}, **j))
+                return self._json(SLICES.get())
             if path == "/api/logs/tail":
                 return self._json({"ok": True, "lines": L.tail(int((q.get("n") or ["60"])[0] or 60)), "dir": L.log_dir()})
             if path == "/api/rec/list":
@@ -672,6 +712,10 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/pan/start":
             if APP.running():
                 raise ValueError("Stop logging first. The radio can only do one job at a time.")
+            SLICES.stop()
+            if APP.cfg.get("radio") == "hl2" and not APP.cfg.get("practice"):
+                raise ValueError("The listening panadapter works with the SDRplay radio. With the Hermes Lite 2, use the "
+                                 "Slices view above to watch your frequencies (or Thetis / SDR Console to listen).")
             PAN.start(b, bool(APP.cfg.get("practice")))
             return {"ok": True, "radio": PAN.name}
         if path == "/api/pan/watch":              # while logging: choose which frequency to watch (-1 = none)
@@ -682,10 +726,13 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/gain":                   # attenuation, also while driving
             a = int(min(max(int(b.get("if_gain_db", 40)), 20), 59))
             r = int(min(max(int(b.get("rf_gain_state", 0)), 0), 27))
-            APP.update_cfg({"if_gain_db": a, "rf_gain_state": r})
+            h = int(min(max(int(b.get("hl2_gain_db", APP.cfg.get("hl2_gain_db", 15))), -12), 48))
+            APP.update_cfg({"if_gain_db": a, "rf_gain_state": r, "hl2_gain_db": h})
             if APP.running():
-                APP.logger_call("/set", {"if_gain_db": a, "rf_gain_state": r}, timeout=3)
-            return {"ok": True, "if_gain_db": a, "rf_gain_state": r}
+                APP.logger_call("/set", {"if_gain_db": a, "rf_gain_state": r, "hl2_gain_db": h}, timeout=3)
+            elif SLICES.running:
+                SLICES.set(gain={"if_gain_db": a, "rf_gain_state": r, "hl2_gain_db": h})
+            return {"ok": True, "if_gain_db": a, "rf_gain_state": r, "hl2_gain_db": h}
         if path == "/api/spacing":                # dot spacing, also while driving
             sp = min(max(2.0, float(b.get("spacing_ft", 10))), 5280.0)
             mode = "time" if b.get("sample_mode") == "time" else "distance"
@@ -725,8 +772,31 @@ class Handler(BaseHTTPRequestHandler):
                 raise ValueError("Stop recording first.")
             os.remove(safe_name(name, APP.rec_dir, (".wav",)))
             return {"ok": True}
-        if path == "/api/pan/stop":
+        if path == "/api/radio/find":             # look for a Hermes Lite 2 on the network
+            ip = str(b.get("ip", "")).strip()
+            found = hl2.discover(ip or None, timeout=3.0)
+            if found:
+                APP.update_cfg({"hl2_ip": found[0]["ip"]})
+            return {"ok": True, "found": found}
+        if path == "/api/slices/start":
+            if APP.running():
+                raise ValueError("Logging is running, so the slices are already shown below from the logger.")
             PAN.stop()
+            c = APP.cfg
+            SLICES.start(c.get("radio", "sdrplay"), bool(c.get("practice")), APP.clean_channels(b.get("channels") or c["channels"]),
+                         c.get("hl2_ip", ""), int(c.get("hl2_rate", 96000)),
+                         {"if_gain_db": int(c["if_gain_db"]), "rf_gain_state": int(c["rf_gain_state"]),
+                          "hl2_gain_db": int(c.get("hl2_gain_db", 15))})
+            return {"ok": True, "radio": SLICES.name}
+        if path == "/api/slices/set":
+            if SLICES.running and b.get("channels"):
+                SLICES.set(channels=APP.clean_channels(b["channels"]))
+            return {"ok": True}
+        if path == "/api/slices/stop":
+            SLICES.stop()
+            return {"ok": True}
+        if path == "/api/pan/stop":
+            PAN.stop(); SLICES.stop()
             return {"ok": True}
         if path == "/api/start":
             APP.update_cfg(b)
@@ -754,9 +824,9 @@ class Handler(BaseHTTPRequestHandler):
                     res["map_error"] = str(e)
             return res
         if path == "/api/map":
-            return dict(ok=True, **APP.make_map(b.get("files", []), b.get("title")))
+            return dict(ok=True, **APP.make_map(b.get("files", []), b.get("title"), b.get("spacing_ft"), b.get("pick", "peak")))
         if path == "/api/kml":
-            out = APP.make_kml(b.get("file", ""))
+            out = APP.make_kml(b.get("file", ""), b.get("spacing_ft"), b.get("pick", "peak"))
             return {"ok": True, "file": os.path.basename(out)}
         if path == "/api/drive/meta":
             APP.set_meta(b.get("file", ""), str(b.get("name", ""))[:80], str(b.get("notes", ""))[:2000])
@@ -789,7 +859,7 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/demo":
             return dict(ok=True, **APP.demo())
         if path in ("/api/check", "/api/fulltest", "/api/gps_detect"):
-            PAN.stop()
+            PAN.stop(); SLICES.stop()
         if path == "/api/check":
             if APP.running():
                 return {"ok": True, "results": [{"name": "Logging", "status": "info",
@@ -826,7 +896,7 @@ class Handler(BaseHTTPRequestHandler):
             res = gps_detect.find_gps(budget_s=45, listen=2.5)
             return {"ok": True, **res}
         if path == "/api/quit":
-            PAN.stop()
+            PAN.stop(); SLICES.stop()
             APP.stop()
             port = APP.port
             def _finish():

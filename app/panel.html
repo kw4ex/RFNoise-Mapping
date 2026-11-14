@@ -104,6 +104,21 @@ details summary{cursor:pointer;color:var(--acc);font-size:13.5px;margin:6px 0}
   <label class="chk"><input type="checkbox" id="practice"> <span><b>Practice mode</b> &mdash; pretend radio and GPS, no hardware needed</span></label>
  </div>
 
+ <div id="radioBox" style="margin:10px 0 4px">
+  <b>Which radio?</b>
+  <div class="row" style="align-items:flex-start;gap:22px;margin-top:4px">
+   <label class="chk"><input type="radio" name="radio" value="sdrplay" onchange="radioChanged()"> <span><b>SDRplay RSP1</b> (USB cable)<br><span class="mut">One receiver: looks at your frequencies one after another. Covers VHF and the FM band too.</span></span></label>
+   <label class="chk"><input type="radio" name="radio" value="hl2" onchange="radioChanged()"> <span><b>Hermes Lite 2</b> (network cable)<br><span class="mut">Several receivers at once: every frequency is read at the same instant. HF only (about 0.1&ndash;38&nbsp;MHz).</span></span></label>
+  </div>
+  <div id="hl2Box" class="row" style="margin-top:8px;display:none;align-items:flex-end">
+   <div><label>Radio's address</label><br><input type="text" id="hl2ip" size="16" placeholder="(leave empty to search)" onchange="radioChanged()"></div>
+   <div><button class="sm" id="btnFindHl2" onclick="findHl2()">Find my radio</button></div>
+   <div><label>Detail per frequency</label><br><select id="hl2rate" onchange="radioChanged()"><option value="48000">48 kHz</option><option value="96000" selected>96 kHz (recommended)</option><option value="192000">192 kHz</option><option value="384000">384 kHz</option></select></div>
+   <div class="mut" id="hl2Msg" style="flex:1 1 260px"></div>
+  </div>
+  <div id="hl2Help" class="mut" style="display:none;margin-top:4px">Plug the radio's network cable into this computer (or the adapter), switch the radio on, wait about 20 seconds, then press <b>Find my radio</b>. If it is not found, type its address (a number like 192.168.1.50 or 169.254.x.x) in the box. Close Thetis, SDR Console or any other program that uses the radio first.</div>
+ </div>
+
  <div class="grid">
   <div id="gpsBox">
    <b>Where does the position come from?</b>
@@ -135,7 +150,12 @@ details summary{cursor:pointer;color:var(--acc);font-size:13.5px;margin:6px 0}
    <div class="mut">Distance (the usual) saves a dot each time you drive that far. <b>Time</b> saves a reading every few seconds even when you are standing still &mdash; useful for catching an <b>intermittent noise</b> at one spot. Time readings at one place pile up on one dot on the map.</div>
    <div class="mut">10&nbsp;ft is a good start. Smaller gives more detail (slow streets, walking); larger suits highways and gives smaller files. <b>You can change it while driving</b>: it applies from the next dot. If you drive faster than the radio can keep up, dots end up farther apart than this setting.</div>
    <details><summary>More settings</summary>
-    <div class="row">
+    <div class="row" id="hl2Gain" style="display:none">
+      <div><label>Radio gain (dB, &minus;12 to +48)</label><br><input type="number" id="hl2g" min="-12" max="48" onchange="gainChanged()"></div>
+      <div><br><button class="sm" onclick="hl2GainReset()">Reset to default (+15)</button></div>
+      <div class="mut" style="flex:1 1 300px">Higher gain hears weaker signals but overloads sooner. If the slices view shows <b>OVERLOAD</b>, lower it. Pick a value before a drive and leave it alone so dots can be compared.</div>
+    </div>
+    <div class="row" id="sdrGain">
       <div><label>IF attenuation (dB, 20&ndash;59)</label><br><input type="number" id="ifgr" min="20" max="59" onchange="gainChanged()"></div>
       <div><label>RF attenuation (0&ndash;27)</label><br><input type="number" id="rfgr" min="0" max="27" onchange="gainChanged()"></div>
       <div><br><button class="sm" onclick="gainReset()">Reset to defaults (IF 40, RF 0)</button></div>
@@ -159,6 +179,19 @@ details summary{cursor:pointer;color:var(--acc);font-size:13.5px;margin:6px 0}
  </div>
 </section>
 
+
+<!-- ======================= SLICES ======================= -->
+<section class="card" id="cSlices">
+ <h2>Slices: every frequency at once <span class="tag" id="slTag"></span></h2>
+ <p class="sub">One small panadapter for each frequency you are measuring, side by side. With the Hermes Lite 2 they are all live together. The shaded stripe is the part that is measured. Shown automatically while logging; press <b>Preview</b> to check your antenna and gain before a drive.</p>
+ <div class="row">
+  <button class="pri" id="bSlStart" onclick="slStart()">&#9654; Preview slices</button>
+  <button class="stop" id="bSlStop" onclick="slStop()" style="display:none">&#9632; Stop preview</button>
+  <span class="mut" id="slStatus"></span>
+ </div>
+ <div id="slWarn" class="note err" style="display:none;margin-top:8px"></div>
+ <div id="slGrid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:10px;margin-top:10px"></div>
+</section>
 
 <!-- ======================= PANADAPTER ======================= -->
 <section class="card" id="cPan">
@@ -243,6 +276,12 @@ details summary{cursor:pointer;color:var(--acc);font-size:13.5px;margin:6px 0}
  <div class="row">
   <button class="pri" onclick="mapChecked()">Make map from ticked drives</button>
   <button onclick="openFolder('drives')">Open Drives folder</button>
+ </div>
+ <div class="mut" style="margin:8px 0 2px"><b style="color:var(--fg,inherit)">How many dots on the map?</b> Every reading has its time to the millisecond, so the program can work out how far you travelled and space the dots evenly, whatever speed you drove.</div>
+ <div class="row" style="align-items:center;gap:14px">
+  <label class="chk"><input type="radio" name="mapsp" value="all" checked onchange="mapSpSave()"> <span>Every reading, as recorded</span></label>
+  <label class="chk"><input type="radio" name="mapsp" value="ft" onchange="mapSpSave()"> <span>One dot every <input type="number" id="mapFt" value="50" min="2" max="5280" step="1" style="width:72px" onchange="mapSpSave()"> feet,</span></label>
+  <select id="mapPick" onchange="mapSpSave()"><option value="peak">keeping the strongest reading</option><option value="average">keeping the average</option></select>
  </div>
  <table><thead><tr><th></th><th>Name</th><th>When</th><th>Dots</th><th>Miles</th><th>MHz</th><th></th></tr></thead>
  <tbody id="dTable"></tbody></table>
@@ -335,11 +374,13 @@ const BUSY_MSG={"/api/logs/bundle":"Collecting the logs and settings into a supp
  "/api/email":"Sending the email",
  "/api/apply":"Updating the frequencies",
  "/api/drive/delete":"Deleting that drive",
- "/api/pan/start":"Starting the radio for the panadapter (a few seconds)"};
+ "/api/pan/start":"Starting the radio for the panadapter (a few seconds)",
+ "/api/radio/find":"Searching the network for the Hermes Lite 2 (about 3 seconds)",
+ "/api/slices/start":"Starting the radio for the slices preview (a few seconds)"};
 let busyN=0, busyT=null, busyTick=null, busyStart=0, busyTxt="";
 function busyShow(){const b=document.getElementById("busy"); if(!b)return; const sec=Math.round((Date.now()-busyStart)/1000);
   b.innerHTML='<span class="sp"></span>'+busyTxt+"... "+sec+" s"; b.style.display="block";}
-function busyBegin(path){ if(path in BUSY_MSG===false && ["/api/config","/api/live","/api/state","/api/drives","/api/ports","/api/blockers","/api/pause","/api/pan/set","/api/pan/stop","/api/pan/watch","/api/spacing","/api/gain","/api/rec/start","/api/rec/stop","/api/rec/delete","/api/reveal","/api/open_folder","/api/drive/meta","/api/quit"].includes(path)) return false;
+function busyBegin(path){ if(path in BUSY_MSG===false && ["/api/config","/api/live","/api/state","/api/drives","/api/ports","/api/blockers","/api/pause","/api/pan/set","/api/pan/stop","/api/pan/watch","/api/spacing","/api/gain","/api/slices/stop","/api/slices/set","/api/rec/start","/api/rec/stop","/api/rec/delete","/api/reveal","/api/open_folder","/api/drive/meta","/api/quit"].includes(path)) return false;
   busyN++; if(busyN===1){busyStart=Date.now(); busyTxt=BUSY_MSG[path]||"Working";
     busyT=setTimeout(()=>{busyShow(); busyTick=setInterval(busyShow,1000);},500);} return true;}
 function busyEnd(){ busyN=Math.max(0,busyN-1); if(busyN===0){clearTimeout(busyT);clearInterval(busyTick);const b=document.getElementById("busy"); if(b)b.style.display="none";}}
@@ -362,11 +403,78 @@ function chRow(c,i){return `<tr><td><input type="number" step="any" class="cm" v
  <td><input type="number" step="any" class="cb" value="${esc(c.bw_khz)}"></td>
  <td><input type="number" step="any" class="cc" value="${esc(c.cal_db)}"></td>
  <td class="lvlcell" id="lvl${i}" style="min-width:120px"><span class="mut">&ndash;</span></td></tr>`;}
+function radioVal(){ return (document.querySelector("input[name=radio]:checked")||{value:"sdrplay"}).value; }
+function showRadioFields(){ const hl=radioVal()==="hl2";
+  $("hl2Box").style.display=hl?"flex":"none"; $("hl2Help").style.display=hl?"block":"none";
+  $("hl2Gain").style.display=hl?"flex":"none"; $("sdrGain").style.display=hl?"none":"flex"; }
+function radioChanged(){ showRadioFields();
+  if(radioVal()==="hl2"){ const hi=[...document.querySelectorAll(".cm")].map(x=>+x.value).filter(v=>v>38);
+    if(hi.length) toast("&#9888; "+hi[0]+" MHz is above what the Hermes Lite 2 can receive (about 38 MHz). Change that frequency before you start logging.",9000); } guard(()=>api("/api/config",{radio:radioVal(),hl2_ip:$("hl2ip").value.trim(),hl2_rate:+$("hl2rate").value})); }
+async function findHl2(){
+  const b=$("btnFindHl2"); b.disabled=true; const old=b.textContent; b.textContent="Searching the network... (about 3 s)"; $("hl2Msg").textContent="";
+  try{
+    const r=await api("/api/radio/find",{ip:$("hl2ip").value.trim()});
+    if(r.found&&r.found.length){ const d=r.found[0]; $("hl2ip").value=d.ip;
+      $("hl2Msg").innerHTML="&#10003; Found "+(d.is_hl2?"a Hermes Lite 2":"an HPSDR radio")+" at <b>"+esc(d.ip)+"</b> ("+d.nrx+" receivers"+(d.busy?", <b>but another program is using it</b>":"")+").";
+      if(d.nrx<4) $("hl2Msg").innerHTML+=" It has fewer than 4 receivers, so some frequencies will take turns.";
+    } else $("hl2Msg").innerHTML="&#9888; No radio answered. Check the cable and power, close other programs that use it, or type its address in the box and press Find again.";
+  }catch(e){ $("hl2Msg").textContent="Could not search: "+e.message; }
+  b.disabled=false; b.textContent=old;
+}
+function hl2GainReset(){ $("hl2g").value=15; gainChanged(); }
+
+/* ---------- slices ---------- */
+const SL={on:false,timer:null,busy:false};
+function slDraw(cv,f){
+  const g=cv.getContext("2d"), W=cv.width, H=cv.height; g.clearRect(0,0,W,H);
+  g.fillStyle="#0b1620"; g.fillRect(0,0,W,H);
+  const bin=atob(f.spec), n=bin.length, rate=f.rate;
+  g.strokeStyle="#223445"; g.lineWidth=1; for(let k=1;k<4;k++){ g.beginPath(); g.moveTo(0,H*k/4); g.lineTo(W,H*k/4); g.stroke(); }
+  // measured stripe
+  const x0=((f.tune-f.bw/2-f.center)/rate+0.5)*W, x1=((f.tune+f.bw/2-f.center)/rate+0.5)*W;
+  g.fillStyle="rgba(255,200,60,.28)"; g.fillRect(Math.max(0,x0),0,Math.max(2,x1-x0),H);
+  g.strokeStyle="#59d0ff"; g.lineWidth=1.3; g.beginPath();
+  for(let x=0;x<W;x++){ const a=Math.floor(x*n/W), b=Math.max(a+1,Math.floor((x+1)*n/W)); let m=0; for(let i=a;i<b;i++){const v=bin.charCodeAt(i); if(v>m)m=v;}
+    const y=H-(m/255)*H; if(x===0)g.moveTo(x,y); else g.lineTo(x,y); }
+  g.stroke();
+  g.fillStyle="#8fb0c8"; g.font="11px sans-serif";
+  const lo=(f.center-rate/2)/1e6, hi=(f.center+rate/2)/1e6, dec=rate>=1e6?3:4;
+  g.textAlign="left"; g.fillText(lo.toFixed(dec),3,H-4); g.textAlign="right"; g.fillText(hi.toFixed(dec)+" MHz",W-3,H-4);
+}
+function slRender(j){
+  const grid=$("slGrid"), fr=j.frames||[];
+  while(grid.children.length<fr.length){ const d=document.createElement("div"); d.className="slbox";
+    d.innerHTML='<div class="slh" style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:2px"><b class="slt"></b><span class="slv"></span></div><canvas width="520" height="140" style="width:100%;border-radius:4px"></canvas>'; grid.appendChild(d); }
+  while(grid.children.length>fr.length) grid.removeChild(grid.lastChild);
+  const cal=[...document.querySelectorAll(".cc")];
+  fr.forEach((f,i)=>{ const d=grid.children[i]; d.querySelector(".slt").textContent="Slice "+(f.channel+1)+": "+(f.tune/1e6).toFixed(4)+" MHz";
+    const c=+((cal[f.channel]||{}).value||0); d.querySelector(".slv").innerHTML="<b>"+(f.smeter+c).toFixed(1)+" dB</b>";
+    slDraw(d.querySelector("canvas"),f); });
+  const h=j.health||{}, w=$("slWarn"), msg=[];
+  if(h.overload) msg.push("<b>OVERLOAD</b>: a strong signal is overloading the radio. Lower the radio gain (More settings).");
+  if(h.lost_packets>50) msg.push("The network is dropping packets ("+h.lost_packets+" lost). Use a direct cable, or a lower detail setting.");
+  w.style.display=msg.length?"block":"none"; w.innerHTML=msg.join("<br>");
+}
+async function slPoll(){
+  if(SL.busy||document.hidden) return; SL.busy=true;
+  try{ const j=await api("/api/slices");
+    const live=j.logging||j.running;
+    $("bSlStart").style.display=(j.logging||j.running)?"none":"inline-block"; $("bSlStop").style.display=(!j.logging&&j.running)?"inline-block":"none";
+    $("slTag").textContent=j.logging?"logging":(j.running?"preview":"");
+    $("slStatus").textContent=j.error?("Stopped: "+j.error):(j.logging?"Live from the logger.":(live?(j.radio?("Radio: "+j.radio):""):"Not running."));
+    if(live||(j.frames&&j.frames.length)) slRender(j);
+  }catch(e){} SL.busy=false;
+}
+async function slStart(){ await guard(async()=>{ await api("/api/config",readForm()); const r=await api("/api/slices/start",{}); toast("Slices running on "+esc(r.radio||"the radio")); slPoll(); }); }
+async function slStop(){ await guard(()=>api("/api/slices/stop",{})); $("slGrid").innerHTML=""; slPoll(); }
+setInterval(slPoll,450);
+
 function fillForm(cfg){
   $("route").value=cfg.route_name||""; $("practice").checked=!!cfg.practice;
   (document.querySelector(`input[name=gpsm][value=${cfg.gps_mode}]`)||document.querySelector("input[name=gpsm][value=usb]")).checked=true;
   $("gHost").value=cfg.gps_host; $("gPort").value=cfg.gps_port; $("gBaud").value=cfg.gps_baud;
   $("autoMap").checked=!!cfg.auto_map; $("spacing").value=cfg.spacing_ft; $("interval").value=cfg.interval_s||5; (document.querySelector(`input[name=smode][value=${cfg.sample_mode==="time"?"time":"distance"}]`)).checked=true; spacingNote(); $("ifgr").value=cfg.if_gain_db; $("rfgr").value=cfg.rf_gain_state; gainSync();
+  (document.querySelector(`input[name=radio][value=${cfg.radio==="hl2"?"hl2":"sdrplay"}]`)).checked=true; $("hl2ip").value=cfg.hl2_ip||""; $("hl2rate").value=String(cfg.hl2_rate||96000); $("hl2g").value=(cfg.hl2_gain_db===undefined?15:cfg.hl2_gain_db); showRadioFields();
   let h="<tr><th>MHz</th><th>Width (kHz)</th><th>Calibration (dB)</th><th>Level now (dB)</th></tr>";
   for(let i=0;i<4;i++) h+=chRow(cfg.channels[i]||{mhz:"",bw_khz:5,cal_db:0},i);
   $("chTable").innerHTML=h; $("phoneAccess").checked=!!cfg.phone_access; panMemLoad(cfg);
@@ -377,6 +485,7 @@ function readForm(){
     gps_mode:(document.querySelector("input[name=gpsm]:checked")||{value:"usb"}).value, gps_host:$("gHost").value.trim(),
     gps_port:+$("gPort").value||11123, gps_serial:$("gSerial").value, gps_baud:+$("gBaud").value,
     auto_map:$("autoMap").checked, spacing_ft:+$("spacing").value||10, sample_mode:smode(), interval_s:+$("interval").value||5, if_gain_db:+$("ifgr").value||40, rf_gain_state:+$("rfgr").value||0,
+    radio:radioVal(), hl2_ip:$("hl2ip").value.trim(), hl2_rate:+$("hl2rate").value||96000, hl2_gain_db:Math.round(+$("hl2g").value||0),
     channels:m.map((x,i)=>({mhz:x.value, bw_khz:b[i].value||5, cal_db:c[i].value||0}))};
 }
 function showGpsFields(){
@@ -521,10 +630,17 @@ function showWarn(t){const b=$("warnBanner"); if(!t){b.style.display="none";retu
 async function refreshDrivesOnly(){ const j=await api("/api/drives"); renderDrives(j.drives); renderMaps(j.maps); renderExports(j.exports); }
 
 /* ---------- map actions ---------- */
+function mapSpGet(){ const ft=document.querySelector('input[name=mapsp]:checked'); const on=ft&&ft.value==="ft";
+  return {spacing_ft:on?(+$("mapFt").value||0):0, pick:$("mapPick").value}; }
+function mapSpSave(){ try{localStorage.setItem("rfmapSp",JSON.stringify({on:mapSpGet().spacing_ft>0,ft:$("mapFt").value,pick:$("mapPick").value}));}catch(e){} }
+function mapSpLoad(){ try{const j=JSON.parse(localStorage.getItem("rfmapSp")||"null"); if(!j)return;
+  $("mapFt").value=j.ft||50; $("mapPick").value=j.pick||"peak";
+  document.querySelector('input[name=mapsp][value='+(j.on?"ft":"all")+']').checked=true;}catch(e){} }
+window.addEventListener("load",mapSpLoad);
 async function makeMap(files,title){
   const win=window.open("about:blank","_blank");
   try{
-    const r=await api("/api/map",{files,title});
+    const r=await api("/api/map",Object.assign({files,title},mapSpGet()));
     await refreshDrivesOnly();
     const url="/maps/"+encodeURIComponent(r.map);
     if(win) win.location=url; else toast(`Map ready: <a href="${url}" target="_blank">open it</a>`);
@@ -532,7 +648,7 @@ async function makeMap(files,title){
 }
 const mapOne=f=>makeMap([f]);
 function mapChecked(){const f=[...document.querySelectorAll(".dsel:checked")].map(x=>x.value); if(!f.length){toast("Tick at least one drive first.");return;} makeMap(f);}
-async function doKml(f){await guard(async()=>{const r=await api("/api/kml",{file:f});await refreshDrivesOnly();toast(`Google Earth file saved: <a href="/exports/${encodeURIComponent(r.file)}">${esc(r.file)}</a> (open it with Google Earth)`,9000);});}
+async function doKml(f){await guard(async()=>{const r=await api("/api/kml",Object.assign({file:f},mapSpGet()));await refreshDrivesOnly();toast(`Google Earth file saved: <a href="/exports/${encodeURIComponent(r.file)}">${esc(r.file)}</a> (open it with Google Earth)`,9000);});}
 async function reveal(kind,file){await guard(()=>api("/api/reveal",{kind,file}));}
 async function openFolder(which){await guard(()=>api("/api/open_folder",{which}));}
 async function delDrive(f){ if(!confirm("Delete this drive's data file? Maps already made from it are kept.\n\n"+f))return; await guard(async()=>{await api("/api/drive/delete",{file:f});await refreshDrivesOnly();}); }
@@ -733,7 +849,9 @@ function gainReset(){ $("ifgr").value=40; $("rfgr").value=0; gainChanged();
 async function gainChanged(){
   const a=Math.min(59,Math.max(20,Math.round(+$("ifgr").value||40))), r=Math.min(27,Math.max(0,Math.round(+$("rfgr").value||0)));
   $("ifgr").value=a; $("rfgr").value=r; gainSync();
-  await guard(async()=>{ await api("/api/gain",{if_gain_db:a,rf_gain_state:r});
+  const h=Math.min(48,Math.max(-12,Math.round(+$("hl2g").value||0))); $("hl2g").value=h;
+  await guard(async()=>{ await api("/api/gain",{if_gain_db:a,rf_gain_state:r,hl2_gain_db:h});
+    if(radioVal()==="hl2"){ toast(PAN.logging?"Radio gain changed. Readings from now on are not directly comparable with the earlier dots in this drive.":"Radio gain saved ("+h+" dB). Recording uses this number.",PAN.logging?9000:5000); return; }
     toast(PAN.logging?"Attenuation changed. Readings from now on are not directly comparable with the earlier dots in this drive.":"Attenuation saved (IF "+a+" dB, RF "+r+"). Recording uses these numbers.",PAN.logging?9000:5000); });
 }
 function panGain(){

@@ -150,7 +150,7 @@ try {
     }
     foreach ($i in $progItems) { Remove-Safe (Join-Path $Dir $i) }
     foreach ($f in @('Start_RFNoise.bat', 'Stop_RFNoise.bat', 'Open_Panel.bat', 'Test_Everything.bat', 'Find_GPS.bat', 'Make_Support_File.bat',
-                     'Open_Logs.bat', 'Switch_Test.bat', 'switch_test_report.txt', 'README_RFNoise.txt', 'RFNoise_Help.html', 'RFNoise_User_Guide.pdf', 'install_log.txt',
+                     'Open_Logs.bat', 'Switch_Test.bat', 'switch_test_report.txt', 'HL2_Test.bat', 'hl2_test_report.txt', 'README_RFNoise.txt', 'RFNoise_Help.html', 'RFNoise_User_Guide.pdf', 'install_log.txt',
                      'full_test_report.txt', 'rfnoise_install.flag')) { Remove-Safe (Join-Path $Dir $f) }
     foreach ($f in @(Get-ChildItem -LiteralPath $Dir -Filter 'Start_RFNoise.bat.*.bak' -ErrorAction SilentlyContinue)) { Remove-Safe $f.FullName }
     if (-not $keepData) {
