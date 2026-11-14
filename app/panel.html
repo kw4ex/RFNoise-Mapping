@@ -492,9 +492,20 @@ function slDraw(cv,f,zoom){
     for(let i=Math.max(0,a);i<Math.min(n,b);i++){const v=bin[i]; if(v>m)m=v;}
     const y=H-(m/255)*H; if(x===0)g.moveTo(x,y); else g.lineTo(x,y); }
   g.stroke();
-  g.fillStyle="#8fb0c8"; g.font="11px sans-serif";
+  // frequency scale along the bottom: the two limits of the view (bold), the tuned frequency, and marks in between
+  const sc=W/(cv.getBoundingClientRect().width||W), fs=Math.round(13*sc), bh=fs+Math.round(8*sc);
   const dec=span>=1e6?3:(span>=100e3?4:5);
-  g.textAlign="left"; g.fillText((w0/1e6).toFixed(dec),3,H-4); g.textAlign="right"; g.fillText((w1/1e6).toFixed(dec)+" MHz",W-3,H-4);
+  const nice=(()=>{ const raw=span/5, m=Math.pow(10,Math.floor(Math.log10(raw))), r=raw/m; return (r<=1?1:r<=2?2:r<=5?5:10)*m; })();
+  g.fillStyle="rgba(8,16,26,.82)"; g.fillRect(0,H-bh,W,bh);
+  g.strokeStyle="rgba(143,176,200,.35)"; g.lineWidth=1; g.fillStyle="#9fc0d8"; g.font=fs+"px sans-serif"; g.textAlign="center";
+  const edge=W*0.17;
+  for(let t=Math.ceil(w0/nice)*nice; t<w1; t+=nice){ const x=toX(t);
+    g.beginPath(); g.moveTo(x,H-bh); g.lineTo(x,H-bh-6*sc); g.stroke();
+    if(x>edge && x<W-edge && Math.abs(x-toX(f.tune))>W*0.09) g.fillText((t/1e6).toFixed(dec),x,H-Math.round(5*sc)); }
+  g.font="bold "+fs+"px sans-serif"; g.fillStyle="#ffffff";
+  g.textAlign="left"; g.fillText((w0/1e6).toFixed(dec),Math.round(4*sc),H-Math.round(5*sc));
+  g.textAlign="right"; g.fillText((w1/1e6).toFixed(dec)+" MHz",W-Math.round(4*sc),H-Math.round(5*sc));
+  { const tx=toX(f.tune); if(tx>edge && tx<W-edge){ g.fillStyle="#ffd24a"; g.textAlign="center"; g.fillText((f.tune/1e6).toFixed(dec),tx,H-Math.round(5*sc)); } }
 }
 function slRender(j){
   const grid=$("slGrid"), fr=j.frames||[];
@@ -509,7 +520,7 @@ function slRender(j){
       '<label class="mut" style="font-size:12px">Step</label><select class="sm slStep" title="How far each click of the - and + buttons, or each notch of the mouse wheel, moves the frequency">'+
       '<option value="0.1">100 Hz</option><option value="0.5">500 Hz</option><option value="1" selected>1 kHz</option><option value="5">5 kHz</option>'+
       '<option value="10">10 kHz</option><option value="100">100 kHz</option><option value="1000">1 MHz</option></select>'+
-      '<label class="mut" style="font-size:12px">Width</label><input type="number" step="any" class="slW" style="width:64px" title="Measured width in kHz"><span class="mut" style="font-size:12px">kHz</span>'+
+      '<label class="mut" style="font-size:12px" title="The signal power inside this many kHz around the frequency is what gets logged and mapped (the yellow bar). It is not the listening filter - that is the Filter box by the sound controls.">Measure width</label><input type="number" step="any" class="slW" style="width:64px" title="The signal power inside this many kHz around the frequency is what gets logged and mapped (the yellow bar). It is not the listening filter - that is the Filter box by the sound controls."><span class="mut" style="font-size:12px">kHz</span>'+
       '<select class="sm slR radcol" title="Which radio measures this slice"><option value="auto">Auto</option><option value="hl2">Hermes</option><option value="sdrplay">SDRplay</option></select></div>'+
       '<div style="display:flex;gap:8px;align-items:center;margin-top:3px;flex-wrap:wrap"><label class="mut" style="font-size:12px">Zoom</label>'+
       '<input type="range" class="slzoom" min="0" max="16" step="1" value="0" style="width:130px;vertical-align:middle"><span class="mut slspan" style="font-size:12px"></span></div>'+
