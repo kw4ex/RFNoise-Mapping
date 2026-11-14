@@ -82,7 +82,7 @@ PAN_DB_LO, PAN_DB_HI = -120.0, 0.0
 PAN_FRAME = {"seq": 0, "f": None, "lock": threading.Lock(), "all": {}}
 
 
-def publish_spectrum(lo_hz, rate, spec, tune_hz, bw_hz, level_db, idx):
+def publish_spectrum(lo_hz, rate, spec, tune_hz, bw_hz, level_db, idx, radio=""):
     """Keep the newest band picture so the control panel can show it while logging."""
     import base64
     db = 10.0 * np.log10(np.asarray(spec, dtype=np.float64) + 1e-12)
@@ -91,7 +91,8 @@ def publish_spectrum(lo_hz, rate, spec, tune_hz, bw_hz, level_db, idx):
         PAN_FRAME["seq"] += 1
         PAN_FRAME["f"] = {"seq": PAN_FRAME["seq"], "center": float(lo_hz), "rate": int(rate), "tune": float(tune_hz),
                           "bw": float(bw_hz), "channel": int(idx), "smeter": round(float(level_db), 1),
-                          "db_lo": PAN_DB_LO, "db_hi": PAN_DB_HI, "spec": base64.b64encode(b.tobytes()).decode()}
+                          "db_lo": PAN_DB_LO, "db_hi": PAN_DB_HI, "radio": str(radio or ""),
+                          "spec": base64.b64encode(b.tobytes()).decode()}
         PAN_FRAME["all"][int(idx)] = PAN_FRAME["f"]          # the "slices" view shows all channels at once
 
 
@@ -718,6 +719,24 @@ class MultiRadio:
                 pass
 
 
+def hl2_lookup(sdr, chans, ch):
+    """For slice sound: which Hermes receiver carries frequency slot ch. None if not a Hermes slot."""
+    chans = chans[:MAX_CHANNELS]
+    if not (0 <= ch < len(chans)):
+        return None
+    if isinstance(sdr, MultiRadio):
+        hl2 = sdr.radios.get("hl2")
+        if hl2 is None:
+            return None
+        subset = [i for i, c in enumerate(chans) if (c.get("radio") or "sdrplay") == "hl2"]
+        if ch not in subset:
+            return None
+        return (hl2.client, subset.index(ch) % hl2.nrx, hl2.rate)
+    if isinstance(sdr, HermesLite2):
+        return (sdr.client, ch % sdr.nrx, sdr.rate)
+    return None
+
+
 # ----------------------------------------------------------------------------
 # Position helpers
 # ----------------------------------------------------------------------------
@@ -792,7 +811,7 @@ setInterval(poll,1000);poll();
 </script></body></html>"""
 
 
-def make_handler(settings, state, stop_event):
+def make_handler(settings, state, stop_event, sdr=None):
     class H(BaseHTTPRequestHandler):
         def log_message(self, *a):
             pass
@@ -809,9 +828,25 @@ def make_handler(settings, state, stop_event):
             if self.path.startswith("/status"):
                 self._send(200, json.dumps(dict(state, settings=settings.get())))
             elif self.path.startswith("/slices"):
+                import hl2_audio
                 with PAN_FRAME["lock"]:
                     fr = [PAN_FRAME["all"][k] for k in sorted(PAN_FRAME["all"])]
-                self._send(200, json.dumps({"frames": fr, "health": state.get("radio_health", {})}))
+                self._send(200, json.dumps({"frames": fr, "health": state.get("radio_health", {}),
+                                            "sound": hl2_audio.SND.status()}))
+            elif self.path.startswith("/slice_audio"):
+                import hl2_audio
+                try:
+                    q = dict(p.split("=", 1) for p in self.path.split("?", 1)[1].split("&"))
+                except Exception:
+                    q = {}
+                data, last = hl2_audio.SND.audio(int(q.get("ch", 0)), int(q.get("after", 0)))
+                self.send_response(200)
+                self.send_header("Content-Type", "application/octet-stream")
+                self.send_header("Content-Length", str(len(data)))
+                self.send_header("X-Seq", str(last))
+                self.send_header("X-Rate", str(hl2_audio.AUDIO_RATE))
+                self.end_headers()
+                self.wfile.write(data)
             elif self.path.startswith("/spectrum"):
                 try:
                     after = int(self.path.split("after=")[1].split("&")[0])
@@ -832,6 +867,25 @@ def make_handler(settings, state, stop_event):
             try:
                 if self.path == "/stop":
                     stop_event.set()
+                elif self.path == "/slice_listen":
+                    import hl2_audio
+                    req = json.loads(body)
+                    hl2_audio.SND.listen(int(req.get("channel", 0)), bool(req.get("on")),
+                                         req.get("mode"), req.get("bw"))
+                elif self.path == "/slice_mode":
+                    import hl2_audio
+                    req = json.loads(body)
+                    hl2_audio.SND.set_mode(int(req.get("channel", 0)), req.get("mode"), req.get("bw"))
+                elif self.path == "/slice_rec":
+                    import hl2_audio
+                    req = json.loads(body)
+                    ch = int(req.get("channel", 0))
+                    chans = settings.get()["channels"]
+                    mhz = chans[ch]["mhz"] if 0 <= ch < len(chans) else 0
+                    name = hl2_audio.SND.record(ch, bool(req.get("on")),
+                                                "slice%d_%gMHz" % (ch + 1, mhz),
+                                                req.get("mode"), req.get("bw"))
+                    return self._send(200, json.dumps({"file": name or ""}))
                 elif self.path == "/pause":
                     cur = settings.get()
                     settings.update({"paused": not cur["paused"]})
@@ -971,8 +1025,10 @@ def main():
     state = {"rows": 0, "gps_status": "starting", "speed_mph": None, "sats": None,
              "sdr": sdr.name, "file": path, "last": []}
     stop_event = threading.Event()
+    import hl2_audio
+    hl2_audio.SND.attach(lambda ch: hl2_lookup(sdr, settings.get()["channels"], ch), C.sub_dir("Recordings"))
     srv = ThreadingHTTPServer(("127.0.0.1" if args.local_only else "0.0.0.0", args.port),
-                              make_handler(settings, state, stop_event))
+                              make_handler(settings, state, stop_event, sdr))
     threading.Thread(target=srv.serve_forever, daemon=True).start()
 
     print("=" * 62)
@@ -1007,7 +1063,8 @@ def main():
                 sdr.pos = (lat, lon)
                 for k, (lv, _t, fr) in enumerate(sdr.measure_all(chans, cfg)):
                     if fr:
-                        publish_spectrum(fr[0], fr[1], fr[2], chans[k]["mhz"] * 1e6, chans[k]["bw_khz"] * 1e3, fr[3], k)
+                        publish_spectrum(fr[0], fr[1], fr[2], chans[k]["mhz"] * 1e6, chans[k]["bw_khz"] * 1e3, fr[3], k,
+                                         chans[k].get("radio", ""))
                 if hasattr(sdr, "health"):
                     state["radio_health"] = sdr.health()
             except Exception:
@@ -1078,7 +1135,8 @@ def main():
                 if results is not None:
                     level, t_read, fr = results[ci]
                     if fr:
-                        publish_spectrum(fr[0], fr[1], fr[2], ch["mhz"] * 1e6, ch["bw_khz"] * 1e3, fr[3], ci)
+                        publish_spectrum(fr[0], fr[1], fr[2], ch["mhz"] * 1e6, ch["bw_khz"] * 1e3, fr[3], ci,
+                                         ch.get("radio", ""))
                 else:
                     level = sdr.measure(ch["mhz"] * 1e6, ch["bw_khz"] * 1e3, lat, lon, cfg)
                     t_read = time.time()
@@ -1113,6 +1171,11 @@ def main():
         L.exception("the logging loop crashed")
         raise
     finally:
+        try:
+            import hl2_audio
+            hl2_audio.SND.stop_all()               # finish any slice recordings cleanly
+        except Exception:
+            pass
         fh.close()
         try:
             meta["rows_saved"] = dots

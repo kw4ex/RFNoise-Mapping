@@ -42,12 +42,17 @@ class SlicePreview:
             raise ValueError(str(e))
         with RL.PAN_FRAME["lock"]:
             RL.PAN_FRAME["all"] = {}
+        import hl2_audio
+        import rfmap_common as C
         with self.lock:
             self.cfg = settings
             self.running = True
             self.error = ""
             self.name = getattr(sdr, "name", "")
             self.last_poll = time.time()
+            self.sdr = sdr
+        hl2_audio.SND.attach(lambda ch: RL.hl2_lookup(sdr, self.cfg.get("channels", []), ch),
+                             C.sub_dir("Recordings"))
         self.thread = threading.Thread(target=self._loop, args=(sdr,), name="slices", daemon=True)
         self.thread.start()
 
@@ -59,6 +64,11 @@ class SlicePreview:
                 self.cfg.update(gain)
 
     def stop(self):
+        try:
+            import hl2_audio
+            hl2_audio.SND.stop_all()
+        except Exception:
+            pass
         self.running = False
         t = self.thread
         if t is not None and t.is_alive() and t is not threading.current_thread():
@@ -70,8 +80,9 @@ class SlicePreview:
         self.last_poll = time.time()
         with RL.PAN_FRAME["lock"]:
             fr = [RL.PAN_FRAME["all"][k] for k in sorted(RL.PAN_FRAME["all"])]
+        import hl2_audio
         return {"ok": True, "running": self.running, "logging": False, "error": self.error,
-                "radio": self.name, "frames": fr, "health": self.health}
+                "radio": self.name, "frames": fr, "health": self.health, "sound": hl2_audio.SND.status()}
 
     def _loop(self, sdr):
         import rf_logger as RL
@@ -86,7 +97,7 @@ class SlicePreview:
                     for k, (_lv, _t, fr) in enumerate(sdr.measure_all(chans, cfg)):
                         if fr:
                             RL.publish_spectrum(fr[0], fr[1], fr[2], chans[k]["mhz"] * 1e6,
-                                                chans[k]["bw_khz"] * 1e3, fr[3], k)
+                                                chans[k]["bw_khz"] * 1e3, fr[3], k, chans[k].get("radio", ""))
                     time.sleep(0.08)
                 else:
                     for k, ch in enumerate(chans):
@@ -103,6 +114,11 @@ class SlicePreview:
             L.error("the slices preview stopped", e)
         finally:
             self.running = False
+            try:
+                import hl2_audio
+                hl2_audio.SND.stop_all()           # finish any slice recordings cleanly
+            except Exception:
+                pass
             try:
                 sdr.close()
             except Exception:

@@ -184,10 +184,11 @@ details summary{cursor:pointer;color:var(--acc);font-size:13.5px;margin:6px 0}
 <section class="card" id="cSlices">
  <h2>Slices: every frequency at once <span class="tag" id="slTag"></span></h2>
  <p class="sub">One small panadapter for each frequency you are measuring, side by side. With the Hermes Lite 2 they are all live together. The shaded stripe is the part that is measured. Shown automatically while logging; press <b>Preview</b> to check your antenna and gain before a drive.</p>
- <div class="row">
+ <div class="row" style="align-items:center">
   <button class="pri" id="bSlStart" onclick="slStart()">&#9654; Preview slices</button>
   <button class="stop" id="bSlStop" onclick="slStop()" style="display:none">&#9632; Stop preview</button>
   <span class="mut" id="slStatus"></span>
+  <span style="margin-left:auto;display:inline-flex;gap:8px;align-items:center"><label>Volume</label><input type="range" id="slVol" min="0" max="100" value="70" style="width:110px" oninput="slsVol()"><label class="chk" style="display:inline-flex;margin:0"><input type="checkbox" id="slMute" onchange="slsVol()"> <span>Mute</span></label></span>
  </div>
  <div id="slWarn" class="note err" style="display:none;margin-top:8px"></div>
  <div id="slGrid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:10px;margin-top:10px"></div>
@@ -376,11 +377,13 @@ const BUSY_MSG={"/api/logs/bundle":"Collecting the logs and settings into a supp
  "/api/drive/delete":"Deleting that drive",
  "/api/pan/start":"Starting the radio for the panadapter (a few seconds)",
  "/api/radio/find":"Searching the network for the Hermes Lite 2 (about 3 seconds)",
- "/api/slices/start":"Starting the radio for the slices preview (a few seconds)"};
+ "/api/slices/start":"Starting the radio for the slices preview (a few seconds)",
+ "/api/slices/listen":"Starting the sound for this slice",
+ "/api/slices/rec":"Starting the recording for this slice"};
 let busyN=0, busyT=null, busyTick=null, busyStart=0, busyTxt="";
 function busyShow(){const b=document.getElementById("busy"); if(!b)return; const sec=Math.round((Date.now()-busyStart)/1000);
   b.innerHTML='<span class="sp"></span>'+busyTxt+"... "+sec+" s"; b.style.display="block";}
-function busyBegin(path){ if(path in BUSY_MSG===false && ["/api/config","/api/live","/api/state","/api/drives","/api/ports","/api/blockers","/api/pause","/api/pan/set","/api/pan/stop","/api/pan/watch","/api/spacing","/api/gain","/api/slices/stop","/api/slices/set","/api/rec/start","/api/rec/stop","/api/rec/delete","/api/reveal","/api/open_folder","/api/drive/meta","/api/quit"].includes(path)) return false;
+function busyBegin(path){ if(path in BUSY_MSG===false && ["/api/config","/api/live","/api/state","/api/drives","/api/ports","/api/blockers","/api/pause","/api/pan/set","/api/pan/stop","/api/pan/watch","/api/spacing","/api/gain","/api/slices/stop","/api/slices/set","/api/slices/sound_mode","/api/rec/start","/api/rec/stop","/api/rec/delete","/api/reveal","/api/open_folder","/api/drive/meta","/api/quit"].includes(path)) return false;
   busyN++; if(busyN===1){busyStart=Date.now(); busyTxt=BUSY_MSG[path]||"Working";
     busyT=setTimeout(()=>{busyShow(); busyTick=setInterval(busyShow,1000);},500);} return true;}
 function busyEnd(){ busyN=Math.max(0,busyN-1); if(busyN===0){clearTimeout(busyT);clearInterval(busyTick);const b=document.getElementById("busy"); if(b)b.style.display="none";}}
@@ -453,16 +456,68 @@ function slDraw(cv,f){
 function slRender(j){
   const grid=$("slGrid"), fr=j.frames||[];
   while(grid.children.length<fr.length){ const d=document.createElement("div"); d.className="slbox";
-    d.innerHTML='<div class="slh" style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:2px"><b class="slt"></b><span class="slv"></span></div><canvas width="520" height="140" style="width:100%;border-radius:4px"></canvas>'; grid.appendChild(d); }
+    d.innerHTML='<div class="slh" style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:2px"><b class="slt"></b><span class="slv"></span></div>'+
+      '<canvas width="520" height="140" style="width:100%;border-radius:4px"></canvas>'+
+      '<div class="slsnd" style="display:none;gap:8px;align-items:center;margin-top:4px;flex-wrap:wrap">'+
+      '<button class="sm slsListen"></button><select class="sm slsMode"><option>AM</option><option>SAM</option><option>USB</option><option>LSB</option><option>NFM</option></select>'+
+      '<button class="sm recbtn slsRec"></button><span class="mut slsRecInfo"></span></div>'; grid.appendChild(d); }
   while(grid.children.length>fr.length) grid.removeChild(grid.lastChild);
   const cal=[...document.querySelectorAll(".cc")];
-  fr.forEach((f,i)=>{ const d=grid.children[i]; d.querySelector(".slt").textContent="Slice "+(f.channel+1)+": "+(f.tune/1e6).toFixed(4)+" MHz";
+  fr.forEach((f,i)=>{ const d=grid.children[i]; d.querySelector(".slt").textContent="Slice "+(f.channel+1)+": "+(f.tune/1e6).toFixed(4)+" MHz"+(f.radio==="hl2"?" (Hermes)":(f.radio==="sdrplay"?" (SDRplay)":""));
     const c=+((cal[f.channel]||{}).value||0); d.querySelector(".slv").innerHTML="<b>"+(f.smeter+c).toFixed(1)+" dB</b>";
-    slDraw(d.querySelector("canvas"),f); });
+    slDraw(d.querySelector("canvas"),f);
+    const snd=d.querySelector(".slsnd"), ch=f.channel, st=(SLS.sound||{})[String(ch)]||{};
+    if(f.radio==="hl2"){
+      snd.style.display="flex";
+      const lb=d.querySelector(".slsListen"); lb.textContent=st.listen?"\u25A0 Sound off":"\uD83D\uDD0A Listen"; lb.onclick=()=>slsListen(ch,!st.listen);
+      const ms=d.querySelector(".slsMode"); if(document.activeElement!==ms&&st.mode&&ms.value!==st.mode) ms.value=st.mode; ms.onchange=()=>slsMode(ch,ms.value);
+      const rb=d.querySelector(".slsRec"); const on=!!st.rec_file;
+      rb.textContent=on?"\u25A0 Stop recording":"\u25CF Record"; rb.onclick=()=>slsRec(ch,!on,ms.value);
+      d.querySelector(".slsRecInfo").textContent=on?(st.rec_file+"  "+Math.floor((st.rec_s||0)/60)+":"+String(Math.floor((st.rec_s||0)%60)).padStart(2,"0")):"";
+    } else snd.style.display="none"; });
   const h=j.health||{}, w=$("slWarn"), msg=[];
   if(h.overload) msg.push("<b>OVERLOAD</b>: a strong signal is overloading the radio. Lower the radio gain (More settings).");
   if(h.lost_packets>50) msg.push("The network is dropping packets ("+h.lost_packets+" lost). Use a direct cable, or a lower detail setting.");
   w.style.display=msg.length?"block":"none"; w.innerHTML=msg.join("<br>");
+}
+const SLS={sound:{},listen:-1,after:0,actx:null,gain:null,aNext:0,atimer:null};
+function slsVol(){ if(SLS.gain) SLS.gain.gain.value=$("slMute").checked?0:((+$("slVol").value||0)/100)*1.5; }
+function slsAudioStart(){ if(SLS.actx) return; const AC=window.AudioContext||window.webkitAudioContext; SLS.actx=new AC(); SLS.gain=SLS.actx.createGain(); SLS.gain.connect(SLS.actx.destination); slsVol(); }
+async function slsPollAudio(){
+  if(SLS.listen<0)return;
+  try{
+    const r=await fetch("/api/slices/audio?ch="+SLS.listen+"&after="+SLS.after,{cache:"no-store"});
+    const seq=+r.headers.get("X-Seq"), rate=+r.headers.get("X-Rate")||12000, buf=await r.arrayBuffer();
+    if(seq<SLS.after) SLS.aNext=0;
+    if(buf.byteLength>=2 && SLS.actx){
+      const i16=new Int16Array(buf), f=new Float32Array(i16.length); for(let i=0;i<i16.length;i++) f[i]=i16[i]/32768;
+      const ab=SLS.actx.createBuffer(1,f.length,rate); ab.copyToChannel(f,0);
+      const src=SLS.actx.createBufferSource(); src.buffer=ab; src.connect(SLS.gain);
+      const now=SLS.actx.currentTime; if(SLS.aNext<now+0.03||SLS.aNext>now+1.2) SLS.aNext=now+0.25;
+      src.start(SLS.aNext); SLS.aNext+=ab.duration;
+    }
+    SLS.after=seq;
+  }catch(e){}
+  SLS.atimer=setTimeout(slsPollAudio,90);
+}
+async function slsListen(ch,on){
+  try{
+    if(on){ slsAudioStart(); if(SLS.actx.state==="suspended") SLS.actx.resume(); }
+    const mode=(SLS.sound[String(ch)]||{}).mode;
+    await api("/api/slices/listen",{channel:ch,on:on,mode:mode});
+    clearTimeout(SLS.atimer); SLS.listen=on?ch:-1; SLS.after=0; SLS.aNext=0;
+    if(on){ toast("Sound on: slice "+(ch+1)+". One slice plays at a time; recording other slices still works.",4500); slsPollAudio(); }
+    slPoll();
+  }catch(e){ toast("&#9888; "+esc(e.message),7000); }
+}
+async function slsMode(ch,m){ try{ await api("/api/slices/sound_mode",{channel:ch,mode:m}); }catch(e){ toast("&#9888; "+esc(e.message),6000);} }
+async function slsRec(ch,on,mode){
+  try{
+    const r=await api("/api/slices/rec",{channel:ch,on:on,mode:mode});
+    if(on) toast("Recording slice "+(ch+1)+" to a WAV file. It keeps recording while you drive; press Stop recording to finish.",6000);
+    else { toast(r.file?("Recording saved: "+esc(r.file)+" (in the Audio recordings box below)"):"Recording stopped.",8000); recList(); }
+    slPoll();
+  }catch(e){ toast("&#9888; "+esc(e.message),7000); }
 }
 async function slPoll(){
   if(SL.busy||document.hidden) return; SL.busy=true;
@@ -471,6 +526,8 @@ async function slPoll(){
     $("bSlStart").style.display=(j.logging||j.running)?"none":"inline-block"; $("bSlStop").style.display=(!j.logging&&j.running)?"inline-block":"none";
     $("slTag").textContent=j.logging?"logging":(j.running?"preview":"");
     $("slStatus").textContent=j.error?("Stopped: "+j.error):(j.logging?"Live from the logger.":(live?(j.radio?("Radio: "+j.radio):""):"Not running."));
+    SLS.sound=j.sound||{};
+    if(SLS.listen>=0 && !((SLS.sound[String(SLS.listen)]||{}).listen)){ clearTimeout(SLS.atimer); SLS.listen=-1; }
     if(live||(j.frames&&j.frames.length)) slRender(j);
   }catch(e){} SL.busy=false;
 }

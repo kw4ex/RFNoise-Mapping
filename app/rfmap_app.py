@@ -331,6 +331,11 @@ class App:
             time.sleep(0.25)
         raise ValueError("The logger did not start in time. " + self.log_tail())
 
+    def logger_raw(self, path, timeout=1.5):
+        """GET raw bytes (plus X-Seq/X-Rate) from the logger process."""
+        r = urllib.request.urlopen("http://127.0.0.1:%d%s" % (self.logger_port, path), timeout=timeout)
+        return r.read(), dict(r.headers)
+
     def logger_call(self, path, body=None, timeout=1.5):
         url = f"http://127.0.0.1:{self.logger_port}{path}"
         req = urllib.request.Request(url, data=(None if body is None else json.dumps(body).encode()),
@@ -652,6 +657,20 @@ class Handler(BaseHTTPRequestHandler):
                     out.update(j)
                     return self._json(out)
                 return self._json(PAN.get_frame(after))
+            if path == "/api/slices/audio":
+                ch = int((q.get("ch") or ["0"])[0] or 0)
+                after = int((q.get("after") or ["0"])[0] or 0)
+                if APP.running():
+                    try:
+                        data, hd = APP.logger_raw("/slice_audio?ch=%d&after=%d" % (ch, after), timeout=1.0)
+                    except Exception:
+                        data, hd = b"", {}
+                    return self._send(200, data, "application/octet-stream",
+                                      {"X-Seq": str(hd.get("X-Seq", after)), "X-Rate": str(hd.get("X-Rate", 12000))})
+                import hl2_audio
+                data, last = hl2_audio.SND.audio(ch, after)
+                return self._send(200, data, "application/octet-stream",
+                                  {"X-Seq": str(last), "X-Rate": str(hl2_audio.AUDIO_RATE)})
             if path == "/api/slices":
                 if APP.running():                      # logging: the logger supplies every channel's picture
                     try:
@@ -834,6 +853,36 @@ class Handler(BaseHTTPRequestHandler):
             if SLICES.running and b.get("channels"):
                 SLICES.set(channels=APP.clean_channels(b["channels"]))
             return {"ok": True}
+        if path == "/api/slices/listen":
+            ch = int(b.get("channel", 0))
+            if APP.running():
+                APP.logger_call("/slice_listen", b, timeout=3)
+            else:
+                if not SLICES.running:
+                    raise ValueError("Start the slices preview (or logging) first.")
+                import hl2_audio
+                hl2_audio.SND.listen(ch, bool(b.get("on")), b.get("mode"), b.get("bw"))
+            return {"ok": True}
+        if path == "/api/slices/sound_mode":
+            if APP.running():
+                APP.logger_call("/slice_mode", b, timeout=3)
+            else:
+                import hl2_audio
+                hl2_audio.SND.set_mode(int(b.get("channel", 0)), b.get("mode"), b.get("bw"))
+            return {"ok": True}
+        if path == "/api/slices/rec":
+            ch = int(b.get("channel", 0))
+            if APP.running():
+                j = APP.logger_call("/slice_rec", b, timeout=3)
+                return {"ok": True, "file": (j or {}).get("file", "")}
+            if not SLICES.running:
+                raise ValueError("Start the slices preview (or logging) first.")
+            import hl2_audio
+            chans = APP.cfg.get("channels", [])
+            mhz = chans[ch]["mhz"] if 0 <= ch < len(chans) else 0
+            name = hl2_audio.SND.record(ch, bool(b.get("on")), "slice%d_%sMHz" % (ch + 1, mhz),
+                                        b.get("mode"), b.get("bw"))
+            return {"ok": True, "file": name or ""}
         if path == "/api/slices/stop":
             SLICES.stop()
             return {"ok": True}

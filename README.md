@@ -18,7 +18,7 @@ An **SDRplay RSP1** receiver and a **GPS** log the signal level about every 10 f
 - Has a **practice mode** with pretend radio and GPS, so you can try everything at home.
 - Has a **panadapter**: a live spectrum and waterfall of the band with a built-in receiver (AM, USB, LSB, CW, narrow FM), so you can see and hear signals and pick frequencies to measure. (New, untested on the road.)
 - Works with the **SDRplay RSP1** (USB), the **Hermes Lite 2** (network cable), or **both at once**: each of the four frequency slots picks which radio measures it. The Hermes Lite 2's receivers all run at the same time, so its frequencies are read at the same instant; the SDRplay covers VHF, airband and 70 cm. (Hermes Lite 2 support is new: tested against a simulated radio, not yet on a real one.)
-- Shows a live **slices** view: a small panadapter for every frequency you measure, side by side.
+- Shows a live **slices** view: a small panadapter for every frequency you measure, side by side. Hermes Lite 2 slices also have **sound and per-slice WAV recording, even while driving** - handy for hearing the buzz rise and fall as you pass a pole.
 - Saves every reading with its time to the millisecond, so a map can be made with **one dot every X feet** worked out from the clock, whatever speed you drove.
 - Has built-in checks: **Check setup**, **Find my GPS** and a one-minute **Full test**.
 

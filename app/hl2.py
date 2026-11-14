@@ -375,10 +375,16 @@ class Hl2Sim:
         t = k / float(self.rate)
         x = np.zeros(n_samples, np.complex128)
         amp_gain = 10 ** (self.lna / 20.0)
-        for f_abs, db in self.carriers.items():
+        for f_abs, spec in self.carriers.items():
+            # spec = level_db, or (level_db, am_tone_hz, am_depth) for an AM-modulated test carrier
+            if isinstance(spec, (tuple, list)):
+                db, am_hz, depth = spec
+            else:
+                db, am_hz, depth = spec, 0.0, 0.0
             df = f_abs - self.freq[rx]
             if abs(df) < self.rate * 0.45:
-                x += (10 ** (db / 20.0)) * np.exp(2j * np.pi * df * t)
+                env = 1.0 + depth * np.sin(2 * np.pi * am_hz * t) if am_hz else 1.0
+                x += (10 ** (db / 20.0)) * env * np.exp(2j * np.pi * df * t)
         x *= amp_gain
         sig = 10 ** (self.noise_db / 20.0) * amp_gain / np.sqrt(2.0)
         x += sig * (np.random.randn(n_samples) + 1j * np.random.randn(n_samples))
