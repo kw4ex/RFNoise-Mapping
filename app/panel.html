@@ -27,6 +27,12 @@ button.pri{background:var(--acc);border-color:var(--acc);color:#fff;font-weight:
 button.pri:hover{background:#174fb5}
 button.stop{background:var(--bad);border-color:var(--bad);color:#fff;font-weight:600}
 button.sm{font-size:13px;padding:4px 9px}
+.slbox .slrow{display:flex;gap:6px;align-items:center;margin-top:5px;flex-wrap:wrap}
+.slbox .slrow .rn{width:56px;font-size:12px;font-weight:700;color:#34495e}
+.slbox .slrow label,.slbox .slrow .mut{font-size:12px;color:#5b6b7d}
+.slbox .slrow input,.slbox .slrow select{font-size:13px;padding:3px 6px}
+.slbox .slrow button.sm{padding:3px 9px}
+.slbox .slRw{display:inline-flex;align-items:center;gap:6px}
 button:disabled{opacity:.45;cursor:default}
 button.lock{font-size:19px;font-weight:800;letter-spacing:.5px;padding:10px 18px;border-radius:10px;border:3px solid #1e8e3e;background:#e6f6ea;color:#14692c;min-width:210px}
 button.lock.on{border-color:#b3261e;background:#d93025;color:#fff;box-shadow:0 0 0 3px rgba(217,48,37,.28)}
@@ -500,38 +506,45 @@ function slDraw(cv,f,zoom){
   const nice=(()=>{ const raw=span/5, m=Math.pow(10,Math.floor(Math.log10(raw))), r=raw/m; return (r<=1?1:r<=2?2:r<=5?5:10)*m; })();
   g.fillStyle="rgba(8,16,26,.82)"; g.fillRect(0,H-bh,W,bh);
   g.strokeStyle="rgba(143,176,200,.35)"; g.lineWidth=1; g.fillStyle="#9fc0d8"; g.font=fs+"px sans-serif"; g.textAlign="center";
-  const edge=W*0.17;
+  const tw=t=>g.measureText(t).width, gap=8*sc, used=[];
+  g.font="bold "+fs+"px sans-serif";
+  const lTxt=(w0/1e6).toFixed(dec), rTxt=(w1/1e6).toFixed(dec)+" MHz", tTxt=(f.tune/1e6).toFixed(dec), tx=toX(f.tune);
+  used.push([4*sc-gap,4*sc+tw(lTxt)+gap],[W-4*sc-tw(rTxt)-gap,W-4*sc+gap],[tx-tw(tTxt)/2-gap,tx+tw(tTxt)/2+gap]);
+  g.font=fs+"px sans-serif"; g.fillStyle="#9fc0d8"; g.textAlign="center";
   for(let t=Math.ceil(w0/nice)*nice; t<w1; t+=nice){ const x=toX(t);
     g.beginPath(); g.moveTo(x,H-bh); g.lineTo(x,H-bh-6*sc); g.stroke();
-    if(x>edge && x<W-edge && Math.abs(x-toX(f.tune))>W*0.09) g.fillText((t/1e6).toFixed(dec),x,H-Math.round(5*sc)); }
+    const lab=(t/1e6).toFixed(dec), a0=x-tw(lab)/2-gap, a1=x+tw(lab)/2+gap;
+    if(used.every(u=>a1<u[0]||a0>u[1])){ g.fillText(lab,x,H-Math.round(5*sc)); used.push([a0,a1]); } }
   g.font="bold "+fs+"px sans-serif"; g.fillStyle="#ffffff";
-  g.textAlign="left"; g.fillText((w0/1e6).toFixed(dec),Math.round(4*sc),H-Math.round(5*sc));
-  g.textAlign="right"; g.fillText((w1/1e6).toFixed(dec)+" MHz",W-Math.round(4*sc),H-Math.round(5*sc));
-  { const tx=toX(f.tune); if(tx>edge && tx<W-edge){ g.fillStyle="#ffd24a"; g.textAlign="center"; g.fillText((f.tune/1e6).toFixed(dec),tx,H-Math.round(5*sc)); } }
+  g.textAlign="left"; g.fillText(lTxt,Math.round(4*sc),H-Math.round(5*sc));
+  g.textAlign="right"; g.fillText(rTxt,W-Math.round(4*sc),H-Math.round(5*sc));
+  g.font="bold "+fs+"px sans-serif";
+  { const t0=tx-tw(tTxt)/2-gap, t1=tx+tw(tTxt)/2+gap;       // the tuned frequency's label, unless it would sit on a limit's label
+    if(tx>0 && tx<W && t1<used[1][0] && t0>used[0][1]){ g.fillStyle="#ffd24a"; g.textAlign="center"; g.fillText(tTxt,tx,H-Math.round(5*sc)); } }
 }
 function slRender(j){
   const grid=$("slGrid"), fr=j.frames||[];
   while(grid.children.length<fr.length){ const d=document.createElement("div"); d.className="slbox";
     d.innerHTML='<div class="slh" style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:2px"><b class="slt"></b><span class="slv"></span></div>'+
       '<canvas width="'+(ONLY_SLICES?1000:520)+'" height="'+(ONLY_SLICES?240:140)+'" style="width:100%;border-radius:4px"></canvas>'+
-      '<div class="sltune" style="display:flex;gap:6px;align-items:center;margin-top:4px;flex-wrap:wrap">'+
-      '<label class="mut" style="font-size:12px">Tune</label>'+
+      '<div class="slrow"><span class="rn">Tune</span>'+
       '<button class="sm slDn" title="Tune down one step">&minus;</button>'+
-      '<input type="number" step="any" class="slF" style="width:108px" title="Frequency in MHz. Press Enter, or use the buttons or the mouse wheel.">'+
-      '<button class="sm slUp" title="Tune up one step">+</button><span class="mut" style="font-size:12px">MHz</span>'+
-      '<label class="mut" style="font-size:12px">Step</label><select class="sm slStep" title="How far each click of the - and + buttons, or each notch of the mouse wheel, moves the frequency">'+
+      '<input type="number" step="any" class="slF" style="width:104px" title="Frequency in MHz. Type a frequency and press Enter, use the - and + buttons or the mouse wheel, or click or drag on the picture.">'+
+      '<button class="sm slUp" title="Tune up one step">+</button><span class="mut">MHz</span>'+
+      '<label>Step</label><select class="sm slStep" title="How far each click of the - and + buttons, or each notch of the mouse wheel, moves the frequency">'+
       '<option value="0.1">100 Hz</option><option value="0.5">500 Hz</option><option value="1" selected>1 kHz</option><option value="5">5 kHz</option>'+
-      '<option value="10">10 kHz</option><option value="100">100 kHz</option><option value="1000">1 MHz</option></select>'+
-      '<label class="mut" style="font-size:12px" title="The signal power inside this many kHz around the frequency is what gets logged and mapped (the yellow bar). It is not the listening filter - that is the Filter box by the sound controls.">Measure width</label><input type="number" step="any" class="slW" style="width:64px" title="The signal power inside this many kHz around the frequency is what gets logged and mapped (the yellow bar). It is not the listening filter - that is the Filter box by the sound controls."><span class="mut" style="font-size:12px">kHz</span>'+
-      '<label class="mut" style="font-size:12px">Mode</label><select class="sm slsMode" title="LSB measures and listens below the frequency, USB above, AM / SAM / NFM both sides"><option>AM</option><option>SAM</option><option>USB</option><option>LSB</option><option>NFM</option></select>'+
-      '<select class="sm slR radcol" title="Which radio measures this slice"><option value="auto">Auto</option><option value="hl2">Hermes</option><option value="sdrplay">SDRplay</option></select></div>'+
-      '<div style="display:flex;gap:8px;align-items:center;margin-top:3px;flex-wrap:wrap"><label class="mut" style="font-size:12px">Zoom</label>'+
-      '<input type="range" class="slzoom" min="0" max="16" step="1" value="0" style="width:130px;vertical-align:middle"><span class="mut slspan" style="font-size:12px"></span></div>'+
-      '<div class="slsnd" style="display:none;gap:8px;align-items:center;margin-top:4px;flex-wrap:wrap">'+
-      '<button class="sm slsListen"></button><label class="mut" style="font-size:12px">Filter</label><select class="sm slsBw" title="Receive filter width: the green band on the picture">'+
-      '<option value="">Auto</option><option value="match">= Measure width</option><option value="500">500 Hz</option><option value="1000">1.0 kHz</option><option value="1800">1.8 kHz</option><option value="2400">2.4 kHz</option>'+
+      '<option value="10">10 kHz</option><option value="100">100 kHz</option><option value="1000">1 MHz</option></select></div>'+
+      '<div class="slrow"><span class="rn">Measure</span>'+
+      '<label>Mode</label><select class="sm slsMode" title="Which side of the frequency is measured and listened to: LSB below it, USB above it, AM / SAM / NFM both sides"><option>AM</option><option>SAM</option><option>USB</option><option>LSB</option><option>NFM</option></select>'+
+      '<label title="The signal power inside this many kHz is what gets logged and mapped (the yellow bar on the picture). It is not the listening filter.">Width</label><input type="number" step="any" class="slW" style="width:60px" title="The signal power inside this many kHz is what gets logged and mapped (the yellow bar on the picture). It is not the listening filter."><span class="mut">kHz</span>'+
+      '<span class="slRw"><label>Radio</label><select class="sm slR" title="Which radio measures this slice"><option value="auto">Auto</option><option value="hl2">Hermes</option><option value="sdrplay">SDRplay</option></select></span></div>'+
+      '<div class="slrow"><span class="rn">Zoom</span>'+
+      '<input type="range" class="slzoom" min="0" max="16" step="1" value="0" style="width:130px"><span class="mut slspan"></span></div>'+
+      '<div class="slsnd slrow" style="display:none"><span class="rn">Listen</span>'+
+      '<button class="sm slsListen"></button><label>Filter</label><select class="sm slsBw" title="Receive filter width: the green band on the picture">'+
+      '<option value="">Auto</option><option value="match">= Width</option><option value="500">500 Hz</option><option value="1000">1.0 kHz</option><option value="1800">1.8 kHz</option><option value="2400">2.4 kHz</option>'+
       '<option value="2800">2.8 kHz</option><option value="3600">3.6 kHz</option><option value="6000">6 kHz</option><option value="8000">8 kHz</option><option value="12000">12 kHz</option></select>'+
-      '<label class="mut" style="font-size:12px">AGC</label><select class="sm slsAgc" title="Off keeps the background noise at its true level next to the signals. Slow, Medium and Fast level the volume.">'+
+      '<label>AGC</label><select class="sm slsAgc" title="Off keeps the background noise at its true level next to the signals. Slow, Medium and Fast level the volume.">'+
       '<option value="off">Off</option><option value="slow">Slow</option><option value="medium" selected>Medium</option><option value="fast">Fast</option></select>'+
       '<button class="sm recbtn slsRec"></button><span class="mut slsRecInfo"></span></div>'; grid.appendChild(d); }
   while(grid.children.length>fr.length) grid.removeChild(grid.lastChild);
@@ -580,7 +593,7 @@ function slTuneWire(d,f){
   const fi=d.querySelector(".slF"), wi=d.querySelector(".slW"), ri=d.querySelector(".slR"), st=d.querySelector(".slStep");
   if(document.activeElement!==fi && fi.value!==String(cm.value)) fi.value=cm.value;
   if(document.activeElement!==wi && wi.value!==String(cb.value)) wi.value=cb.value;
-  ri.style.display=(useSdr()&&useHl2())?"inline-block":"none";
+  d.querySelector(".slRw").style.display=(useSdr()&&useHl2())?"inline-flex":"none";
   if(cr && document.activeElement!==ri) ri.value=cr.value;
   if(SLSTEP[ch]&&document.activeElement!==st) st.value=SLSTEP[ch];
   const move=dir=>{ const stepKhz=+st.value||1, cur=parseFloat(fi.value)||parseFloat(cm.value)||0;
