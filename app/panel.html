@@ -65,6 +65,11 @@ dialog::backdrop{background:rgba(10,20,35,.45)}
 .res b{min-width:118px;font-size:13px}
 .ico{font-weight:700}.ico.ok{color:var(--ok)}.ico.fix{color:var(--bad)}.ico.info{color:var(--mut)}
 details summary{cursor:pointer;color:var(--acc);font-size:13.5px;margin:6px 0}
+body.only-slices header, body.only-slices main>section.card:not(#cSlices), body.only-slices footer{display:none}
+body.only-slices main{max-width:none;margin:6px auto;padding:0 10px 10px}
+body.only-slices #slGrid{grid-template-columns:repeat(auto-fit,minmax(620px,1fr)) !important;gap:14px !important}
+body.only-slices #slGrid canvas{height:30vh}
+body.only-slices #cSlices>p.sub{display:none}
 #busy{position:fixed;left:50%;transform:translateX(-50%);top:70px;background:#1d4ed8;color:#fff;padding:12px 20px;border-radius:10px;font-size:15px;display:none;z-index:100;max-width:90%;box-shadow:0 4px 18px rgba(0,0,0,.35)}
 #busy .sp{display:inline-block;width:14px;height:14px;border:3px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:bspin .8s linear infinite;vertical-align:-2px;margin-right:9px}
 @keyframes bspin{to{transform:rotate(360deg)}}
@@ -187,6 +192,8 @@ details summary{cursor:pointer;color:var(--acc);font-size:13.5px;margin:6px 0}
  <div class="row" style="align-items:center">
   <button class="pri" id="bSlStart" onclick="slStart()">&#9654; Preview slices</button>
   <button class="stop" id="bSlStop" onclick="slStop()" style="display:none">&#9632; Stop preview</button>
+  <button class="sm" id="bSlPop" onclick="window.open('/?view=slices','_blank')" title="A page with only the four slices, good for a second screen or the car">Open in its own tab</button>
+  <button class="sm" id="bSlFull" style="display:none" onclick="slFull()">Full screen</button>
   <span class="mut" id="slStatus"></span>
   <span style="margin-left:auto;display:inline-flex;gap:8px;align-items:center"><label>Volume</label><input type="range" id="slVol" min="0" max="100" value="70" style="width:110px" oninput="slsVol()"><label class="chk" style="display:inline-flex;margin:0"><input type="checkbox" id="slMute" onchange="slsVol()"> <span>Mute</span></label></span>
  </div>
@@ -437,6 +444,12 @@ function hl2GainReset(){ $("hl2g").value=15; gainChanged(); }
 
 /* ---------- slices ---------- */
 const SL={on:false,timer:null,busy:false};
+const ONLY_SLICES=new URLSearchParams(location.search).get("view")==="slices";
+if(ONLY_SLICES){ document.body.classList.add("only-slices"); document.title="RF Noise Map - Slices";
+  window.addEventListener("load",()=>{ $("bSlPop").style.display="none"; $("bSlFull").style.display="inline-block"; }); }
+function slFull(){ const d=document.documentElement;
+  if(document.fullscreenElement){ document.exitFullscreen(); }
+  else if(d.requestFullscreen){ d.requestFullscreen(); toast("Full screen. Press Esc (or this button) to leave.",4000); } }
 const SLZ=(()=>{try{return JSON.parse(localStorage.getItem("rfmapSlz")||"{}")}catch(e){return{}}})();
 function slzSet(ch,z){ SLZ[String(ch)]=+z||1; try{localStorage.setItem("rfmapSlz",JSON.stringify(SLZ));}catch(e){} }
 const slzOf=v=>Math.pow(2,(+v||0)/4);            // slider 0..16 -> zoom 1x..16x, smooth steps
@@ -472,7 +485,7 @@ function slRender(j){
   const grid=$("slGrid"), fr=j.frames||[];
   while(grid.children.length<fr.length){ const d=document.createElement("div"); d.className="slbox";
     d.innerHTML='<div class="slh" style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:2px"><b class="slt"></b><span class="slv"></span></div>'+
-      '<canvas width="520" height="140" style="width:100%;border-radius:4px"></canvas>'+
+      '<canvas width="'+(ONLY_SLICES?1000:520)+'" height="'+(ONLY_SLICES?240:140)+'" style="width:100%;border-radius:4px"></canvas>'+
       '<div style="display:flex;gap:8px;align-items:center;margin-top:3px;flex-wrap:wrap"><label class="mut" style="font-size:12px">Zoom</label>'+
       '<input type="range" class="slzoom" min="0" max="16" step="1" value="0" style="width:130px;vertical-align:middle"><span class="mut slspan" style="font-size:12px"></span></div>'+
       '<div class="slsnd" style="display:none;gap:8px;align-items:center;margin-top:4px;flex-wrap:wrap">'+
