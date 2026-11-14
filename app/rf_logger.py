@@ -450,6 +450,16 @@ class SoapySdr:
             pass
 
     def measure(self, freq_hz, bw_hz, lat, lon, settings):
+        known = self._levels.get(freq_hz)
+        level = self._measure_once(freq_hz, bw_hz, settings, False)
+        # Safety net: if a reading suddenly drops a lot below this frequency's last known level, it may be
+        # stale data from a quieter frequency (seen on real hardware). Re-read once with the long wait.
+        if known is not None and level == level and level < known - self.JUMP_DB:
+            level = self._measure_once(freq_hz, bw_hz, settings, True)
+        self._levels[freq_hz] = level
+        return level
+
+    def _measure_once(self, freq_hz, bw_hz, settings, force_long):
         self.apply_gain(settings)
         offset = min(self.OFFSET_HZ, max(freq_hz - 1_000, 0))
         lo = freq_hz - offset
@@ -464,7 +474,7 @@ class SoapySdr:
         # previous reading was much stronger than this frequency's last known level (or unknown).
         known = self._levels.get(freq_hz)
         prev = self._prev_level
-        long_wait = (prev is not None and (known is None or prev - known > self.JUMP_DB)
+        long_wait = force_long or (prev is not None and (known is None or prev - known > self.JUMP_DB)
                      and self._prev_freq != freq_hz)
         self._skip(self.SETTLE_LONG if long_wait else self.SETTLE)
         if not self._read(self.NSAMP):
@@ -480,7 +490,6 @@ class SoapySdr:
         band = spec[centre - half: centre + half + 1]
         level = 10.0 * math.log10(float(band.sum()) + 1e-20)    # dBFS
         self._last = (lo, self.SAMPLE_RATE, spec, level)
-        self._levels[freq_hz] = level
         self._prev_level, self._prev_freq = level, freq_hz
         return level
 
