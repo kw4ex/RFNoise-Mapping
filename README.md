@@ -8,7 +8,7 @@ One or two software-defined radios (an **SDRplay RSP1**, a **Hermes Lite 2**, or
 
 ![Control panel: route, radios, frequencies](docs/images/panel.png)
 
-**New: [The Story of RF Noise Map](docs/The-Story-of-RF-Noise-Map.md)** — the idea, why distance, speed, several frequencies and a panadapter matter for finding noise, the problems we hit along the way, and what the product does today (with its limits). Inspired by the noise-hunting work of **Jeff Stuparits, W4DD**.
+**New: [The Story of RF Noise Map](docs/The-Story-of-RF-Noise-Map.md)** ([download as PDF](docs/guides/The-Story-of-RF-Noise-Map.pdf)) — the idea, why distance, speed, several frequencies and a panadapter matter for finding noise, the problems we hit along the way, and what the product does today (with its limits). Inspired by the noise-hunting work of **Jeff Stuparits, W4DD**.
 
 ## What it does
 
