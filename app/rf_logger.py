@@ -361,6 +361,8 @@ class SoapySdr:
     OFFSET_HZ = 200_000     # tune this far below the target to dodge the DC spike
     SAMPLE_RATE = 2_000_000
     NSAMP = 32768           # samples per measurement (about 16 ms)
+    SETTLE = 8192           # fresh samples thrown away after a retune (about 4 ms)
+    DRAIN = True            # first empty out old samples still queued from the previous frequency
     FFT_N = 4096
 
     def __init__(self, settings):
@@ -398,6 +400,7 @@ class SoapySdr:
         self.stream = d.setupStream(self.RX, self.CF32)
         d.activateStream(self.stream)
         self.buf = np.zeros(self.NSAMP, np.complex64)
+        self.scratch = np.zeros(65536, np.complex64)
         self.window = np.hanning(self.FFT_N).astype(np.float32)
         self.win_pow = float(np.sum(self.window ** 2))
 
@@ -422,13 +425,27 @@ class SoapySdr:
                 return False
         return True
 
+    def _drain(self, max_s=0.1):
+        t_end = time.time() + max_s
+        try:
+            while time.time() < t_end:
+                sr = self.dev.readStream(self.stream, [self.scratch], self.scratch.size, timeoutUs=0)
+                if sr.ret <= 0:
+                    break
+        except Exception:
+            pass
+
     def measure(self, freq_hz, bw_hz, lat, lon, settings):
         self.apply_gain(settings)
         offset = min(self.OFFSET_HZ, max(freq_hz - 1_000, 0))
         lo = freq_hz - offset
         self.dev.setFrequency(self.RX, 0, lo)
-        # throw away the first buffer after retuning (it contains the retune glitch)
-        self._read(4096)
+        # The radio keeps streaming while we wait between dots, so its queue can still hold samples
+        # taken on the PREVIOUS frequency. Empty that queue, then throw away a short stretch of fresh
+        # samples (the retune glitch) before measuring.
+        if self.DRAIN:
+            self._drain()
+        self._read(self.SETTLE)
         if not self._read(self.NSAMP):
             return float("nan")
         x = self.buf

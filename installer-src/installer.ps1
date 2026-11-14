@@ -502,7 +502,7 @@ foreach ($f in @('Open_Panel.bat', 'Uninstall_RFNoise.ps1', 'README_RFNoise.txt'
     Copy-Item -LiteralPath (Join-Path $pk $f) -Destination (Join-Path $dir $f) -Force
 }
 # the start, stop, uninstall, test and GPS-finder files carry the Python command found in step 1
-foreach ($nm in @('Start_RFNoise', 'Stop_RFNoise', 'Uninstall_RFNoise', 'Test_Everything', 'Find_GPS', 'Make_Support_File', 'Open_Logs')) {
+foreach ($nm in @('Start_RFNoise', 'Stop_RFNoise', 'Uninstall_RFNoise', 'Test_Everything', 'Find_GPS', 'Make_Support_File', 'Open_Logs', 'Switch_Test')) {
     $bt = [IO.File]::ReadAllText((Join-Path $pk ($nm + '.template.bat'))).Replace('@@PYCMD@@', $script:PyCmd)
     [IO.File]::WriteAllText((Join-Path $dir ($nm + '.bat')), $bt)
 }
