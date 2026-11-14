@@ -8,6 +8,14 @@
 
 ---
 
+## With thanks: Jeff Stuparits, W4DD
+
+**This program exists because of ham operator Jeff Stuparits, W4DD.** Jeff is the inspiration for it and the source of many of its ideas. He developed a similar noise-mapping tool of his own, **uses it often**, and has used it on many occasions to help KW4EX and many other operators isolate noise.
+
+The way of thinking behind RF Noise Map came from Jeff: that you can hunt noise by driving and recording where it is, and how to go about it. KW4EX has said plainly that without the knowledge Jeff shared, he would never have thought of the task, let alone how to approach it. RF Noise Map is a small program built on that generosity. Thank you, Jeff. 73.
+
+---
+
 ## Contents
 
 1. [The problem: power-line noise is a ghost](#1-the-problem-power-line-noise-is-a-ghost)
@@ -282,5 +290,7 @@ Ideas on the table, roughly in order of how much they'd help the next real drive
 Your feedback is the fuel for this list — if you try it, please report what you find on the [Issues](../../issues) page. Include the **support file** (one click away) and what happened, in your own words.
 
 ---
+
+*With thanks to Jeff Stuparits, W4DD, for the inspiration and the knowledge that started it all.*
 
 *Shared by one radio operator, "as is", with no warranty. Always drive safely. 73 — KW4EX.*

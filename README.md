@@ -8,7 +8,7 @@ An **SDRplay RSP1** receiver and a **GPS** log the signal level about every 10 f
 
 ![Control panel](docs/images/panel.png)
 
-**New: [The Story of RF Noise Map](docs/The-Story-of-RF-Noise-Map.md)** — the idea, why distance, speed, several frequencies and a panadapter matter for finding noise, the problems we hit along the way, and what the product does today (with its limits).
+**New: [The Story of RF Noise Map](docs/The-Story-of-RF-Noise-Map.md)** — the idea, why distance, speed, several frequencies and a panadapter matter for finding noise, the problems we hit along the way, and what the product does today (with its limits). Inspired by the noise-hunting work of **Jeff Stuparits, W4DD**.
 
 ## What it does
 
