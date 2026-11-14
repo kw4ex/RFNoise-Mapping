@@ -459,23 +459,35 @@ class SoapySdr:
                 return False
         return True
 
-    def _drain(self, max_s=0.1):
+    def _drain(self, max_s=0.15):
+        """Throw away everything queued from before the retune. After a long pause the backlog is deep
+        and arrives in bursts, so one empty poll does not mean the queue is empty: only stop after it
+        has stayed empty for a few polls in a row (or the time budget runs out)."""
         t_end = time.time() + max_s
+        empties = 0
         try:
             while time.time() < t_end:
                 sr = self.dev.readStream(self.stream, [self.scratch], self.scratch.size, timeoutUs=0)
-                if sr.ret <= 0:
+                if sr.ret > 0:
+                    empties = 0
+                    continue
+                empties += 1
+                if empties >= 3:
                     break
+                time.sleep(0.001)
         except Exception:
             pass
 
     def measure(self, freq_hz, bw_hz, lat, lon, settings):
         known = self._levels.get(freq_hz)
-        level = self._measure_once(freq_hz, bw_hz, settings, False)
-        # Safety net: if a reading suddenly drops a lot below this frequency's last known level, it may be
-        # stale data from a quieter frequency (seen on real hardware). Re-read once with the long wait.
-        if known is not None and level == level and level < known - self.JUMP_DB:
-            level = self._measure_once(freq_hz, bw_hz, settings, True)
+        level, used_long = self._measure_once(freq_hz, bw_hz, settings, False)
+        # Safety net: a quick reading that disagrees strongly with this frequency's last known level,
+        # in EITHER direction, may be stale data from the previous frequency (seen on real hardware).
+        # Re-read once with the long wait and believe that one. A real change (a noise source!) simply
+        # costs one long reading and is kept.
+        if (not used_long and known is not None and level == level
+                and abs(level - known) > self.JUMP_DB):
+            level, used_long = self._measure_once(freq_hz, bw_hz, settings, True)
         self._levels[freq_hz] = level
         return level
 
@@ -498,7 +510,7 @@ class SoapySdr:
                      and self._prev_freq != freq_hz)
         self._skip(self.SETTLE_LONG if long_wait else self.SETTLE)
         if not self._read(self.NSAMP):
-            return float("nan")
+            return float("nan"), long_wait
         x = self.buf
         nseg = self.NSAMP // self.FFT_N
         segs = x[: nseg * self.FFT_N].reshape(nseg, self.FFT_N) * self.window
@@ -511,7 +523,7 @@ class SoapySdr:
         level = 10.0 * math.log10(float(band.sum()) + 1e-20)    # dBFS
         self._last = (lo, self.SAMPLE_RATE, spec, level)
         self._prev_level, self._prev_freq = level, freq_hz
-        return level
+        return level, long_wait
 
     def last_frame(self):
         return getattr(self, "_last", None)
