@@ -639,6 +639,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(404, "Not found", "text/plain")
         except ValueError as e:
             return self._fail(e, 404)
+        except (ConnectionError, BrokenPipeError, TimeoutError):
+            return                      # the browser closed or reloaded the page mid-answer: nothing to report
         except Exception as e:
             L.exception("request %s" % self.path.split("?")[0])
             return self._fail(e, 500)
@@ -657,6 +659,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(self.route_post(path, body))
         except ValueError as e:
             return self._fail(e)
+        except (ConnectionError, BrokenPipeError, TimeoutError):
+            return                      # the browser closed or reloaded the page mid-answer: nothing to report
         except Exception as e:
             L.exception("request %s" % path)
             return self._fail(f"{type(e).__name__}: {e}", 500)

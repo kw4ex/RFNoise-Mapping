@@ -129,6 +129,7 @@ def test_radio(r, soapy):
         r.add("Radio", "fix", f"Could not open the radio: {e}")
         return False
     ok = True
+    means = []
     try:
         for ch in settings["channels"][:4]:
             hz, bw = ch["mhz"] * 1e6, ch["bw_khz"] * 1e3
@@ -138,6 +139,7 @@ def test_radio(r, soapy):
                 ok = False
                 continue
             lo, hi = min(vals), max(vals)
+            means.append((sum(vals) / 3, ch))
             txt = f"{ch['mhz']} MHz: {sum(vals)/3:.1f} dBFS (3 readings, {lo:.1f} to {hi:.1f})"
             if hi > -12:
                 r.add("Radio", "warn", txt + " - very strong: the radio may be overloaded. Raise 'IF gain reduction'.")
@@ -146,14 +148,18 @@ def test_radio(r, soapy):
             else:
                 r.add("Radio", "ok", txt)
         # does the gain control do anything?
-        ch = settings["channels"][0]
+        # use the STRONGEST channel: a channel near the radio's own noise floor cannot show the change
+        best, ch = max(means, key=lambda m: m[0]) if means else (-120.0, settings["channels"][0])
         hz, bw = ch["mhz"] * 1e6, ch["bw_khz"] * 1e3
         s_lo = dict(settings, if_gain_db=25)
         s_hi = dict(settings, if_gain_db=55)
         a = sum(sdr.measure(hz, bw, 0, 0, s_lo) for _ in range(3)) / 3
         b = sum(sdr.measure(hz, bw, 0, 0, s_hi) for _ in range(3)) / 3
         if a - b > 8:
-            r.add("Radio", "ok", f"Gain control works (readings drop {a-b:.0f} dB when the gain is lowered).")
+            r.add("Radio", "ok", f"Gain control works ({ch['mhz']} MHz: readings drop {a-b:.0f} dB when the gain is lowered).")
+        elif best < -85:
+            r.add("Radio", "info", f"Gain control check skipped: every channel is very quiet (strongest {best:.0f} dBFS), "
+                                   "near the radio's own noise, so a change cannot show. This is normal without an antenna.")
         else:
             r.add("Radio", "warn", f"Gain control changed the reading by only {a-b:.0f} dB (expected about 30). "
                                    "Readings may still be usable; tell Claude if this repeats.")
