@@ -237,6 +237,10 @@ The fix took measurement, not guesswork. A purpose-built test (`Switch_Test.bat`
 
 The deeper lesson: a single-receiver radio that must *take turns* is fighting physics while the car keeps moving. That led to supporting the **Hermes Lite 2** — an open-hardware HF transceiver that connects by network cable, needs **no driver at all**, and runs several receivers *at the same time*. Its frequencies are all read at the same instant, at the same spot on the road, with no retuning and no leftovers.
 
+![The Slices view](images/slices.png)
+
+*The Slices view that came out of it: one live panadapter per measured frequency, each with its own zoom, and - on Hermes Lite 2 slots - sound and recording that run while the drive is being logged. (Simulated radio shown.)*
+
 Version 1.3.0 ties the two radios together: a **"Your radios"** box, and a **Radio choice on each of the four frequency slots**. The Hermes Lite 2 might hold an AM broadcast channel and two HF ham bands while the SDRplay covers airband and 70 cm — each radio doing what it is best at, in one drive, on one map. Each reading now also carries its **time to the millisecond**, so the map builder can work out how far the car travelled and place **one dot every X feet**, whatever the driving speed was — keeping the strongest reading in each stretch so a short burst of power-line noise is never averaged away.
 
 ## 10. The product today

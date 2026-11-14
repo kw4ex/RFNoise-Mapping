@@ -6,7 +6,7 @@ An **SDRplay RSP1** receiver and a **GPS** log the signal level about every 10 f
 
 > **Status: early testing.** Tested with simulated hardware and on one Windows 11 PC with a real RSP1 and a USB GPS. A real drive has **not** been done yet. The **Mac version is experimental and untested on a real Mac.** Please report what you find.
 
-![Control panel](docs/images/panel.png)
+![Control panel: route, radios, frequencies](docs/images/panel.png)
 
 **New: [The Story of RF Noise Map](docs/The-Story-of-RF-Noise-Map.md)** — the idea, why distance, speed, several frequencies and a panadapter matter for finding noise, the problems we hit along the way, and what the product does today (with its limits). Inspired by the noise-hunting work of **Jeff Stuparits, W4DD**.
 
@@ -25,6 +25,14 @@ An **SDRplay RSP1** receiver and a **GPS** log the signal level about every 10 f
 ![Example map (practice data)](docs/images/map-example.png)
 
 *The map above uses practice data, not a real drive.*
+
+![The Slices view: one live panadapter per measured frequency, with per-slice zoom, sound and recording](docs/images/slices.png)
+
+*The Slices view: one live panadapter per measured frequency - each with its own zoom slider, and on Hermes Lite 2 slots sound and per-slice recording, even while driving. (Simulated radio shown.)*
+
+![The slices in their own tab, 2x2, for a second screen or full screen](docs/images/slices-fulltab.png)
+
+*"Open in its own tab" shows only the four slices, large, with a Full screen button - handy on a second screen in the car.*
 
 ## How it works
 

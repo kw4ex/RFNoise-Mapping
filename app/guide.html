@@ -41,7 +41,9 @@ th{background:#f0f3f7}
 <h2 id="need">1. What you need</h2>
 <ul>
  <li><b>A computer in the car:</b> a Mac or a Windows 11 PC (laptop). It runs the program and does the logging.</li>
- <li><b>An SDRplay receiver</b> plugged into that computer, with an antenna mounted away from the engine.</li>
+ <li><b>A radio</b> (one or both), with an antenna mounted away from the engine:
+   <ul><li>an <b>SDRplay RSP1</b> on a USB cable (covers VHF, airband, 70&nbsp;cm and the FM band), and/or</li>
+   <li>a <b>Hermes Lite 2</b> on a network cable (HF only, about 0.1&ndash;38&nbsp;MHz; several receivers at once, <b>no driver needed</b>).</li></ul></li>
  <li><b>A GPS</b>, either:
    <ul><li>your <b>iPhone</b> with the <b>GPS2IP</b> app (simple; one position per second), or</li>
    <li>a <b>USB GPS</b> plugged into the computer. A 10-updates-per-second model gives much closer dot spacing at 40&ndash;45&nbsp;mph.</li></ul></li>
@@ -77,8 +79,8 @@ th{background:#f0f3f7}
 </ol>
 <div class="box tip">The installer keeps a <b>log of every install</b> (the newest 10) in the <b>Logs</b> folder inside the RFNoise folder, plus a copy named install_log.txt. If something goes wrong it also tells you in plain words what the cause probably is, what to do and where to read more, and offers to make a <b>support file</b> (one zip) to send to Claude. While the program runs, problems are written to <b>Logs/program_errors.log</b>. In the panel, <b>Tools &rsaquo; Show recent problems</b> shows them and <b>Make a support file</b> packs everything. The installer also checks your computer first, and if the program is already installed it offers upgrade/repair, a check, or uninstall.</div>
 
-<h2 id="radio">3. The radio driver (SDRplay)</h2>
-<p>The SDRplay driver is not mine to include; it comes from sdrplay.com. Without it, <b>Practice mode and all map features still work</b>, and you can make maps from drives recorded on another computer.</p>
+<h2 id="radio">3. The radio driver (SDRplay only)</h2>
+<p><b>A Hermes Lite 2 needs none of this</b> &mdash; it has no driver at all. Skip to section 6 if that is your radio. The SDRplay driver is not mine to include; it comes from sdrplay.com. Without it, <b>Practice mode and all map features still work</b>, and you can make maps from drives recorded on another computer.</p>
 <h3>Mac</h3>
 <ol>
  <li>Run the installer again and answer <span class="k">y</span> at <b>STEP 3</b>. It opens the SDRplay page; download the <b>macOS API</b> installer and run it. <b>Restart the Mac.</b></li>
