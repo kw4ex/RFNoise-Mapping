@@ -87,12 +87,17 @@ body.only-slices #cSlices>p.sub{display:none}
  <h1>RF Noise Map</h1>
  <span class="pill"><span class="dot" id="dLog"></span><span id="tLog">Not logging</span></span>
  <span class="pill"><span class="dot" id="dGps"></span><span id="tGps">GPS: idle</span></span>
+ <span class="pill" title="The version of the program that is running now"><span id="tVer">v?</span></span>
  <span class="sp"></span>
  <button class="sm" onclick="runCheck()">Check setup</button>
+ <button class="sm" id="bQuitTop" style="border-color:#e58a8a;color:#a02222;font-weight:600" title="Stops any drive that is being recorded (saving it), then closes the program" onclick="quitApp()">Close program</button>
  <a class="btn" href="/help" target="_blank">Help &amp; guide</a>
 </header>
 
 <main>
+<div id="staleBanner" style="display:none;background:#fff4cc;border:1px solid #e0b400;border-radius:8px;padding:10px 12px;margin:10px 0">
+ <b>New program files were installed, but the old program is still running.</b> To use the new version: click <b>Close program</b> (top right), then open RF Noise Map again from its Desktop icon.
+</div>
 <div id="warnBanner" style="display:none;background:#ffe3e0;border:1px solid #d04a3a;border-radius:8px;padding:10px 12px;margin:10px 0"></div>
 <div id="blockBanner" style="display:none;background:#fff4cc;border:1px solid #e0b400;border-radius:8px;padding:10px 12px;margin:10px 0">
  <b>These programs may be using your radio or GPS:</b> <span id="blockList"></span>
@@ -386,11 +391,12 @@ const BUSY_MSG={"/api/logs/bundle":"Collecting the logs and settings into a supp
  "/api/radio/find":"Searching the network for the Hermes Lite 2 (about 3 seconds)",
  "/api/slices/start":"Starting the radio for the slices preview (a few seconds)",
  "/api/slices/listen":"Starting the sound for this slice",
- "/api/slices/rec":"Starting the recording for this slice"};
+ "/api/slices/rec":"Starting the recording for this slice",
+ "/api/quit":"Saving your drive and closing the program"};
 let busyN=0, busyT=null, busyTick=null, busyStart=0, busyTxt="";
 function busyShow(){const b=document.getElementById("busy"); if(!b)return; const sec=Math.round((Date.now()-busyStart)/1000);
   b.innerHTML='<span class="sp"></span>'+busyTxt+"... "+sec+" s"; b.style.display="block";}
-function busyBegin(path){ if(path in BUSY_MSG===false && ["/api/config","/api/live","/api/state","/api/drives","/api/ports","/api/blockers","/api/pause","/api/pan/set","/api/pan/stop","/api/pan/watch","/api/spacing","/api/gain","/api/slices/stop","/api/slices/set","/api/slices/sound_mode","/api/rec/start","/api/rec/stop","/api/rec/delete","/api/reveal","/api/open_folder","/api/drive/meta","/api/quit"].includes(path)) return false;
+function busyBegin(path){ if(path in BUSY_MSG===false && ["/api/config","/api/live","/api/state","/api/drives","/api/ports","/api/blockers","/api/pause","/api/pan/set","/api/pan/stop","/api/pan/watch","/api/spacing","/api/gain","/api/slices/stop","/api/slices/set","/api/slices/sound_mode","/api/rec/start","/api/rec/stop","/api/rec/delete","/api/reveal","/api/open_folder","/api/drive/meta"].includes(path)) return false;
   busyN++; if(busyN===1){busyStart=Date.now(); busyTxt=BUSY_MSG[path]||"Working";
     busyT=setTimeout(()=>{busyShow(); busyTick=setInterval(busyShow,1000);},500);} return true;}
 function busyEnd(){ busyN=Math.max(0,busyN-1); if(busyN===0){clearTimeout(busyT);clearInterval(busyTick);const b=document.getElementById("busy"); if(b)b.style.display="none";}}
@@ -641,6 +647,7 @@ async function slsRec(ch,on){
   }catch(e){ toast("&#9888; "+esc(e.message),7000); }
 }
 async function slPoll(){
+  if(window.__quit) return;
   if(SL.busy||document.hidden) return; SL.busy=true;
   try{ const j=await api("/api/slices");
     const live=j.logging||j.running; SL.logging=!!j.logging; SL.live=!!live;
@@ -743,8 +750,10 @@ async function pauseLog(){ await guard(()=>api("/api/pause",{})); }
 function setPill(dotId,textId,cls,text){$(dotId).className="dot "+cls;$(textId).textContent=text;}
 function posPct(v){return Math.max(0,Math.min(100,(v+120)/100*100));}
 async function refreshLive(){
+  if(window.__quit) return;
   let j; try{j=await api("/api/live");}catch(e){setPill("dLog","tLog","bad","Lost contact with program");return;}
-  const lg=j.logging, st=j.logger;
+  const lg=j.logging, st=j.logger; window.__logging=!!lg;
+  if(j.version) $("tVer").textContent="v"+j.version; $("staleBanner").style.display=j.stale?"block":"none";
   setPill("dLog","tLog",lg?"on":"","Logging"+(lg?"":": off")+(lg&&st&&st.settings.paused?" (paused)":""));
   $("bStart").style.display=lg?"none":""; $("bStop").style.display=lg?"":"none";
   $("bApply").style.display=lg?"":"none"; $("bPause").style.display=lg?"":"none";
@@ -849,7 +858,10 @@ async function showLog(){ await guard(async()=>{ const j=await api("/api/logs/ta
   $("logText").value=j.lines.length?j.lines.join("\n"):"No problems have been recorded. That is good news."; $("logText").scrollTop=1e9; }); }
 async function makeSupport(){ await guard(async()=>{ const j=await api("/api/logs/bundle",{});
   toast("Support file made: "+esc(j.file)+". It is in the logs folder (shown on your computer). Send that one file to KW4EX or Claude. It holds logs and settings only, not your drives or your private access key.",20000); }); }
-async function quitApp(){ if(!confirm("Quit RF Noise Map? (Logging will stop. Your data is kept.)"))return; await guard(()=>api("/api/quit",{})); try{window.close();}catch(e){} document.body.innerHTML="<p style='padding:30px;font-size:18px'>RF Noise Map has quit. You can close this tab.</p>"; }
+async function quitApp(){
+  const msg=window.__logging?"A drive is being recorded right now.\n\nIf you close the program, the drive will be stopped and saved first (its dots are kept; make the map afterwards from the Drives list), and then the program closes.\n\nStop the drive and close the program?"
+                            :"Close RF Noise Map?";
+  if(!confirm(msg))return; await guard(()=>api("/api/quit",{})); window.__quit=true; try{window.close();}catch(e){} document.body.innerHTML="<p style='padding:30px;font-size:18px'>RF Noise Map has quit. You can close this tab.</p>"; }
 
 /* ---------- email / notes / check ---------- */
 function openEmail(f){emailFile=f;$("emFile").textContent=f;dlgEmail.showModal();}

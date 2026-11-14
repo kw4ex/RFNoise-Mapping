@@ -580,6 +580,27 @@ class App:
 APP = App()
 
 
+def _files_stamp():
+    """Newest change time of the program's own files, to notice when new files were installed while it runs."""
+    now = time.time()
+    c = _files_stamp.cache
+    if now - c[0] < 4.0:
+        return c[1]
+    newest = 0.0
+    try:
+        for n in os.listdir(HERE):
+            if n.endswith((".py", ".html")):
+                newest = max(newest, os.path.getmtime(os.path.join(HERE, n)))
+    except OSError:
+        pass
+    _files_stamp.cache = (now, newest)
+    return newest
+
+
+_files_stamp.cache = (0.0, 0.0)
+_STARTED_STAMP = _files_stamp()
+
+
 # ----------------------------------------------------------------------------
 # Web server
 # ----------------------------------------------------------------------------
@@ -638,7 +659,8 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/favicon.ico":
                 return self._send(204, b"", "image/x-icon")
             if path == "/api/ping":
-                return self._json({"app": "rfmap", "version": C.VERSION})
+                return self._json({"app": "rfmap", "version": C.VERSION, "logging": APP.running(),
+                                   "stale": _files_stamp() > _STARTED_STAMP + 1.0})
             if path == "/api/state":
                 return self._json(self.full_state())
             if path == "/api/live":
@@ -1021,7 +1043,8 @@ class Handler(BaseHTTPRequestHandler):
         if dead and getattr(APP, "_crash_logged", None) is not APP.proc:
             APP._crash_logged = APP.proc
             L.error("The logger stopped unexpectedly (exit code %s). Its last messages:\n%s" % (APP.proc.poll(), APP.log_tail(12)))
-        return {"logging": APP.running(), "logger": st,
+        return {"logging": APP.running(), "logger": st, "version": C.VERSION,
+                "stale": _files_stamp() > _STARTED_STAMP + 1.0,       # newer program files were installed while this ran
                 "log_tail": APP.log_tail(6) if (dead or not st) and APP.proc else "",
                 "crashed": dead}
 
@@ -1096,10 +1119,28 @@ def main():
         sys.stdout = sys.stdout or logf
         sys.stderr = sys.stderr or logf
 
-    # Already running? Just show it.
+    # Already running? Just show it - unless it is an out-of-date copy (new files were installed) and no drive
+    # is being recorded: then close the old one so the new files are used.
     try:
         with urllib.request.urlopen(f"http://127.0.0.1:{args.port}/api/ping", timeout=1) as r:
-            if json.loads(r.read()).get("app") == "rfmap":
+            ping = json.loads(r.read())
+        if ping.get("app") == "rfmap" and ping.get("stale") and not ping.get("logging"):
+            print("An older copy of RF Noise Map is still running; closing it so the new version can start...", flush=True)
+            try:
+                rq = urllib.request.Request(f"http://127.0.0.1:{args.port}/api/quit", data=b"{}", method="POST",
+                                            headers={"Content-Type": "application/json", "X-RFMap": "1"})
+                urllib.request.urlopen(rq, timeout=5).read()
+            except Exception:
+                pass
+            for _ in range(40):
+                time.sleep(0.25)
+                try:
+                    urllib.request.urlopen(f"http://127.0.0.1:{args.port}/api/ping", timeout=0.5).read()
+                except Exception:
+                    break
+            ping = {}
+        if ping.get("app") == "rfmap":
+            if True:
                 if not args.no_browser:
                     webbrowser.open(f"http://localhost:{args.port}/")
                 print("RF Noise Map is already running; opened it.")

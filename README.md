@@ -21,6 +21,7 @@ One or two software-defined radios (an **SDRplay RSP1**, a **Hermes Lite 2**, or
 - Shows a live **slices** view: a small panadapter for every frequency you measure, side by side. Hermes Lite 2 slices also have **sound and per-slice WAV recording, even while driving** - handy for hearing the buzz rise and fall as you pass a pole.
 - Every slice can be **tuned on the spot**: type a frequency, nudge it with the − / + buttons or the mouse wheel (100 Hz to 1 MHz steps), click a signal on the picture to tune to it, or drag the picture to slide the frequency; set the receive filter and AGC, and change its width or which radio measures it. The green band shows the receive filter for the chosen mode (below the frequency for LSB, above for USB, both sides for AM) - in the preview and while logging. The slice pictures refresh about 15 times a second.
 - Saves every reading with its time to the millisecond, so a map can be made with **one dot every X feet** worked out from the clock, whatever speed you drove.
+- A **Close program** button sits at the top of the panel; if a drive is being recorded it asks first, then saves the drive and closes. The panel shows its version number, and warns you if new program files were installed while an older copy is still running.
 - Has built-in checks: **Check setup**, **Find my GPS** and a one-minute **Full test**.
 
 ![Example map (practice data)](docs/images/map-example.png)
