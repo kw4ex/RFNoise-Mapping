@@ -1068,7 +1068,7 @@ def main():
         ci = cfg.get("pan_channel", -1)
         chans = cfg["channels"][:MAX_CHANNELS]
         if getattr(sdr, "multi", False):
-            if time.time() - pan_state["t"] < 0.12:
+            if time.time() - pan_state["t"] < 0.05:
                 return False
             pan_state["t"] = time.time()
             try:

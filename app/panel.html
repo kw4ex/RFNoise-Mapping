@@ -458,7 +458,10 @@ function slzSpanTxt(rate,z){ const spn=rate/z; return "showing "+(spn>=1e6?(spn/
 function slDraw(cv,f,zoom){
   const g=cv.getContext("2d"), W=cv.width, H=cv.height; g.clearRect(0,0,W,H);
   g.fillStyle="#0b1620"; g.fillRect(0,0,W,H);
-  const bin=atob(f.spec), n=bin.length, rate=f.rate;
+  const raw=atob(f.spec), n=raw.length, rate=f.rate;
+  // light smoothing between frames, so the trace glides like a real panadapter instead of jumping
+  let bin=cv._sm; if(!bin||bin.length!==n){ bin=new Float32Array(n); for(let i=0;i<n;i++) bin[i]=raw.charCodeAt(i); cv._sm=bin; }
+  else { for(let i=0;i<n;i++) bin[i]=bin[i]*0.45+raw.charCodeAt(i)*0.55; }
   // the window shown: the whole capture, or a slice of it centred on the measured frequency
   zoom=Math.max(1,+zoom||1);
   const span=rate/zoom;
@@ -474,7 +477,7 @@ function slDraw(cv,f,zoom){
   const b0=((w0-(f.center-rate/2))/rate)*n;
   const bw=(span/rate)*n;
   for(let x=0;x<W;x++){ const a=Math.floor(b0+x*bw/W), b=Math.max(a+1,Math.floor(b0+(x+1)*bw/W)); let m=0;
-    for(let i=Math.max(0,a);i<Math.min(n,b);i++){const v=bin.charCodeAt(i); if(v>m)m=v;}
+    for(let i=Math.max(0,a);i<Math.min(n,b);i++){const v=bin[i]; if(v>m)m=v;}
     const y=H-(m/255)*H; if(x===0)g.moveTo(x,y); else g.lineTo(x,y); }
   g.stroke();
   g.fillStyle="#8fb0c8"; g.font="11px sans-serif";
@@ -486,6 +489,16 @@ function slRender(j){
   while(grid.children.length<fr.length){ const d=document.createElement("div"); d.className="slbox";
     d.innerHTML='<div class="slh" style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:2px"><b class="slt"></b><span class="slv"></span></div>'+
       '<canvas width="'+(ONLY_SLICES?1000:520)+'" height="'+(ONLY_SLICES?240:140)+'" style="width:100%;border-radius:4px"></canvas>'+
+      '<div class="sltune" style="display:flex;gap:6px;align-items:center;margin-top:4px;flex-wrap:wrap">'+
+      '<label class="mut" style="font-size:12px">Tune</label>'+
+      '<button class="sm slDn" title="Tune down one step">&minus;</button>'+
+      '<input type="number" step="any" class="slF" style="width:108px" title="Frequency in MHz. Press Enter, or use the buttons or the mouse wheel.">'+
+      '<button class="sm slUp" title="Tune up one step">+</button><span class="mut" style="font-size:12px">MHz</span>'+
+      '<select class="sm slStep" title="How far each click or wheel notch moves the frequency">'+
+      '<option value="0.1">100 Hz</option><option value="0.5">500 Hz</option><option value="1" selected>1 kHz</option><option value="5">5 kHz</option>'+
+      '<option value="10">10 kHz</option><option value="100">100 kHz</option><option value="1000">1 MHz</option></select>'+
+      '<label class="mut" style="font-size:12px">Width</label><input type="number" step="any" class="slW" style="width:64px" title="Measured width in kHz"><span class="mut" style="font-size:12px">kHz</span>'+
+      '<select class="sm slR radcol" title="Which radio measures this slice"><option value="auto">Auto</option><option value="hl2">Hermes</option><option value="sdrplay">SDRplay</option></select></div>'+
       '<div style="display:flex;gap:8px;align-items:center;margin-top:3px;flex-wrap:wrap"><label class="mut" style="font-size:12px">Zoom</label>'+
       '<input type="range" class="slzoom" min="0" max="16" step="1" value="0" style="width:130px;vertical-align:middle"><span class="mut slspan" style="font-size:12px"></span></div>'+
       '<div class="slsnd" style="display:none;gap:8px;align-items:center;margin-top:4px;flex-wrap:wrap">'+
@@ -495,6 +508,7 @@ function slRender(j){
   const cal=[...document.querySelectorAll(".cc")];
   fr.forEach((f,i)=>{ const d=grid.children[i]; d.querySelector(".slt").textContent="Slice "+(f.channel+1)+": "+(f.tune/1e6).toFixed(4)+" MHz"+(f.radio==="hl2"?" (Hermes)":(f.radio==="sdrplay"?" (SDRplay)":""));
     const c=+((cal[f.channel]||{}).value||0); d.querySelector(".slv").innerHTML="<b>"+(f.smeter+c).toFixed(1)+" dB</b>";
+    slTuneWire(d,f);
     const zsel=d.querySelector(".slzoom"), z=SLZ[String(f.channel)]||1;
     if(document.activeElement!==zsel&&+zsel.value!==slzPos(z)) zsel.value=String(slzPos(z));
     zsel.oninput=()=>{ const nz=slzOf(zsel.value); slzSet(f.channel,nz);
@@ -516,6 +530,48 @@ function slRender(j){
   if(h.lost_packets>50) msg.push("The network is dropping packets ("+h.lost_packets+" lost). Use a direct cable, or a lower detail setting.");
   w.style.display=msg.length?"block":"none"; w.innerHTML=msg.join("<br>");
 }
+/* tune a slice: frequency, step, width and radio, live in the preview and while logging */
+const SLSTEP={};
+function slRowOf(ch){ const m=[...document.querySelectorAll(".cm")]; let n=-1;
+  for(let i=0;i<m.length;i++){ if(String(m[i].value).trim()!==""){ n++; if(n===ch) return i; } } return -1; }
+function slTuneWire(d,f){
+  const ch=f.channel, row=slRowOf(ch); if(row<0) return;
+  const cm=document.querySelectorAll(".cm")[row], cb=document.querySelectorAll(".cb")[row], cr=document.querySelectorAll(".cr")[row];
+  const fi=d.querySelector(".slF"), wi=d.querySelector(".slW"), ri=d.querySelector(".slR"), st=d.querySelector(".slStep");
+  if(document.activeElement!==fi && fi.value!==String(cm.value)) fi.value=cm.value;
+  if(document.activeElement!==wi && wi.value!==String(cb.value)) wi.value=cb.value;
+  ri.style.display=(useSdr()&&useHl2())?"inline-block":"none";
+  if(cr && document.activeElement!==ri) ri.value=cr.value;
+  if(SLSTEP[ch]&&document.activeElement!==st) st.value=SLSTEP[ch];
+  const move=dir=>{ const stepKhz=+st.value||1, cur=parseFloat(fi.value)||parseFloat(cm.value)||0;
+    const nv=Math.max(0.001,Math.round((cur+dir*stepKhz/1000)*1e6)/1e6); fi.value=String(nv); slTune(ch,{mhz:String(nv)}); };
+  d.querySelector(".slDn").onclick=()=>move(-1);
+  d.querySelector(".slUp").onclick=()=>move(1);
+  st.onchange=()=>{ SLSTEP[ch]=st.value; };
+  fi.onchange=()=>{ if(fi.value.trim()!=="") slTune(ch,{mhz:fi.value.trim()}); };
+  fi.onwheel=e=>{ e.preventDefault(); move(e.deltaY<0?1:-1); };
+  wi.onchange=()=>{ if(+wi.value>0) slTune(ch,{bw:wi.value}); };
+  ri.onchange=()=>slTune(ch,{radio:ri.value});
+}
+let slTuneTimer=null, slUndo=null;
+function slTune(ch,p){ const r=slRowOf(ch); if(r<0) return;
+  const cm=document.querySelectorAll(".cm")[r], cb=document.querySelectorAll(".cb")[r], cr=document.querySelectorAll(".cr")[r];
+  if(!slUndo) slUndo=[...document.querySelectorAll(".cm")].map((_,i)=>({m:document.querySelectorAll(".cm")[i].value,
+      b:document.querySelectorAll(".cb")[i].value, r:document.querySelectorAll(".cr")[i].value}));   // to go back if refused
+  if(p.mhz!==undefined) cm.value=p.mhz;
+  if(p.bw!==undefined) cb.value=p.bw;
+  if(p.radio!==undefined) cr.value=p.radio;
+  clearTimeout(slTuneTimer); slTuneTimer=setTimeout(slPush,250); }
+async function slPush(){
+  const undo=slUndo; slUndo=null;
+  try{ const cfg=readForm(); await api("/api/config",cfg);
+    if(SL.logging) await api("/api/apply",cfg); else await api("/api/slices/set",{channels:cfg.channels});
+  }catch(e){
+    if(undo){ const m=document.querySelectorAll(".cm"), b=document.querySelectorAll(".cb"), r=document.querySelectorAll(".cr");
+      undo.forEach((u,i)=>{ if(m[i]){ m[i].value=u.m; b[i].value=u.b; r[i].value=u.r; } });
+      try{ await api("/api/config",readForm()); }catch(_){}
+      document.querySelectorAll("#slGrid .slF,#slGrid .slW").forEach(e=>{ if(document.activeElement===e) e.blur(); }); }   // let the box show the restored value
+    toast("&#9888; "+esc(e.message),7000); } }
 const SLS={sound:{},listen:-1,after:0,actx:null,gain:null,aNext:0,atimer:null};
 function slsVol(){ if(SLS.gain) SLS.gain.gain.value=$("slMute").checked?0:((+$("slVol").value||0)/100)*1.5; }
 function slsAudioStart(){ if(SLS.actx) return; const AC=window.AudioContext||window.webkitAudioContext; SLS.actx=new AC(); SLS.gain=SLS.actx.createGain(); SLS.gain.connect(SLS.actx.destination); slsVol(); }
@@ -558,7 +614,7 @@ async function slsRec(ch,on,mode){
 async function slPoll(){
   if(SL.busy||document.hidden) return; SL.busy=true;
   try{ const j=await api("/api/slices");
-    const live=j.logging||j.running;
+    const live=j.logging||j.running; SL.logging=!!j.logging; SL.live=!!live;
     $("bSlStart").style.display=(j.logging||j.running)?"none":"inline-block"; $("bSlStop").style.display=(!j.logging&&j.running)?"inline-block":"none";
     $("slTag").textContent=j.logging?"logging":(j.running?"preview":"");
     $("slStatus").textContent=j.error?("Stopped: "+j.error):(j.logging?"Live from the logger.":(live?(j.radio?("Radio: "+j.radio):""):"Not running."));
@@ -569,7 +625,8 @@ async function slPoll(){
 }
 async function slStart(){ await guard(async()=>{ await api("/api/config",readForm()); const r=await api("/api/slices/start",{}); toast("Slices running on "+esc(r.radio||"the radio")); slPoll(); }); }
 async function slStop(){ await guard(()=>api("/api/slices/stop",{})); $("slGrid").innerHTML=""; slPoll(); }
-setInterval(slPoll,450);
+// ask for a new picture about 15 times a second while the slices are live (4 times a second when idle)
+(function slLoop(){ const live=SL.on||SL.live; setTimeout(async()=>{ await slPoll(); slLoop(); }, SL.live?60:450); })();
 
 function fillForm(cfg){
   $("route").value=cfg.route_name||""; $("practice").checked=!!cfg.practice;

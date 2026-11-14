@@ -98,7 +98,7 @@ class SlicePreview:
                         if fr:
                             RL.publish_spectrum(fr[0], fr[1], fr[2], chans[k]["mhz"] * 1e6,
                                                 chans[k]["bw_khz"] * 1e3, fr[3], k, chans[k].get("radio", ""))
-                    time.sleep(0.08)
+                    time.sleep(0.03)
                 else:
                     for k, ch in enumerate(chans):
                         lv = sdr.measure(ch["mhz"] * 1e6, ch["bw_khz"] * 1e3, 0.0, 0.0, cfg)

@@ -851,7 +851,15 @@ class Handler(BaseHTTPRequestHandler):
             return {"ok": True, "radio": SLICES.name}
         if path == "/api/slices/set":
             if SLICES.running and b.get("channels"):
-                SLICES.set(channels=APP.clean_channels(b["channels"]))
+                chans = APP.clean_channels(b["channels"])
+                opened = getattr(getattr(SLICES, "sdr", None), "radios", None)      # radios opened at Start
+                if opened and not APP.cfg.get("practice"):
+                    for ch in chans:
+                        if ch["radio"] not in opened:
+                            raise ValueError("That slice needs the %s, which was not opened when the preview started. "
+                                             "Click Stop, then Preview slices again." %
+                                             ("Hermes Lite 2" if ch["radio"] == "hl2" else "SDRplay"))
+                SLICES.set(channels=chans)
             return {"ok": True}
         if path == "/api/slices/listen":
             ch = int(b.get("channel", 0))
