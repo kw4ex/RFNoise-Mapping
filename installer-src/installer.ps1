@@ -129,11 +129,21 @@ function New-Shortcut($lnk, $target, $workdir, $desc, $icon) {
     $s.Save()
 }
 function Get-RunningPorts {
-    # the ports (8780-8789) where an RF Noise Map control panel answers
+    # the ports (8780-8789) where an RF Noise Map control panel answers.
+    # A quick connection test first (0.3 s per port), so closed ports do not slow the installer down.
     $r = @()
     for ($p = 8780; $p -le 8789; $p++) {
+        $open = $false
+        $c = $null
         try {
-            $x = Invoke-WebRequest -Uri ("http://127.0.0.1:$p/api/ping") -UseBasicParsing -TimeoutSec 1
+            $c = New-Object System.Net.Sockets.TcpClient
+            $iar = $c.BeginConnect('127.0.0.1', $p, $null, $null)
+            if ($iar.AsyncWaitHandle.WaitOne(300)) { try { $c.EndConnect($iar); $open = $c.Connected } catch { } }
+        } catch { }
+        if ($c) { try { $c.Close() } catch { } }
+        if (-not $open) { continue }
+        try {
+            $x = Invoke-WebRequest -Uri ("http://127.0.0.1:$p/api/ping") -UseBasicParsing -TimeoutSec 2
             if ($x.Content -match '"app"\s*:\s*"rfmap"') { $r += $p }
         } catch { }
     }
@@ -263,7 +273,9 @@ function Write-UninstallEntry($dir, $ver, $launcher) {
 }
 function Get-ExistingInstall {
     if (-not $script:IsWin) { return $env:RFNOISE_TEST_EXISTING }
-    try { $v = (Get-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\RFNoiseMap' -ErrorAction Stop).InstallLocation; if ($v -and (Test-Path -LiteralPath (Join-Path $v 'app'))) { return $v } } catch { }
+    $rk = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\RFNoiseMap'
+    if (-not (Test-Path -LiteralPath $rk)) { return $null }
+    try { $v = (Get-ItemProperty -Path $rk -ErrorAction Stop).InstallLocation; if ($v -and (Test-Path -LiteralPath (Join-Path $v 'app'))) { return $v } } catch { }
     return $null
 }
 
@@ -460,6 +472,7 @@ if ($upgrade) {
     Say 'Your drives, maps, exports, backups and settings are kept. The old program is saved in the folder app_previous.'
     if (-not (AskYN 'Continue?' $true)) { Say 'Cancelled. Nothing was changed.'; Pause-Key; exit 0 }
 }
+Say 'Checking whether RF Noise Map is running right now (a few seconds)...'
 $ports = @(Get-RunningPorts)
 if ($ports.Count -gt 0) {
     Say ''
