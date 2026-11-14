@@ -17,7 +17,7 @@ An **SDRplay RSP1** receiver and a **GPS** log the signal level about every 10 f
 - Draws a **Leaflet street map**. Each dot is a reading: **blue = weak, red = strong**. Pick which frequency to look at.
 - Has a **practice mode** with pretend radio and GPS, so you can try everything at home.
 - Has a **panadapter**: a live spectrum and waterfall of the band with a built-in receiver (AM, USB, LSB, CW, narrow FM), so you can see and hear signals and pick frequencies to measure. (New, untested on the road.)
-- Works with the **SDRplay RSP1** (USB) or the **Hermes Lite 2** (network cable). The Hermes Lite 2 has several receivers that run at the same time, so all your frequencies are read at the same instant. (HF only; new, tested against a simulated radio, not yet on a real one.)
+- Works with the **SDRplay RSP1** (USB), the **Hermes Lite 2** (network cable), or **both at once**: each of the four frequency slots picks which radio measures it. The Hermes Lite 2's receivers all run at the same time, so its frequencies are read at the same instant; the SDRplay covers VHF, airband and 70 cm. (Hermes Lite 2 support is new: tested against a simulated radio, not yet on a real one.)
 - Shows a live **slices** view: a small panadapter for every frequency you measure, side by side.
 - Saves every reading with its time to the millisecond, so a map can be made with **one dot every X feet** worked out from the clock, whatever speed you drove.
 - Has built-in checks: **Check setup**, **Find my GPS** and a one-minute **Full test**.
@@ -53,7 +53,7 @@ For the real radio you also need **SDRplay API** and **PothosSDR** from their ow
 
 ### Mac (experimental, untested)
 
-1. On the Releases page, click **RFNoise_Mac_v1.2.1.zip** under Assets. Double-click it in Downloads to unzip. Keep the `mac` and `app` folders together.
+1. On the Releases page, click **RFNoise_Mac_v1.3.0.zip** under Assets. Double-click it in Downloads to unzip. Keep the `mac` and `app` folders together.
 2. Open the `mac` folder, right-click **Install_RFNoise.command**, choose **Open**, then **Open** again.
 3. Follow the steps in the window. See [mac/README_Mac.txt](mac/README_Mac.txt).
 

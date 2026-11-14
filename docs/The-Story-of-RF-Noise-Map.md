@@ -229,18 +229,30 @@ A program a non-programmer runs in a car has to explain itself when things go wr
 - **Uninstallers that respect your data** — they show what's installed and how big your data is, then you choose: *program only* (keep drives, maps, recordings), *program plus data* (a backup zip is made first; if the backup fails nothing is deleted), or *everything* (you must type `DELETE`). On Windows it also removes Start-menu entries, shortcuts and the *Apps & features* entry, and keeps a record of what it did.
 - **Windows extras** — Start menu folder, an entry in Windows *Settings → Apps*, and a `/silent` mode for experts.
 
-## 9. The product today
+## 9. The case of the impossible readings — and a second radio
 
-**RF Noise Map v1.2.1 (testing version)** — a free, open, stand-alone tool for amateur radio. *Design and on-air testing by KW4EX.* MIT licensed.
+With everything working on the bench, a switching test on the real radio turned up something strange: right after the program jumped from a strong FM broadcast channel to a quiet 80 m channel, the quiet reading could come out **up to 55 dB too high**. The radio keeps streaming while the program isn't reading, so its pipeline still held samples *from the previous frequency* — and because a power average is dominated by its loudest part, even a one-percent leftover of a strong signal swamps a quiet measurement.
+
+The fix took measurement, not guesswork. A purpose-built test (`Switch_Test.bat`) jumped between the two channels hundreds of times with different amounts of waiting, and the table was unambiguous: empty the radio's queue, then throw away about 65,000 fresh samples, and the error goes to zero. That costs about 33 ms — too much to pay on every reading — so the program now pays it **only** when jumping down from a much stronger frequency, and re-reads once if a reading suddenly drops far below that channel's last known level.
+
+The deeper lesson: a single-receiver radio that must *take turns* is fighting physics while the car keeps moving. That led to supporting the **Hermes Lite 2** — an open-hardware HF transceiver that connects by network cable, needs **no driver at all**, and runs several receivers *at the same time*. Its frequencies are all read at the same instant, at the same spot on the road, with no retuning and no leftovers.
+
+Version 1.3.0 ties the two radios together: a **"Your radios"** box, and a **Radio choice on each of the four frequency slots**. The Hermes Lite 2 might hold an AM broadcast channel and two HF ham bands while the SDRplay covers airband and 70 cm — each radio doing what it is best at, in one drive, on one map. Each reading now also carries its **time to the millisecond**, so the map builder can work out how far the car travelled and place **one dot every X feet**, whatever the driving speed was — keeping the strongest reading in each stretch so a short burst of power-line noise is never averaged away.
+
+## 10. The product today
+
+**RF Noise Map v1.3.0 (testing version)** — a free, open, stand-alone tool for amateur radio. *Design and on-air testing by KW4EX.* MIT licensed.
 
 ### Noise mapping
-- Up to **4 frequencies** logged at the same time, **changeable while driving**; any frequency from about **0.75 MHz to the VHF range** your SDRplay covers.
+- **Two radios, used together or alone**: the SDRplay RSP1 (USB; VHF, airband, 70 cm) and the Hermes Lite 2 (network cable; HF receivers that all run at the same instant, no driver needed). Each of the **4 frequency slots picks its radio** (or Auto decides).
+- Up to **4 frequencies** logged at the same time, **changeable while driving**; from about **0.75 MHz to the VHF range** your SDRplay covers.
 - Readings saved **by distance** (default 10 ft, 2 ft to a mile, adjustable while driving) **or by time** (every X seconds, even when stationary) for intermittent noise.
 - GPS from a **USB puck** (auto-detected, with a "Find my GPS" test) or an **iPhone** (GPS2IP app); position **corrected for GPS delay** at speed.
 - **Fixed, user-chosen attenuation** during recording for comparable results; **never** automatic gain while recording.
 - **Practice mode** with a pretend radio and GPS, so you can learn the program at home.
 - **Leaflet street map** of colored dots (blue → red) per frequency; also **Google Earth (.kml)** export and an **email-ready zip**; backups.
-- A **live "Level now (dB)"** readout per frequency while recording.
+- A **live "Level now (dB)"** readout per frequency while recording, and a **Slices view**: one small live panadapter per measured frequency, side by side (shown while logging, or as a preview before a drive).
+- Every reading timed to the **millisecond**, so maps (and Google Earth exports) can show **one dot every X feet** of route — strongest-in-stretch or average — computed when the map is made, with the raw recording untouched.
 
 ### Panadapter (see and hear the band)
 - Live **spectrum + waterfall**, views from **250 kHz to 8 MHz wide** (and a **width slider**), auto-scale, drag/swipe to pan, auto-centre.
@@ -258,13 +270,14 @@ A program a non-programmer runs in a car has to explain itself when things go wr
 - **Logs and a problem finder** in both; the in-panel **Tools** card shows recent problems, opens the log folder and makes a support file.
 - An illustrated **Install and User Guide** (built into the program, and as a PDF).
 
-## 10. Known limitations
+## 11. Known limitations
 
 Being straight about these is part of the job:
 
 - **Not yet proven on a long real drive.** The logger, GPS handling, map and installers have been tested with simulated hardware and on real equipment, but a full noise-hunting drive with results checked against a known source is still ahead.
 - **Levels are relative, not calibrated.** The numbers are **dBFS** (relative to the radio's full scale), good for *comparing places* and bands, **not** for absolute field-strength measurements or for proving compliance.
-- **One tuner, measured in turn.** The RSP1 can't measure four frequencies at the same instant; the four are taken one after another within a reading. At high speed with several channels, readings get spread out (dots end up farther apart than your setting).
+- **The RSP1 measures in turn.** Slots on the SDRplay are taken one after another (with the anti-leftover protection above); only slots on a Hermes Lite 2 are truly simultaneous. At high speed with several SDRplay channels, dots end up farther apart than your setting.
+- **Hermes Lite 2 support is bench-tested only.** It has been proven against a simulated radio (protocol, levels, gain, mirroring checks), not yet against a real one; `HL2_Test.bat` exists exactly for that first real test. It covers HF only (about 0.1–38 MHz), its levels use its own scale (not directly comparable with the RSP1's), and the listening panadapter still uses the SDRplay.
 - **Position accuracy is bounded by your GPS.** A 1-per-second phone GPS is corrected by dead-reckoning but is weaker in sharp turns, tunnels, and urban canyons. A faster USB puck is better at speed.
 - **A map shows *where it's loud*, not always *the source*.** Noise can travel along wires; the highest-reading street may be a few poles away from the fault. The map gets you close; a handheld radio and yagi (or the utility's own tools) finish the job.
 - **Panadapter limits.** Views are **8 MHz at most** (the whole FM band, for example, doesn't fit at once); the outer edges of the picture are less accurate. **SAM** uses a carrier-tracking filter rather than a full phase-locked loop; **broadcast FM is mono** (no stereo or RDS); there is no noise blanker or notch filter yet. You can **watch but not listen/tune** while logging, because the radio is busy measuring.
@@ -276,12 +289,12 @@ Being straight about these is part of the job:
 - **Capped at four frequencies**, and a measurement in time mode piles readings onto one dot.
 - **Not a safety tool.** Always drive safely: have a passenger watch the screen, or stop to look.
 
-## 11. What comes next
+## 12. What comes next
 
 Ideas on the table, roughly in order of how much they'd help the next real drive:
 
 1. **A real field test write-up** — a known noisy pole, mapped, found, and photographed.
-2. **A second SDR** (dual-tuner or two radios) so two bands are truly simultaneous.
+2. **The Hermes Lite 2 proven on real hardware**, then a third radio type (the plumbing is ready for one).
 3. **Easier "walk-around" mode** for the final handheld stage (a pared-down phone-friendly view).
 4. **Noise-blanker and notch filters** in the receiver; **stereo FM**.
 5. **Comparing two drives** (before and after the utility's repair) on the same map.

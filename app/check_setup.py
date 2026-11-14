@@ -41,7 +41,9 @@ def run_checks(gps_spec=None, listen_seconds=5):
             cfg = _json.load(_f)
     except Exception:
         pass
-    if cfg.get("radio") == "hl2":
+    use_hl2 = bool(cfg.get("use_hl2")) or cfg.get("radio") == "hl2"
+    use_sdr = bool(cfg.get("use_sdrplay", cfg.get("radio") != "hl2"))
+    if use_hl2:
         try:
             import hl2
             ip = str(cfg.get("hl2_ip", "")).strip()
@@ -56,9 +58,10 @@ def run_checks(gps_spec=None, listen_seconds=5):
             else:
                 add("Hermes Lite 2", "fix", "No radio answered" + (" at " + ip if ip else " on the network") +
                     ". Check the network cable and the radio's power, close Thetis / SDR Console, then press 'Find my radio'.")
-        soapy, note = ("skip", "")
-    else:
+    if use_sdr:
         soapy, note = C.find_soapy()
+    else:
+        soapy, note = ("skip", "")
     if soapy == "skip":
         pass
     elif soapy is None:

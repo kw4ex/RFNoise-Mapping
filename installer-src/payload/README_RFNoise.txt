@@ -1,4 +1,4 @@
-RF NOISE MAP  v1.2.1  TESTING VERSION   (Windows 10 / 11)
+RF NOISE MAP  v1.3.0  TESTING VERSION   (Windows 10 / 11)
 Design and testing: KW4EX
 =====================================================================
 
@@ -73,6 +73,16 @@ PART 1 - INSTALL
 PART 2 - THE RADIO (needed only for real measuring)
 ---------------------------------------------------------------------
   Practice mode and the map features work without any of this.
+
+  TWO RADIOS ARE SUPPORTED, alone or together (each frequency slot on the
+  control panel picks its radio):
+
+  HERMES LITE 2 (network cable) - NOTHING TO INSTALL. Plug in its network
+  cable and 12 V power, wait 20 seconds, close Thetis / SDR Console, then
+  press "Find my radio" on the control panel. HL2_Test.bat tests it.
+  It covers HF only (about 0.1 to 38 MHz).
+
+  SDRPLAY (USB) - needs these two free pieces of software:
    1. SDRplay driver:  https://www.sdrplay.com/softwarehome/
       Choose Windows and install the API (version 3.15 or newer). Restart if asked.
    2. PothosSDR (free radio library bundle): link on

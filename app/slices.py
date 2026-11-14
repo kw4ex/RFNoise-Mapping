@@ -25,7 +25,7 @@ class SlicePreview:
         self.health = {}
         self.cfg = {}
 
-    def start(self, radio, practice, channels, hl2_ip="", hl2_rate=96000, gain=None):
+    def start(self, practice, channels, hl2_ip="", hl2_rate=96000, gain=None):
         import rf_logger as RL
         self.stop()
         gain = gain or {}
@@ -34,10 +34,8 @@ class SlicePreview:
         try:
             if practice:
                 sdr = RL.SimSdr()
-            elif radio == "hl2":
-                sdr = RL.HermesLite2(settings, hl2_ip, int(hl2_rate))
             else:
-                sdr = RL.SoapySdr(settings)
+                sdr = RL.MultiRadio(settings, hl2_ip, int(hl2_rate))
         except SystemExit as e:                        # the radio classes print-and-exit on trouble
             raise ValueError(str(e).strip() or "The radio could not be opened.")
         except RuntimeError as e:

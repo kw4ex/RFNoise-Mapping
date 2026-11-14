@@ -169,12 +169,17 @@ th{background:#f0f3f7}
 <p>The program itself is kept apart from your data (Mac: Applications / RF Noise Map; Windows: the <b>app</b> folder inside RFNoise), so you can reinstall or update it without touching your data.</p>
 <p><b>Level numbers:</b> readings are in <b>dB relative to the receiver's maximum</b> (so they're negative; closer to zero = stronger). They compare places perfectly well. See section 10 for true dBm.</p>
 
-<h3>Using the Hermes Lite 2 radio (instead of the SDRplay)</h3>
-<p>Box <b>1 Collect data</b> has a <b>Which radio?</b> choice. The Hermes Lite 2 connects by <b>network cable</b>, not USB, and has several receivers that run <b>at the same time</b>: every one of your frequencies is read at the same instant, with no retuning. It covers the HF bands only (about 0.1&ndash;38&nbsp;MHz), so VHF channels such as 148&nbsp;MHz cannot be used with it.</p>
+<h3>Your radios, and which radio measures which frequency</h3>
+<p>Box <b>1 Collect data</b> has a <b>Your radios</b> section. Tick what you have &mdash; one radio or both:</p>
+<ul>
+ <li><b>SDRplay RSP1</b> (USB): one receiver, so its frequencies take turns. Covers VHF, airband, 70&nbsp;cm and the FM band.</li>
+ <li><b>Hermes Lite 2</b> (network cable): several receivers that run <b>at the same time</b>, so its frequencies are all read at the same instant with no retuning. HF only (about 0.1&ndash;38&nbsp;MHz).</li>
+</ul>
+<p>When both are ticked, the frequency table shows a <b>Radio</b> column, and each of the four slots picks its radio. <b>Auto</b> (the default) puts everything the Hermes Lite 2 can hear on the Hermes Lite 2 and the rest on the SDRplay. Or choose yourself &mdash; for example the Hermes Lite 2 on an AM broadcast channel and two HF ham bands, with the SDRplay on airband and 70&nbsp;cm. A slot's radio cannot change in the middle of a drive, so the dots on each frequency always come from one radio and stay comparable.</p>
 <ol>
  <li>Plug the radio's network cable into the computer (or its network adapter), connect the antenna and 12&nbsp;V power, and wait about 20 seconds.</li>
  <li>Close Thetis, SDR Console or any other program that uses the radio.</li>
- <li>Choose <b>Hermes Lite 2</b>, press <span class="btn">Find my radio</span>. It says where it found it. If not, type the radio's address (for example 192.168.1.50) in the box and press it again.</li>
+ <li>Tick <b>Hermes Lite 2</b>, press <span class="btn">Find my radio</span>. It says where it found it. If not, type the radio's address (for example 192.168.1.50) in the box and press it again.</li>
  <li><b>Detail per frequency</b>: 96&nbsp;kHz is a good choice. Higher numbers use more of the network cable.</li>
  <li><b>Radio gain</b> (More settings): start at +15&nbsp;dB. If the Slices view shows <b>OVERLOAD</b>, lower it. Leave it alone during a drive.</li>
  <li>Press <span class="btn">HL2_Test.bat</span> (Windows, in the program folder) once to check the radio, the cable and the gain. Send its report if anything is wrong.</li>

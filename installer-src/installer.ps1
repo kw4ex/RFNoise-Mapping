@@ -298,11 +298,13 @@ Say '==========================================================' 'Cyan'
 Say '   RF Noise Map - one-click installer' 'Cyan'
 Say '==========================================================' 'Cyan'
 Say ''
-Say 'This sets up RF Noise Map: it drives a route with an SDRplay radio and'
-Say 'a GPS, then draws a street map of where the radio noise is strongest.'
-Say 'It asks a few short questions. Press Enter to accept the'
-Say 'answer shown in [brackets]. Nothing is changed until you'
-Say 'confirm the install folder.'
+Say 'This sets up RF Noise Map: it drives a route with a radio (SDRplay over USB,'
+Say 'or a Hermes Lite 2 over a network cable) and a GPS, then draws a street map'
+Say 'of where the radio noise is strongest.'
+Say ''
+Say 'In a hurry? Just press Enter at every question: the answer shown in' 'Green'
+Say '[brackets] or as a capital letter is always a sensible choice.' 'Green'
+Say 'Nothing is changed until you confirm the install folder.'
 
 Run-Preflight
 
@@ -364,11 +366,25 @@ $newCommon = Join-Path (Join-Path $pk 'app') 'rfmap_common.py'
 $newVer = ([regex]::Match([IO.File]::ReadAllText($newCommon), '(?m)^VERSION = "([\d.]+)"')).Groups[1].Value
 Say ("This installer contains RF Noise Map version $newVer.") 'Gray'
 
+# ---- 0. Which radios? --------------------------------------------------------
+Head 'Your radio'
+Say 'RF Noise Map works with two radios (you can have both):'
+Say '  - SDRplay RSP1 (USB cable): needs two extra pieces of software, which this installer helps with.'
+Say '  - Hermes Lite 2 (network cable): needs NO driver and no extra software at all.'
+$script:UseSdrplay = AskYN 'Will you use an SDRplay radio?' $true
+$script:UseHl2 = AskYN 'Will you use a Hermes Lite 2?' $false
+if (-not $script:UseSdrplay -and -not $script:UseHl2) {
+    Say 'No radio chosen - that is fine: practice mode and map building work without one.' 'Yellow'
+}
+if ($script:UseHl2 -and -not $script:UseSdrplay) {
+    Say 'Good news: the Hermes Lite 2 needs no driver, so the radio part of this install is already done.' 'Green'
+}
+
 # ---- 1. Python ---------------------------------------------------------------
 Head 'Step 1 of 7: Python'
 $pothVers = @(Get-PothosPyVersions)
 $need = $null
-if ($pothVers.Count -ge 1) {
+if ($script:UseSdrplay -and $pothVers.Count -ge 1) {
     $need = $pothVers[0]
     Say "The radio library on this PC (PothosSDR) only works with Python $need, so Python $need will be used." 'Gray'
 }
@@ -377,7 +393,8 @@ $py = Find-Python $need
 if (-not $py) {
     $want = $need; if (-not $want) { $want = '3.9' }
     if ($need) { Say "Python $need was not found on this computer. It is needed for the SDRplay radio library." 'Yellow' }
-    else { Say 'Python was not found on this computer. The program needs it (Python 3.9 is installed because the radio library needs that version).' 'Yellow' }
+    elseif ($script:UseSdrplay) { Say 'Python was not found on this computer. The program needs it (Python 3.9 is chosen because the SDRplay radio library needs that version).' 'Yellow' }
+    else { Say 'Python was not found on this computer. The program needs it.' 'Yellow' }
     $winget = Get-Command winget -ErrorAction SilentlyContinue
     if ($winget -and $script:IsWin -and -not $script:Test) {
         if (AskYN "Install Python $want now with Windows (winget)? About 100 MB. It does not change your other Python versions." $true) {
@@ -514,25 +531,60 @@ Say "Program files copied to $dir" 'Green'
 Say 'Data folders ready: Drives, Maps, Exports, Backups, Settings, Recordings, Logs' 'Green'
 
 # ---- 4. The radio -----------------------------------------------------------------
-Head 'Step 4 of 7: The radio (SDRplay)'
-Say 'The SDRplay driver is not included (it comes from sdrplay.com). Practice mode and the'
-Say 'map features work without it. Looking for it on this computer (changes nothing):'
+Head 'Step 4 of 7: The radio'
+# the control panel starts with the radios chosen above already ticked
+try {
+    $cfgPath = Join-Path (Join-Path $dir 'Settings') 'config.json'
+    if (-not (Test-Path -LiteralPath $cfgPath)) {
+        $seed = ('{"use_sdrplay": ' + $(if ($script:UseSdrplay) { 'true' } else { 'false' }) + ', "use_hl2": ' + $(if ($script:UseHl2) { 'true' } else { 'false' }) + '}')
+        [IO.File]::WriteAllText($cfgPath, $seed)
+    }
+} catch { }
 $pf = $env:ProgramFiles; if (-not $pf) { $pf = 'C:\Program Files' }
 $sdrFound = Test-Path -LiteralPath (Join-Path $pf 'SDRplay')
 $pothFound = Test-Path -LiteralPath (Join-Path $pf 'PothosSDR')
+if ($script:UseHl2) {
+    Say 'Hermes Lite 2: nothing to install here (it needs no driver). After the install, plug in its network' 'Green'
+    Say 'cable, wait 20 seconds, and press "Find my radio" on the control panel. HL2_Test.bat tests it.' 'Green'
+}
+if (-not $script:UseSdrplay) {
+    if (-not $script:UseHl2) { Say 'No radio chosen, so nothing to set up here. You can add one later from the control panel.' }
+} else {
+Say 'The SDRplay needs two free pieces of software. Looking for them (changes nothing yet):'
 if ($sdrFound) { Say '  SDRplay driver (API):  found' 'Green' } else { Say '  SDRplay driver (API):  not found' 'Yellow' }
 if ($pothFound) { Say '  PothosSDR radio library:  found' 'Green' } else { Say '  PothosSDR radio library:  not found' 'Yellow' }
+if (-not $pothFound -and $script:IsWin -and -not $script:Test) {
+    $winget2 = Get-Command winget -ErrorAction SilentlyContinue
+    if ($winget2 -and (AskYN 'Install PothosSDR now with Windows (winget)? About 150 MB.' $true)) {
+        try {
+            & winget install -e --id Pothosware.PothosSDR --accept-package-agreements --accept-source-agreements
+            $pothFound = Test-Path -LiteralPath (Join-Path $pf 'PothosSDR')
+            if ($pothFound) {
+                Say 'PothosSDR installed.' 'Green'
+                $pv = @(Get-PothosPyVersions)
+                if ($pv.Count -ge 1 -and -not (Test-Py $script:PyCmd $pv[0])) {
+                    Say ('NOTE: PothosSDR needs Python ' + $pv[0] + ', not the Python chosen in Step 1.') 'Yellow'
+                    Say 'Run this installer once more after it finishes: it will then pick the matching Python.' 'Yellow'
+                    Note-Warn ('Run the installer once more so it can switch to Python ' + $pv[0] + ' for PothosSDR.')
+                    $script:RadioPyMismatch = $true
+                }
+            } else { Say 'PothosSDR did not install. You can install it yourself later (see README Part 2).' 'Yellow' }
+        } catch { Say ('The automatic PothosSDR install did not finish: ' + $_.Exception.Message) 'Yellow' }
+    }
+}
 $o = Invoke-Py @((Join-Path $appDir 'check_setup.py'))
 foreach ($l in ($o -split "`r?`n" | Where-Object { $_.Trim() })) { Say ('  ' + $l) }
 if (-not $sdrFound -or -not $pothFound) {
     Say ''
-    Say 'To measure with the radio you need both of these (see Part 2 of README_RFNoise.txt):'
-    Say '  1. SDRplay API, version 3.15 or newer:  https://www.sdrplay.com/softwarehome/'
-    Say '  2. PothosSDR (free):  https://github.com/pothosware/PothosSDR/wiki'
+    Say 'Still needed for the SDRplay radio (see Part 2 of README_RFNoise.txt):'
+    if (-not $sdrFound) { Say '  - SDRplay API, version 3.15 or newer:  https://www.sdrplay.com/softwarehome/' }
+    if (-not $pothFound) { Say '  - PothosSDR (free):  https://github.com/pothosware/PothosSDR/wiki' }
+    Say 'Practice mode, the Hermes Lite 2 and all map features work without them.'
     if ($script:IsWin -and -not $script:Test) {
         if (-not $sdrFound -and (AskYN 'Open the SDRplay download page now?' $false)) { Start-Process 'https://www.sdrplay.com/softwarehome/' }
         if (-not $pothFound -and (AskYN 'Open the PothosSDR page now?' $false)) { Start-Process 'https://github.com/pothosware/PothosSDR/wiki' }
     }
+}
 }
 
 # programs that may be holding the radio or a GPS port
@@ -631,10 +683,11 @@ if (AskYN 'Run a quick self-test with practice data now (about 20 seconds; your 
     }
 }
 
-if ($pothFound -and $sdrFound -and -not $script:RadioPyMismatch -and -not $script:Test) {
+$radioReady = ($script:UseSdrplay -and $pothFound -and $sdrFound -and -not $script:RadioPyMismatch) -or ($script:UseHl2 -and -not $script:UseSdrplay)
+if ($radioReady -and -not $script:Test) {
     Say ''
     Say 'The FULL TEST checks the real radio, the GPS and a pretend drive in about a minute.'
-    Say 'Have the radio (with antenna) and the GPS puck plugged in.'
+    Say 'Have the radio plugged in with its antenna (Hermes Lite 2: network cable and 12 V power).'
     if (AskYN 'Run the full test now?' $true) {
         $fa = @((Join-Path $appDir 'full_test.py'), '--report', (Join-Path $dir 'full_test_report.txt'))
         if (-not $script:UsbGps) { $fa += '--iphone' }

@@ -202,9 +202,10 @@ def test_radio_hl2(r, cfg):
     settings["hl2_gain_db"] = int(cfg.get("hl2_gain_db", 15))
     chans = [c for c in cfg.get("channels", []) if str(c.get("mhz", "")).strip() != ""]
     ok_chans = [c for c in chans if float(c["mhz"]) <= 38][:4]
+    both = bool(cfg.get("use_sdrplay", False))
     for c in chans:
-        if float(c["mhz"]) > 38:
-            r.add("Radio", "warn", "%g MHz is above what the Hermes Lite 2 can receive (about 38 MHz); it will be refused at Start." % float(c["mhz"]))
+        if float(c["mhz"]) > 38 and not both:
+            r.add("Radio", "warn", "%g MHz is above what the Hermes Lite 2 can receive (about 38 MHz); set that slot's Radio to SDRplay." % float(c["mhz"]))
     settings["channels"] = [{"mhz": float(c["mhz"]), "bw_khz": float(c.get("bw_khz") or 5), "cal_db": 0} for c in ok_chans] or \
         [{"mhz": 3.7, "bw_khz": 5, "cal_db": 0}, {"mhz": 7.3, "bw_khz": 5, "cal_db": 0}]
     try:
@@ -331,9 +332,14 @@ def test_drive(r, radio_ok, seconds=25):
 def run_all(emit=None, gps_wait=0, iphone=False, skip_drive=False):
     r = Report(emit)
     cfg = _saved_config()
-    use_hl2 = cfg.get("radio") == "hl2"
-    soapy = test_software(r, need_soapy=not use_hl2)
-    radio_ok = test_radio_hl2(r, cfg) if use_hl2 else test_radio(r, soapy)
+    use_hl2 = bool(cfg.get("use_hl2")) or cfg.get("radio") == "hl2"
+    use_sdr = bool(cfg.get("use_sdrplay", cfg.get("radio") != "hl2"))
+    soapy = test_software(r, need_soapy=use_sdr)
+    radio_ok = True
+    if use_sdr:
+        radio_ok = test_radio(r, soapy) and radio_ok
+    if use_hl2:
+        radio_ok = test_radio_hl2(r, cfg) and radio_ok
     test_gps(r, gps_wait, iphone)
     if not skip_drive:
         test_drive(r, radio_ok)

@@ -635,6 +635,89 @@ class HermesLite2:
             pass
 
 
+# Radio types known to this program. Adding a third radio later = one new class with the same
+# functions (measure or measure_all, last_frame, close) and one line here.
+RADIO_TYPES = {
+    "sdrplay": "SDRplay (USB, one receiver - frequencies take turns)",
+    "hl2": "Hermes Lite 2 (network, several receivers at once)",
+}
+
+
+class MultiRadio:
+    """Several radios working together. Each frequency slot carries a "radio" name saying which
+    radio measures it, so for example the Hermes Lite 2 can hold two HF slots while the SDRplay
+    does an airband and a 70 cm slot. Every radio is opened once and used for all its slots."""
+
+    multi = True
+
+    def __init__(self, settings, hl2_ip="", hl2_rate=96000, hl2_port=1024):
+        chans = [c for c in settings.get("channels", []) if str(c.get("mhz", "")).strip() != ""]
+        names = [str(c.get("radio") or "sdrplay") for c in chans]
+        self.radios = {}
+        try:
+            if "hl2" in names:
+                hset = dict(settings)
+                hset["channels"] = [c for c in chans if (c.get("radio") or "sdrplay") == "hl2"]
+                self.radios["hl2"] = HermesLite2(hset, hl2_ip, hl2_rate, hl2_port)
+            if "sdrplay" in names:
+                self.radios["sdrplay"] = SoapySdr(settings)
+        except BaseException:
+            self.close()                      # one radio opened but the other failed: let the first go again
+            raise
+        if not self.radios:
+            raise RuntimeError("No radio is assigned to any frequency.")
+        self.name = " + ".join(self.radios[k].name for k in sorted(self.radios))
+        self.frames = {}
+        self.pos = (0.0, 0.0)
+
+    def measure_all(self, chans, settings):
+        """One reading per channel, each from its own radio. The Hermes Lite 2 slots are all read
+        at the same instant; the SDRplay slots take turns on its single receiver."""
+        out = [None] * len(chans)
+        hl2 = self.radios.get("hl2")
+        if hl2 is not None:
+            idx = [i for i, c in enumerate(chans) if (c.get("radio") or "sdrplay") == "hl2"]
+            if idx:
+                try:
+                    res = hl2.measure_all([chans[i] for i in idx], settings)
+                except Exception:
+                    res = [(float("nan"), time.time(), None)] * len(idx)
+                for k, i in enumerate(idx):
+                    out[i] = res[k]
+                    if res[k][2]:
+                        self.frames[i] = res[k][2]
+        sp = self.radios.get("sdrplay")
+        if sp is not None:
+            for i, c in enumerate(chans):
+                if (c.get("radio") or "sdrplay") == "hl2":
+                    continue
+                lv = sp.measure(c["mhz"] * 1e6, c["bw_khz"] * 1e3, self.pos[0], self.pos[1], settings)
+                fr = sp.last_frame()
+                out[i] = (lv, time.time(), fr)
+                if fr:
+                    self.frames[i] = fr
+        for i in range(len(chans)):
+            if out[i] is None:
+                out[i] = (float("nan"), time.time(), None)
+        return out
+
+    def health(self):
+        h = {"radios": sorted(self.radios)}
+        if "hl2" in self.radios:
+            h.update(self.radios["hl2"].health())
+        return h
+
+    def last_frame(self):
+        return self.frames.get(0)
+
+    def close(self):
+        for r in self.radios.values():
+            try:
+                r.close()
+            except Exception:
+                pass
+
+
 # ----------------------------------------------------------------------------
 # Position helpers
 # ----------------------------------------------------------------------------
@@ -770,7 +853,8 @@ def make_handler(settings, state, stop_event):
                                 raise ValueError("frequency must be 0.001 to 2000 MHz")
                             chans.append({"mhz": mhz,
                                           "bw_khz": max(0.5, float(c.get("bw_khz", 5))),
-                                          "cal_db": float(c.get("cal_db", 0))})
+                                          "cal_db": float(c.get("cal_db", 0)),
+                                          "radio": c.get("radio") if c.get("radio") in ("hl2", "sdrplay") else "sdrplay"})
                         if not chans:
                             raise ValueError("need at least one frequency")
                         upd["channels"] = chans
@@ -813,8 +897,9 @@ def main():
     ap.add_argument("--gps", required=True,
                     help="GPS source:  tcp:IP:PORT (iPhone GPS2IP) | "
                          "serial:/dev/cu.usbmodemXXXX[:baud] (USB GPS) | sim")
-    ap.add_argument("--sdr", default="sdrplay", choices=["sdrplay", "hl2", "sim"],
-                    help="radio: sdrplay (default), hl2 (Hermes Lite 2 over the network) or sim (fake data)")
+    ap.add_argument("--sdr", default="sdrplay", choices=["sdrplay", "hl2", "multi", "sim"],
+                    help="radio: sdrplay, hl2 (Hermes Lite 2 over the network), multi (each frequency "
+                         "slot names its radio) or sim (fake data)")
     ap.add_argument("--hl2-ip", default="", help="Hermes Lite 2 address (empty = search the network)")
     ap.add_argument("--hl2-rate", type=int, default=96000, choices=[48000, 96000, 192000, 384000],
                     help="Hermes Lite 2 sample rate per receiver")
@@ -848,6 +933,11 @@ def main():
     elif args.sdr == "hl2":
         try:
             sdr = HermesLite2(settings.get(), args.hl2_ip, args.hl2_rate, args.hl2_port)
+        except RuntimeError as e:
+            sys.exit("\nERROR: %s\n" % e)
+    elif args.sdr == "multi":
+        try:
+            sdr = MultiRadio(settings.get(), args.hl2_ip, args.hl2_rate, args.hl2_port)
         except RuntimeError as e:
             sys.exit("\nERROR: %s\n" % e)
     else:

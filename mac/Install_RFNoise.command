@@ -298,6 +298,7 @@ This will:
   3. Create a folder  RF Noise Map  in your home folder for your data
   4. Put an "RF Noise Map" icon on your Desktop and in Applications
   5. (Optional) help you install the SDRplay radio driver
+     (a Hermes Lite 2 needs NO driver - if that is your radio, say n at that step)
   6. Run a quick self-test with practice data
 
 Nothing is sent anywhere. Everything it does is written to a log that is kept:
@@ -338,10 +339,11 @@ else
 fi
 
 # ------------------------------------------------------------------------------
-step 3 "RADIO DRIVER (optional but needed to use the SDRplay receiver).
-The SDRplay driver is not mine to include; it comes from sdrplay.com. I can
-walk you through it now. If you only want to try Practice mode and make maps,
-answer n - you can run this installer again later."
+step 3 "RADIO DRIVER (optional - needed ONLY for the SDRplay receiver).
+A Hermes Lite 2 connects by network cable and needs NO driver: if that is your
+radio, answer n here and you are done with this step. The SDRplay driver is not
+mine to include; it comes from sdrplay.com. I can walk you through it now. If
+you only want Practice mode and maps, answer n - you can run this again later."
 RADIO_OK=0
 if ask "Set up the SDRplay radio driver now?"; then
     if [ ! -f /usr/local/include/sdrplay_api.h ]; then

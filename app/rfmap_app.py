@@ -62,15 +62,16 @@ DEFAULT_CONFIG = {
     "interval_s": 5,
     "if_gain_db": 40,
     "rf_gain_state": 0,
-    "radio": "sdrplay",              # sdrplay | hl2 (Hermes Lite 2, over the network)
+    "use_sdrplay": True,             # the radios you have; each frequency slot picks one of them
+    "use_hl2": False,
     "hl2_ip": "",                    # empty = search the network
     "hl2_rate": 96000,               # samples per second per receiver: 48000, 96000, 192000 or 384000
     "hl2_gain_db": 15,               # Hermes Lite 2 low-noise-amplifier gain, -12 to +48
     "channels": [
-        {"mhz": 3.700, "bw_khz": 5.0, "cal_db": 0.0},
-        {"mhz": 7.300, "bw_khz": 5.0, "cal_db": 0.0},
-        {"mhz": 148.000, "bw_khz": 10.0, "cal_db": 0.0},
-        {"mhz": "", "bw_khz": 5.0, "cal_db": 0.0},
+        {"mhz": 3.700, "bw_khz": 5.0, "cal_db": 0.0, "radio": "auto"},
+        {"mhz": 7.300, "bw_khz": 5.0, "cal_db": 0.0, "radio": "auto"},
+        {"mhz": 148.000, "bw_khz": 10.0, "cal_db": 0.0, "radio": "auto"},
+        {"mhz": "", "bw_khz": 5.0, "cal_db": 0.0, "radio": "auto"},
     ],
     "pan_mem": None,                 # saved panadapter memory frequencies (None = show the starter list)
     "phone_access": False,           # let an iPhone/iPad open this window too (needs restart)
@@ -165,12 +166,21 @@ class App:
         self.settings_dir = C.sub_dir("Settings")
         self.cfg_path = os.path.join(self.settings_dir, "config.json")
         self.cfg = json.loads(json.dumps(DEFAULT_CONFIG))
+        raw = {}
         if os.path.exists(self.cfg_path):
             try:
                 with open(self.cfg_path) as f:
-                    self.cfg.update(json.load(f))
+                    raw = json.load(f)
+                self.cfg.update(raw)
             except Exception:
                 pass
+        # Earlier versions had ONE radio picker ("radio": sdrplay|hl2). Carry that choice over once.
+        old = self.cfg.pop("radio", None)
+        if old is not None and "use_hl2" not in raw:
+            self.cfg["use_hl2"] = (old == "hl2")
+            self.cfg["use_sdrplay"] = (old != "hl2")
+        for ch in self.cfg.get("channels", []):
+            ch.setdefault("radio", "auto")
         if not self.cfg.get("token"):
             self.cfg["token"] = secrets.token_urlsafe(12)
         self.save_cfg()
@@ -227,7 +237,43 @@ class App:
             raise ValueError("Type the iPhone address shown in the GPS2IP app.")
         return f"tcp:{c['gps_host']}:{int(c['gps_port'])}"
 
-    def clean_channels(self, chans):
+    HL2_MAX_MHZ = 38.0
+
+    def resolve_radio(self, mhz, want, practice=False):
+        """Which radio measures this frequency slot. want = auto | hl2 | sdrplay (the slot's choice)."""
+        if practice:
+            return "sdrplay"                       # practice mode simulates everything anyway
+        use_s = bool(self.cfg.get("use_sdrplay", True))
+        use_h = bool(self.cfg.get("use_hl2", False))
+        if not use_s and not use_h:
+            raise ValueError("Tick at least one radio in 'Your radios' (or tick Practice mode).")
+        w = want if want in ("hl2", "sdrplay") else "auto"
+        if w == "hl2":
+            if not use_h:
+                raise ValueError(f"The {mhz:g} MHz slot is set to the Hermes Lite 2, but that radio is not "
+                                 "ticked in 'Your radios'. Tick it, or set the slot's Radio to Auto.")
+            if mhz > self.HL2_MAX_MHZ:
+                raise ValueError(f"{mhz:g} MHz is above what the Hermes Lite 2 can receive (about "
+                                 f"{self.HL2_MAX_MHZ:g} MHz). Set that slot's Radio to SDRplay or Auto.")
+            return "hl2"
+        if w == "sdrplay":
+            if not use_s:
+                raise ValueError(f"The {mhz:g} MHz slot is set to the SDRplay, but that radio is not "
+                                 "ticked in 'Your radios'. Tick it, or set the slot's Radio to Auto.")
+            return "sdrplay"
+        # Auto: the Hermes Lite 2 takes everything it can hear (its receivers all run at once);
+        # the SDRplay takes the rest.
+        if use_h and mhz <= self.HL2_MAX_MHZ:
+            return "hl2"
+        if use_s:
+            return "sdrplay"
+        raise ValueError(f"{mhz:g} MHz needs the SDRplay radio (the Hermes Lite 2 stops at about "
+                         f"{self.HL2_MAX_MHZ:g} MHz), but only the Hermes Lite 2 is ticked in 'Your radios'.")
+
+    def clean_channels(self, chans, practice=None):
+        """Checks the frequency slots and works out each slot's radio. Returns the list the logger uses."""
+        if practice is None:
+            practice = bool(self.cfg.get("practice"))
         out = []
         for ch in chans[:4]:
             if str(ch.get("mhz", "")).strip() == "":
@@ -236,7 +282,8 @@ class App:
             if not (0.001 <= mhz <= 2000):
                 raise ValueError(f"{mhz} MHz is outside the radio's range (0.001 to 2000 MHz).")
             out.append({"mhz": mhz, "bw_khz": max(0.5, float(ch.get("bw_khz") or 5)),
-                        "cal_db": float(ch.get("cal_db") or 0)})
+                        "cal_db": float(ch.get("cal_db") or 0),
+                        "radio": self.resolve_radio(mhz, str(ch.get("radio") or "auto"), practice)})
         if not out:
             raise ValueError("Enter at least one frequency.")
         return out
@@ -248,12 +295,7 @@ class App:
         c = self.cfg
         spec = self.gps_spec()
         chans = self.clean_channels(c["channels"])
-        radio = "hl2" if c.get("radio") == "hl2" else "sdrplay"
-        if radio == "hl2" and not c["practice"]:
-            bad = [ch["mhz"] for ch in chans if ch["mhz"] > 38.0]
-            if bad:
-                raise ValueError("The Hermes Lite 2 covers about 0.1 to 38 MHz, so %g MHz cannot be measured with it. "
-                                 "Change that frequency, or choose the SDRplay radio." % bad[0])
+        self.active_radios = sorted({ch["radio"] for ch in chans})
         settings_file = os.path.join(self.settings_dir, "logger_settings.json")
         with open(settings_file, "w") as f:
             json.dump({"channels": chans, "spacing_ft": max(2.0, float(c["spacing_ft"])), "paused": False,
@@ -263,12 +305,12 @@ class App:
                        "hl2_gain_db": int(c.get("hl2_gain_db", 15))}, f)
         self.logger_port = free_port(LOGGER_PORT)
         cmd = [python_exe(), "-u", os.path.join(HERE, "rf_logger.py"),
-               "--gps", spec, "--sdr", "sim" if c["practice"] else radio,
+               "--gps", spec, "--sdr", "sim" if c["practice"] else "multi",
                "--outdir", self.drives_dir, "--settings", settings_file,
                "--port", str(self.logger_port), "--local-only", "--name", c.get("route_name", "")]
         if c["practice"]:
             cmd += ["--sim-speed", os.environ.get("RFMAP_SIM_SPEED", "20")]
-        elif radio == "hl2":
+        elif "hl2" in self.active_radios:
             rate = int(c.get("hl2_rate", 96000))
             cmd += ["--hl2-ip", str(c.get("hl2_ip", "")).strip(),
                     "--hl2-rate", str(rate if rate in (48000, 96000, 192000, 384000) else 96000)]
@@ -713,9 +755,9 @@ class Handler(BaseHTTPRequestHandler):
             if APP.running():
                 raise ValueError("Stop logging first. The radio can only do one job at a time.")
             SLICES.stop()
-            if APP.cfg.get("radio") == "hl2" and not APP.cfg.get("practice"):
-                raise ValueError("The listening panadapter works with the SDRplay radio. With the Hermes Lite 2, use the "
-                                 "Slices view above to watch your frequencies (or Thetis / SDR Console to listen).")
+            if not APP.cfg.get("use_sdrplay", True) and not APP.cfg.get("practice"):
+                raise ValueError("The listening panadapter uses the SDRplay radio, which is not ticked in 'Your radios'. "
+                                 "Use the Slices view above to watch your frequencies (or Thetis / SDR Console to listen).")
             PAN.start(b, bool(APP.cfg.get("practice")))
             return {"ok": True, "radio": PAN.name}
         if path == "/api/pan/watch":              # while logging: choose which frequency to watch (-1 = none)
@@ -783,7 +825,7 @@ class Handler(BaseHTTPRequestHandler):
                 raise ValueError("Logging is running, so the slices are already shown below from the logger.")
             PAN.stop()
             c = APP.cfg
-            SLICES.start(c.get("radio", "sdrplay"), bool(c.get("practice")), APP.clean_channels(b.get("channels") or c["channels"]),
+            SLICES.start(bool(c.get("practice")), APP.clean_channels(b.get("channels") or c["channels"]),
                          c.get("hl2_ip", ""), int(c.get("hl2_rate", 96000)),
                          {"if_gain_db": int(c["if_gain_db"]), "rf_gain_state": int(c["rf_gain_state"]),
                           "hl2_gain_db": int(c.get("hl2_gain_db", 15))})
@@ -806,6 +848,13 @@ class Handler(BaseHTTPRequestHandler):
             APP.update_cfg(b)
             chans = APP.clean_channels(APP.cfg["channels"])
             if APP.running():
+                need = sorted({ch["radio"] for ch in chans})
+                have = getattr(APP, "active_radios", need)
+                missing = [r for r in need if r not in have]
+                if missing and not APP.cfg.get("practice"):
+                    raise ValueError("That change needs the %s, which was not in use when this drive started. "
+                                     "Stop logging, then start again." %
+                                     ("Hermes Lite 2" if missing[0] == "hl2" else "SDRplay"))
                 APP.logger_call("/set", {"channels": chans, "spacing_ft": float(APP.cfg["spacing_ft"]),
                                          "sample_mode": APP.cfg.get("sample_mode", "distance"),
                                          "interval_s": float(APP.cfg.get("interval_s", 5))}, timeout=3)

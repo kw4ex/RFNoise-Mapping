@@ -105,10 +105,10 @@ details summary{cursor:pointer;color:var(--acc);font-size:13.5px;margin:6px 0}
  </div>
 
  <div id="radioBox" style="margin:10px 0 4px">
-  <b>Which radio?</b>
+  <b>Your radios</b> <span class="mut">&mdash; tick what you have; each frequency slot can pick which one measures it</span>
   <div class="row" style="align-items:flex-start;gap:22px;margin-top:4px">
-   <label class="chk"><input type="radio" name="radio" value="sdrplay" onchange="radioChanged()"> <span><b>SDRplay RSP1</b> (USB cable)<br><span class="mut">One receiver: looks at your frequencies one after another. Covers VHF and the FM band too.</span></span></label>
-   <label class="chk"><input type="radio" name="radio" value="hl2" onchange="radioChanged()"> <span><b>Hermes Lite 2</b> (network cable)<br><span class="mut">Several receivers at once: every frequency is read at the same instant. HF only (about 0.1&ndash;38&nbsp;MHz).</span></span></label>
+   <label class="chk"><input type="checkbox" id="useSdr" onchange="radioChanged()"> <span><b>SDRplay RSP1</b> (USB cable)<br><span class="mut">One receiver: its frequencies take turns. Covers VHF, airband and the FM band too.</span></span></label>
+   <label class="chk"><input type="checkbox" id="useHl2" onchange="radioChanged()"> <span><b>Hermes Lite 2</b> (network cable)<br><span class="mut">Several receivers at once: its frequencies are all read at the same instant. HF only (about 0.1&ndash;38&nbsp;MHz).</span></span></label>
   </div>
   <div id="hl2Box" class="row" style="margin-top:8px;display:none;align-items:flex-end">
    <div><label>Radio's address</label><br><input type="text" id="hl2ip" size="16" placeholder="(leave empty to search)" onchange="radioChanged()"></div>
@@ -399,17 +399,26 @@ function toast(html,ms=6000){const t=$("toast");t.innerHTML=html;t.style.display
 async function guard(fn){try{return await fn();}catch(e){toast("&#9888; "+esc(e.message),9000);}}
 
 /* ---------- form <-> config ---------- */
-function chRow(c,i){return `<tr><td><input type="number" step="any" class="cm" value="${esc(c.mhz)}" placeholder="MHz"></td>
+function chRow(c,i){const r=c.radio||"auto";
+ const opt=(v,t)=>`<option value="${v}" ${r===v?"selected":""}>${t}</option>`;
+ return `<tr><td><input type="number" step="any" class="cm" value="${esc(c.mhz)}" placeholder="MHz"></td>
  <td><input type="number" step="any" class="cb" value="${esc(c.bw_khz)}"></td>
  <td><input type="number" step="any" class="cc" value="${esc(c.cal_db)}"></td>
+ <td class="radcol"><select class="cr">${opt("auto","Auto")}${opt("hl2","Hermes")}${opt("sdrplay","SDRplay")}</select></td>
  <td class="lvlcell" id="lvl${i}" style="min-width:120px"><span class="mut">&ndash;</span></td></tr>`;}
-function radioVal(){ return (document.querySelector("input[name=radio]:checked")||{value:"sdrplay"}).value; }
-function showRadioFields(){ const hl=radioVal()==="hl2";
+function useSdr(){ return $("useSdr").checked; }
+function useHl2(){ return $("useHl2").checked; }
+function showRadioFields(){ const hl=useHl2(), sd=useSdr();
   $("hl2Box").style.display=hl?"flex":"none"; $("hl2Help").style.display=hl?"block":"none";
-  $("hl2Gain").style.display=hl?"flex":"none"; $("sdrGain").style.display=hl?"none":"flex"; }
+  $("hl2Gain").style.display=hl?"flex":"none"; $("sdrGain").style.display=sd?"flex":"none";
+  // the per-slot Radio column only matters when both radios are ticked
+  document.querySelectorAll(".radcol").forEach(e=>{e.style.display=(hl&&sd)?"":"none";});
+}
 function radioChanged(){ showRadioFields();
-  if(radioVal()==="hl2"){ const hi=[...document.querySelectorAll(".cm")].map(x=>+x.value).filter(v=>v>38);
-    if(hi.length) toast("&#9888; "+hi[0]+" MHz is above what the Hermes Lite 2 can receive (about 38 MHz). Change that frequency before you start logging.",9000); } guard(()=>api("/api/config",{radio:radioVal(),hl2_ip:$("hl2ip").value.trim(),hl2_rate:+$("hl2rate").value})); }
+  if(!useSdr()&&!useHl2()) toast("&#9888; No radio is ticked. Tick at least one (or use Practice mode).",7000);
+  else if(useHl2()&&!useSdr()){ const hi=[...document.querySelectorAll(".cm")].map(x=>+x.value).filter(v=>v>38);
+    if(hi.length) toast("&#9888; "+hi[0]+" MHz is above what the Hermes Lite 2 can receive (about 38 MHz). Change that frequency, or tick the SDRplay too.",9000); }
+  guard(()=>api("/api/config",{use_sdrplay:useSdr(),use_hl2:useHl2(),hl2_ip:$("hl2ip").value.trim(),hl2_rate:+$("hl2rate").value})); }
 async function findHl2(){
   const b=$("btnFindHl2"); b.disabled=true; const old=b.textContent; b.textContent="Searching the network... (about 3 s)"; $("hl2Msg").textContent="";
   try{
@@ -474,19 +483,19 @@ function fillForm(cfg){
   (document.querySelector(`input[name=gpsm][value=${cfg.gps_mode}]`)||document.querySelector("input[name=gpsm][value=usb]")).checked=true;
   $("gHost").value=cfg.gps_host; $("gPort").value=cfg.gps_port; $("gBaud").value=cfg.gps_baud;
   $("autoMap").checked=!!cfg.auto_map; $("spacing").value=cfg.spacing_ft; $("interval").value=cfg.interval_s||5; (document.querySelector(`input[name=smode][value=${cfg.sample_mode==="time"?"time":"distance"}]`)).checked=true; spacingNote(); $("ifgr").value=cfg.if_gain_db; $("rfgr").value=cfg.rf_gain_state; gainSync();
-  (document.querySelector(`input[name=radio][value=${cfg.radio==="hl2"?"hl2":"sdrplay"}]`)).checked=true; $("hl2ip").value=cfg.hl2_ip||""; $("hl2rate").value=String(cfg.hl2_rate||96000); $("hl2g").value=(cfg.hl2_gain_db===undefined?15:cfg.hl2_gain_db); showRadioFields();
-  let h="<tr><th>MHz</th><th>Width (kHz)</th><th>Calibration (dB)</th><th>Level now (dB)</th></tr>";
+  $("useSdr").checked=(cfg.use_sdrplay!==false); $("useHl2").checked=!!cfg.use_hl2; $("hl2ip").value=cfg.hl2_ip||""; $("hl2rate").value=String(cfg.hl2_rate||96000); $("hl2g").value=(cfg.hl2_gain_db===undefined?15:cfg.hl2_gain_db);
+  let h="<tr><th>MHz</th><th>Width (kHz)</th><th>Calibration (dB)</th><th class=radcol title='Which radio measures this slot. Auto: the Hermes Lite 2 takes what it can hear; the SDRplay takes the rest.'>Radio</th><th>Level now (dB)</th></tr>";
   for(let i=0;i<4;i++) h+=chRow(cfg.channels[i]||{mhz:"",bw_khz:5,cal_db:0},i);
-  $("chTable").innerHTML=h; $("phoneAccess").checked=!!cfg.phone_access; panMemLoad(cfg);
+  $("chTable").innerHTML=h; showRadioFields(); $("phoneAccess").checked=!!cfg.phone_access; panMemLoad(cfg);
 }
 function readForm(){
-  const m=[...document.querySelectorAll(".cm")],b=[...document.querySelectorAll(".cb")],c=[...document.querySelectorAll(".cc")];
+  const m=[...document.querySelectorAll(".cm")],b=[...document.querySelectorAll(".cb")],c=[...document.querySelectorAll(".cc")],rr=[...document.querySelectorAll(".cr")];
   return {route_name:$("route").value.trim(), practice:$("practice").checked,
     gps_mode:(document.querySelector("input[name=gpsm]:checked")||{value:"usb"}).value, gps_host:$("gHost").value.trim(),
     gps_port:+$("gPort").value||11123, gps_serial:$("gSerial").value, gps_baud:+$("gBaud").value,
     auto_map:$("autoMap").checked, spacing_ft:+$("spacing").value||10, sample_mode:smode(), interval_s:+$("interval").value||5, if_gain_db:+$("ifgr").value||40, rf_gain_state:+$("rfgr").value||0,
-    radio:radioVal(), hl2_ip:$("hl2ip").value.trim(), hl2_rate:+$("hl2rate").value||96000, hl2_gain_db:Math.round(+$("hl2g").value||0),
-    channels:m.map((x,i)=>({mhz:x.value, bw_khz:b[i].value||5, cal_db:c[i].value||0}))};
+    use_sdrplay:useSdr(), use_hl2:useHl2(), hl2_ip:$("hl2ip").value.trim(), hl2_rate:+$("hl2rate").value||96000, hl2_gain_db:Math.round(+$("hl2g").value||0),
+    channels:m.map((x,i)=>({mhz:x.value, bw_khz:b[i].value||5, cal_db:c[i].value||0, radio:(rr[i]||{value:"auto"}).value}))};
 }
 function showGpsFields(){
   const prac=$("practice").checked, mode=(document.querySelector("input[name=gpsm]:checked")||{value:"usb"}).value;
@@ -851,7 +860,7 @@ async function gainChanged(){
   $("ifgr").value=a; $("rfgr").value=r; gainSync();
   const h=Math.min(48,Math.max(-12,Math.round(+$("hl2g").value||0))); $("hl2g").value=h;
   await guard(async()=>{ await api("/api/gain",{if_gain_db:a,rf_gain_state:r,hl2_gain_db:h});
-    if(radioVal()==="hl2"){ toast(PAN.logging?"Radio gain changed. Readings from now on are not directly comparable with the earlier dots in this drive.":"Radio gain saved ("+h+" dB). Recording uses this number.",PAN.logging?9000:5000); return; }
+    if(useHl2()&&!useSdr()){ toast(PAN.logging?"Radio gain changed. Readings from now on are not directly comparable with the earlier dots in this drive.":"Radio gain saved ("+h+" dB). Recording uses this number.",PAN.logging?9000:5000); return; }
     toast(PAN.logging?"Attenuation changed. Readings from now on are not directly comparable with the earlier dots in this drive.":"Attenuation saved (IF "+a+" dB, RF "+r+"). Recording uses these numbers.",PAN.logging?9000:5000); });
 }
 function panGain(){
