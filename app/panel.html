@@ -94,6 +94,7 @@ body.only-slices #cSlices>p.sub{display:none}
  <span class="pill"><span class="dot" id="dLog"></span><span id="tLog">Not logging</span></span>
  <span class="pill"><span class="dot" id="dGps"></span><span id="tGps">GPS: idle</span></span>
  <span class="pill" title="The version of the program that is running now"><span id="tVer">v?</span></span>
+ <span class="pill" id="pOv" style="display:none;background:#8a1f1f" title="A strong signal is overloading the Hermes. Lower its gain (see the slices box).">&#9888; Radio overload - lower the gain</span>
  <span class="sp"></span>
  <button class="sm" onclick="runCheck()">Check setup</button>
  <button class="sm" id="bQuitTop" style="border-color:#e58a8a;color:#a02222;font-weight:600" title="Stops any drive that is being recorded (saving it), then closes the program" onclick="quitApp()">Close program</button>
@@ -482,7 +483,8 @@ function slDraw(cv,f,zoom){
   w0=Math.min(Math.max(w0,f.center-rate/2), f.center+rate/2-span);
   const w1=w0+span;
   const toX=hz=>((hz-w0)/span)*W;
-  g.strokeStyle="#223445"; g.lineWidth=1; for(let k=1;k<4;k++){ g.beginPath(); g.moveTo(0,H*k/4); g.lineTo(W,H*k/4); g.stroke(); }
+  const sc=W/(cv.getBoundingClientRect().width||W), fs=Math.round(13*sc), bh=fs+Math.round(8*sc), PH=H-bh;   // PH = height of the trace area above the frequency strip
+  g.strokeStyle="#223445"; g.lineWidth=1; for(let k=1;k<4;k++){ g.beginPath(); g.moveTo(0,PH*k/4); g.lineTo(W,PH*k/4); g.stroke(); }
   // measured stripe
   cv._map={w0:w0,span:span};
   const mw=(+f.bw)||5000;
@@ -498,10 +500,9 @@ function slDraw(cv,f,zoom){
   const bw=(span/rate)*n;
   for(let x=0;x<W;x++){ const a=Math.floor(b0+x*bw/W), b=Math.max(a+1,Math.floor(b0+(x+1)*bw/W)); let m=0;
     for(let i=Math.max(0,a);i<Math.min(n,b);i++){const v=bin[i]; if(v>m)m=v;}
-    const y=H-(m/255)*H; if(x===0)g.moveTo(x,y); else g.lineTo(x,y); }
+    const y=PH-(m/255)*PH; if(x===0)g.moveTo(x,y); else g.lineTo(x,y); }
   g.stroke();
   // frequency scale along the bottom: the two limits of the view (bold), the tuned frequency, and marks in between
-  const sc=W/(cv.getBoundingClientRect().width||W), fs=Math.round(13*sc), bh=fs+Math.round(8*sc);
   const dec=span>=1e6?3:(span>=100e3?4:5);
   const nice=(()=>{ const raw=span/5, m=Math.pow(10,Math.floor(Math.log10(raw))), r=raw/m; return (r<=1?1:r<=2?2:r<=5?5:10)*m; })();
   g.fillStyle="rgba(8,16,26,.82)"; g.fillRect(0,H-bh,W,bh);
@@ -515,6 +516,8 @@ function slDraw(cv,f,zoom){
     g.beginPath(); g.moveTo(x,H-bh); g.lineTo(x,H-bh-6*sc); g.stroke();
     const lab=(t/1e6).toFixed(dec), a0=x-tw(lab)/2-gap, a1=x+tw(lab)/2+gap;
     if(used.every(u=>a1<u[0]||a0>u[1])){ g.fillText(lab,x,H-Math.round(5*sc)); used.push([a0,a1]); } }
+  if(f.db_lo!==undefined){ g.font=Math.round(11*sc)+"px sans-serif"; g.fillStyle="rgba(159,192,216,.8)"; g.textAlign="left";
+    g.fillText("scale "+Math.round(f.db_lo)+" to "+Math.round(f.db_hi)+" dB (automatic)",Math.round(5*sc),Math.round(13*sc)); }
   g.font="bold "+fs+"px sans-serif"; g.fillStyle="#ffffff";
   g.textAlign="left"; g.fillText(lTxt,Math.round(4*sc),H-Math.round(5*sc));
   g.textAlign="right"; g.fillText(rTxt,W-Math.round(4*sc),H-Math.round(5*sc));
@@ -573,7 +576,9 @@ function slRender(j){
       d.querySelector(".slsRecInfo").textContent=on?(st.rec_file+"  "+Math.floor((st.rec_s||0)/60)+":"+String(Math.floor((st.rec_s||0)%60)).padStart(2,"0")):"";
     } else { snd.style.display="none"; d.querySelector("canvas")._pb=null; } });
   const h=j.health||{}, w=$("slWarn"), msg=[];
-  if(h.overload) msg.push("<b>OVERLOAD</b>: a strong signal is overloading the radio. Lower the radio gain (More settings).");
+  const ovPill=$("pOv"); if(ovPill) ovPill.style.display=h.overload?"inline-flex":"none";
+  if(h.overload) msg.push("<b>OVERLOAD</b> ("+(h.overload_count||0)+" times so far): a strong signal (often a broadcast station) is overloading the radio, so readings are not trustworthy. Lower the Hermes gain, "+
+    "<button class='sm' onclick='ovLower()'>Lower gain by 6 dB</button> or use an antenna filter.");
   if(h.lost_packets>50) msg.push("The network is dropping packets ("+h.lost_packets+" lost). Use a direct cable, or a lower detail setting.");
   w.style.display=msg.length?"block":"none"; w.innerHTML=msg.join("<br>");
 }
@@ -1079,6 +1084,7 @@ function panWideChanged(){ try{localStorage.setItem("rfmapPanWide",$("panWide").
 function gainSync(){ if($("panIf")){ $("panIf").value=$("ifgr").value||40; $("panRf").value=$("rfgr").value||0; } }
 function gainReset(){ $("ifgr").value=40; $("rfgr").value=0; gainChanged();
   if($("panAuto")&&$("panAuto").checked){ $("panAuto").checked=false; } if(!PAN.viewOnly&&PAN.on) panPost({auto_gain:false,if_gain:40,rf_state:0}); }
+function ovLower(){ $("hl2g").value=Math.max(-12,Math.round(+$("hl2g").value||15)-6); gainChanged(); }
 async function gainChanged(){
   const a=Math.min(59,Math.max(20,Math.round(+$("ifgr").value||40))), r=Math.min(27,Math.max(0,Math.round(+$("rfgr").value||0)));
   $("ifgr").value=a; $("rfgr").value=r; gainSync();

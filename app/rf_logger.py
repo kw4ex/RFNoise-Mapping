@@ -79,6 +79,7 @@ def _iso_ms(t=None):
 
 
 PAN_DB_LO, PAN_DB_HI = -120.0, 0.0
+AUTO_RANGE = {}                       # per slice: the smoothed [low, high] dB shown in the slices view
 PAN_FRAME = {"seq": 0, "f": None, "lock": threading.Lock(), "all": {}}
 
 
@@ -101,7 +102,22 @@ def publish_spectrum(lo_hz, rate, spec, tune_hz, bw_hz, level_db, idx, radio="")
                           "bw": float(bw_hz), "channel": int(idx), "smeter": round(float(level_db), 1),
                           "db_lo": PAN_DB_LO, "db_hi": PAN_DB_HI, "radio": str(radio or ""),
                           "spec": base64.b64encode(b.tobytes()).decode()}
-        PAN_FRAME["all"][int(idx)] = PAN_FRAME["f"]          # the "slices" view shows all channels at once
+        # the "slices" view shows all channels at once, each with its own automatic scale so a quiet band's
+        # noise floor is never pushed off the bottom of the picture
+        lo_t = float(np.percentile(db, 8)) - 8.0
+        hi_t = max(float(db.max()) + 6.0, lo_t + 45.0)
+        st = AUTO_RANGE.get(int(idx))
+        if st is None:
+            st = AUTO_RANGE[int(idx)] = [lo_t, hi_t]
+        else:
+            st[0] += 0.12 * (lo_t - st[0])
+            st[1] += 0.12 * (hi_t - st[1])
+        st[1] = max(st[1], st[0] + 45.0)
+        ball = np.clip((db - st[0]) * (255.0 / (st[1] - st[0])), 0, 255).astype(np.uint8)
+        fa = dict(PAN_FRAME["f"])
+        fa["spec"] = base64.b64encode(ball.tobytes()).decode()
+        fa["db_lo"], fa["db_hi"] = round(st[0], 1), round(st[1], 1)
+        PAN_FRAME["all"][int(idx)] = fa
 
 
 class Settings:
@@ -647,8 +663,13 @@ class HermesLite2:
         c = self.client
         ov = c.overload
         c.overload = False
-        return {"overload": bool(ov), "lost_packets": int(c.lost), "packets": int(c.packets),
-                "rate": self.rate, "receivers": self.nrx}
+        now = time.time()
+        if ov:                                   # keep the warning up for 10 s so it can be seen (the radio's flag is brief)
+            self._ov_t = now
+            self._ov_n = getattr(self, "_ov_n", 0) + 1
+        recent = (now - getattr(self, "_ov_t", 0.0)) < 10.0
+        return {"overload": bool(recent), "overload_count": int(getattr(self, "_ov_n", 0)),
+                "lost_packets": int(c.lost), "packets": int(c.packets), "rate": self.rate, "receivers": self.nrx}
 
     def close(self):
         try:
