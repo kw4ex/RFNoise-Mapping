@@ -11,7 +11,7 @@ import time
 
 import rfmap_log as L
 
-IDLE_STOP_S = 25          # free the radio when the browser stops asking for pictures
+IDLE_STOP_S = 180         # free the radio when the browser stops asking for pictures (never during a recording)
 
 
 class SlicePreview:
@@ -84,11 +84,18 @@ class SlicePreview:
         return {"ok": True, "running": self.running, "logging": False, "error": self.error,
                 "radio": self.name, "frames": fr, "health": self.health, "sound": hl2_audio.SND.status()}
 
+    def _recording(self):
+        try:
+            import hl2_audio
+            return any(v.get("rec_file") for v in hl2_audio.SND.status().values())
+        except Exception:
+            return False
+
     def _loop(self, sdr):
         import rf_logger as RL
         try:
             while self.running:
-                if time.time() - self.last_poll > IDLE_STOP_S:
+                if time.time() - self.last_poll > IDLE_STOP_S and not self._recording():
                     break
                 with self.lock:
                     cfg = dict(self.cfg)

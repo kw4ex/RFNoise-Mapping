@@ -64,12 +64,15 @@ DEFAULT_SETTINGS = {
     "sample_mode": "distance",  # "distance" = every spacing_ft; "time" = every interval_s seconds (even standing still)
     "interval_s": 5.0,        # seconds between readings in "time" mode
     "paused": False,          # pause button on the settings page
+    "auto_pause": False,      # pause by itself when the vehicle has not moved for auto_pause_s seconds (distance mode only)
+    "auto_pause_s": 10.0,
     "if_gain_db": 40,         # SDRplay "IF gain reduction" (higher = less gain)
     "rf_gain_state": 0,       # SDRplay "RF gain reduction" (0 = most gain)
     "hl2_gain_db": 15,        # Hermes Lite 2 low-noise-amplifier gain, -12 to +48 dB
     "pan_channel": -1,        # which frequency (0-3) to show as a live spectrum; -1 = none
 }
 MAX_CHANNELS = 4
+AUTO_PAUSE_MPS = 0.7        # slower than this (about 1.5 mph) counts as standing still
 
 
 def _iso_ms(t=None):
@@ -79,7 +82,7 @@ def _iso_ms(t=None):
 
 
 PAN_DB_LO, PAN_DB_HI = -120.0, 0.0
-AUTO_RANGE = {}                       # per slice: the smoothed [low, high] dB shown in the slices view
+SLOT_DB_LO, SLOT_DB_HI = -150.0, 0.0     # value range of the bytes in the slot panels
 PAN_FRAME = {"seq": 0, "f": None, "lock": threading.Lock(), "all": {}}
 
 
@@ -102,21 +105,13 @@ def publish_spectrum(lo_hz, rate, spec, tune_hz, bw_hz, level_db, idx, radio="")
                           "bw": float(bw_hz), "channel": int(idx), "smeter": round(float(level_db), 1),
                           "db_lo": PAN_DB_LO, "db_hi": PAN_DB_HI, "radio": str(radio or ""),
                           "spec": base64.b64encode(b.tobytes()).decode()}
-        # the "slices" view shows all channels at once, each with its own automatic scale so a quiet band's
-        # noise floor is never pushed off the bottom of the picture
-        lo_t = float(np.percentile(db, 8)) - 8.0
-        hi_t = max(float(db.max()) + 6.0, lo_t + 45.0)
-        st = AUTO_RANGE.get(int(idx))
-        if st is None:
-            st = AUTO_RANGE[int(idx)] = [lo_t, hi_t]
-        else:
-            st[0] += 0.12 * (lo_t - st[0])
-            st[1] += 0.12 * (hi_t - st[1])
-        st[1] = max(st[1], st[0] + 45.0)
-        ball = np.clip((db - st[0]) * (255.0 / (st[1] - st[0])), 0, 255).astype(np.uint8)
+        # the slot panels show all channels at once. They get a wide fixed range (finer steps than the main
+        # panadapter) and choose their own automatic or hand-set scale in the browser.
+        ball = np.clip((db - SLOT_DB_LO) * (255.0 / (SLOT_DB_HI - SLOT_DB_LO)), 0, 255).astype(np.uint8)
         fa = dict(PAN_FRAME["f"])
         fa["spec"] = base64.b64encode(ball.tobytes()).decode()
-        fa["db_lo"], fa["db_hi"] = round(st[0], 1), round(st[1], 1)
+        fa["db_lo"], fa["db_hi"] = SLOT_DB_LO, SLOT_DB_HI
+        fa["t"] = time.time()
         PAN_FRAME["all"][int(idx)] = fa
 
 
@@ -318,7 +313,14 @@ class SimGps:
 
     def __init__(self):
         self.t = 0.0
+        self.dist = 0.0
         self.speed = 40.0 / MPH_PER_MPS
+        self.stop = None                       # testing aid: RFMAP_SIM_STOP="start_s:length_s" = a pretend red light
+        try:
+            a, b = os.environ.get("RFMAP_SIM_STOP", "").split(":")
+            self.stop = (float(a), float(b))
+        except ValueError:
+            pass
         segs, total = [], 0.0
         for a, b in zip(SIM_ROUTE_M[:-1], SIM_ROUTE_M[1:]):
             d = math.dist(a, b)
@@ -331,7 +333,10 @@ class SimGps:
 
     def latest(self):
         self.t += 0.1
-        dist = self.speed * self.t
+        moving = not (self.stop and self.stop[0] <= self.t < self.stop[0] + self.stop[1])
+        if moving:
+            self.dist += self.speed * 0.1
+        dist = self.dist
         if dist >= self.total:
             self.finished = True
             dist = self.total - 0.01
@@ -342,7 +347,7 @@ class SimGps:
                 course = (math.degrees(math.atan2(b[0] - a[0], b[1] - a[1]))) % 360
                 lat, lon = m_to_latlon(x, y)
                 self.lines += 1
-                return Fix(lat, lon, self.speed, course, time.time(), 12, 0.9)
+                return Fix(lat, lon, self.speed if moving else 0.0, course, time.time(), 12, 0.9)
         return None
 
 
@@ -355,6 +360,8 @@ class SimSdr:
 
     def __init__(self):
         self.rng = np.random.default_rng(1)
+        if os.environ.get("RFMAP_SIM_SINGLE"):       # testing aid: behave like a one-tuner radio (frequencies take turns)
+            self.multi = False
 
     def measure(self, freq_hz, bw_hz, lat, lon, settings):
         sx, sy = SIM_NOISE_SOURCE_M
@@ -930,7 +937,10 @@ def make_handler(settings, state, stop_event, sdr=None):
                     return self._send(200, json.dumps({"file": name or ""}))
                 elif self.path == "/pause":
                     cur = settings.get()
-                    settings.update({"paused": not cur["paused"]})
+                    req = json.loads(body) if body else {}
+                    if req.get("resume"):                  # "resume now": carry on even though we are standing still
+                        state["force_resume"] = True
+                    settings.update({"paused": bool(req["paused"]) if "paused" in req else not cur["paused"]})
                 elif self.path == "/pan":
                     req = json.loads(body)
                     ch = int(req.get("channel", -1))
@@ -959,6 +969,10 @@ def make_handler(settings, state, stop_event, sdr=None):
                         upd["sample_mode"] = "time" if str(req["sample_mode"]) == "time" else "distance"
                     if "interval_s" in req:
                         upd["interval_s"] = min(max(0.5, float(req["interval_s"])), 3600.0)
+                    if "auto_pause" in req:
+                        upd["auto_pause"] = bool(req["auto_pause"])
+                    if "auto_pause_s" in req:
+                        upd["auto_pause_s"] = min(max(3.0, float(req["auto_pause_s"])), 600.0)
                     if "spacing_ft" in req:
                         upd["spacing_ft"] = min(max(2.0, float(req["spacing_ft"])), 5280.0)
                     if "if_gain_db" in req:
@@ -1113,6 +1127,20 @@ def main():
             except Exception:
                 return False
             return True
+        if (cfg.get("paused") or state.get("auto_paused")) and chans and hasattr(sdr, "spectrum"):
+            # paused: the radio is free, so every slot gets its full picture again (one frequency after another)
+            if time.time() - pan_state["t"] < 0.02:
+                return False
+            pan_state["t"] = time.time()
+            k = pan_state.get("rr", 0) % len(chans)
+            pan_state["rr"] = k + 1
+            ch = chans[k]
+            try:
+                lo, rate, spec, level = sdr.spectrum(ch["mhz"] * 1e6, ch["bw_khz"] * 1e3, lat, lon, cfg)
+                publish_spectrum(lo, rate, spec, ch["mhz"] * 1e6, ch["bw_khz"] * 1e3, level, k, ch.get("radio", ""))
+            except Exception:
+                return False
+            return True
         if not (0 <= ci < len(chans)) or not hasattr(sdr, "spectrum"):
             return False
         if time.time() - pan_state["t"] < 0.04:
@@ -1130,6 +1158,7 @@ def main():
     last_t = None
     dots = 0
     last_print = 0.0
+    still_since, auto_paused = None, False
     try:
         while not stop_event.is_set():
             cfg = settings.get()
@@ -1140,7 +1169,20 @@ def main():
             if getattr(gps, "finished", False):
                 print("Simulated route finished.")
                 break
-            if fix is None or cfg["paused"]:
+            if state.pop("force_resume", False):
+                still_since, auto_paused = time.time(), False
+            # automatic pause: the vehicle has been standing still for auto_pause_s seconds (not in time mode, which is for standing still)
+            if fix is not None and cfg.get("auto_pause") and cfg.get("sample_mode") != "time" and fix.speed_mps is not None:
+                if fix.speed_mps >= AUTO_PAUSE_MPS:
+                    still_since, auto_paused = None, False
+                elif still_since is None:
+                    still_since = time.time()
+                elif time.time() - still_since >= float(cfg.get("auto_pause_s", 10.0)):
+                    auto_paused = True
+            else:
+                still_since, auto_paused = None, False
+            state["auto_paused"] = auto_paused
+            if fix is None or cfg["paused"] or auto_paused:
                 pan_idle(cfg, 0.0, 0.0)
                 time.sleep(0.05)
                 continue
@@ -1194,7 +1236,7 @@ def main():
                             f"{level:.2f}", f"{level + ch['cal_db']:.2f}",
                             "" if fix.sats is None else fix.sats,
                             "" if fix.hdop is None else fix.hdop, pos_iso])
-                last.append({"ch": ci, "mhz": ch["mhz"], "level": level + ch["cal_db"]})
+                last.append({"ch": ci, "mhz": ch["mhz"], "level": level + ch["cal_db"], "t": t_read})
             if hasattr(sdr, "health"):
                 state["radio_health"] = sdr.health()
             fh.flush()

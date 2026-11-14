@@ -60,6 +60,8 @@ DEFAULT_CONFIG = {
     "spacing_ft": 10,
     "sample_mode": "distance",
     "interval_s": 5,
+    "auto_pause": False,             # pause by itself when the vehicle has stopped moving
+    "auto_pause_s": 10,              # ... for this many seconds
     "if_gain_db": 40,
     "rf_gain_state": 0,
     "use_sdrplay": True,             # the radios you have; each frequency slot picks one of them
@@ -270,6 +272,11 @@ class App:
         raise ValueError(f"{mhz:g} MHz needs the SDRplay radio (the Hermes Lite 2 stops at about "
                          f"{self.HL2_MAX_MHZ:g} MHz), but only the Hermes Lite 2 is ticked in 'Your radios'.")
 
+    def slot_cfg(self):
+        c = self.cfg
+        return {"channels": c.get("channels", []), "hl2_gain_db": c.get("hl2_gain_db", 15),
+                "if_gain_db": c.get("if_gain_db", 40), "rf_gain_state": c.get("rf_gain_state", 0)}
+
     def clean_channels(self, chans, practice=None):
         """Checks the frequency slots and works out each slot's radio. Returns the list the logger uses."""
         if practice is None:
@@ -302,6 +309,7 @@ class App:
             json.dump({"channels": chans, "spacing_ft": max(2.0, float(c["spacing_ft"])), "paused": False,
                        "sample_mode": "time" if c.get("sample_mode") == "time" else "distance",
                        "interval_s": min(max(0.5, float(c.get("interval_s", 5))), 3600.0),
+                       "auto_pause": bool(c.get("auto_pause")), "auto_pause_s": min(max(3.0, float(c.get("auto_pause_s", 10))), 600.0),
                        "if_gain_db": int(c["if_gain_db"]), "rf_gain_state": int(c["rf_gain_state"]),
                        "hl2_gain_db": int(c.get("hl2_gain_db", 15))}, f)
         self.logger_port = free_port(LOGGER_PORT)
@@ -700,8 +708,8 @@ class Handler(BaseHTTPRequestHandler):
                         j = APP.logger_call("/slices", timeout=1.0)
                     except Exception:
                         j = {"frames": [], "health": {}}
-                    return self._json(dict({"ok": True, "running": True, "logging": True, "error": ""}, **j))
-                return self._json(SLICES.get())
+                    return self._json(dict({"ok": True, "running": True, "logging": True, "error": "", "cfg": APP.slot_cfg()}, **j))
+                return self._json(dict(SLICES.get(), cfg=APP.slot_cfg()))
             if path == "/api/logs/tail":
                 return self._json({"ok": True, "lines": L.tail(int((q.get("n") or ["60"])[0] or 60)), "dir": L.log_dir()})
             if path == "/api/rec/list":
@@ -799,7 +807,7 @@ class Handler(BaseHTTPRequestHandler):
             SLICES.stop()
             if not APP.cfg.get("use_sdrplay", True) and not APP.cfg.get("practice"):
                 raise ValueError("The listening panadapter uses the SDRplay radio, which is not ticked in 'Your radios'. "
-                                 "Use the Slices view above to watch your frequencies (or Thetis / SDR Console to listen).")
+                                 "Use the Slots above to watch your frequencies (or Thetis / SDR Console to listen).")
             PAN.start(b, bool(APP.cfg.get("practice")))
             return {"ok": True, "radio": PAN.name}
         if path == "/api/pan/watch":              # while logging: choose which frequency to watch (-1 = none)
@@ -865,6 +873,8 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/slices/start":
             if APP.running():
                 raise ValueError("Logging is running, so the slices are already shown below from the logger.")
+            if SLICES.running and not b.get("force"):          # another browser tab already started it
+                return {"ok": True, "radio": SLICES.name}
             PAN.stop()
             c = APP.cfg
             SLICES.start(bool(c.get("practice")), APP.clean_channels(b.get("channels") or c["channels"]),
@@ -878,10 +888,12 @@ class Handler(BaseHTTPRequestHandler):
                 opened = getattr(getattr(SLICES, "sdr", None), "radios", None)      # radios opened at Start
                 if opened and not APP.cfg.get("practice"):
                     for ch in chans:
-                        if ch["radio"] not in opened:
-                            raise ValueError("That slice needs the %s, which was not opened when the preview started. "
-                                             "Click Stop, then Preview slices again." %
-                                             ("Hermes Lite 2" if ch["radio"] == "hl2" else "SDRplay"))
+                        if ch["radio"] not in opened:             # needs a radio that is not open yet: restart the view
+                            c = APP.cfg
+                            SLICES.start(False, chans, c.get("hl2_ip", ""), int(c.get("hl2_rate", 96000)),
+                                         {"if_gain_db": int(c["if_gain_db"]), "rf_gain_state": int(c["rf_gain_state"]),
+                                          "hl2_gain_db": int(c.get("hl2_gain_db", 15))})
+                            return {"ok": True, "restarted": True}
                 SLICES.set(channels=chans)
             return {"ok": True}
         if path == "/api/slices/listen":
@@ -940,8 +952,24 @@ class Handler(BaseHTTPRequestHandler):
                                          "interval_s": float(APP.cfg.get("interval_s", 5))}, timeout=3)
             return {"ok": True}
         if path == "/api/pause":
+            upd = {}
+            if "auto_pause" in b:
+                upd["auto_pause"] = bool(b["auto_pause"])
+            if "auto_pause_s" in b:
+                upd["auto_pause_s"] = min(max(3.0, float(b["auto_pause_s"] or 10)), 600.0)
+            if upd:
+                APP.update_cfg(upd)
             if APP.running():
-                APP.logger_call("/pause", {}, timeout=3)
+                if upd:
+                    APP.logger_call("/set", upd, timeout=3)
+                if not upd or "paused" in b or b.get("resume"):
+                    body = {}
+                    if "paused" in b:
+                        body["paused"] = bool(b["paused"])
+                    if b.get("resume"):
+                        body["resume"] = True
+                        body["paused"] = False
+                    APP.logger_call("/pause", body, timeout=3)
             return {"ok": True}
         if path == "/api/stop":
             name = APP.stop()

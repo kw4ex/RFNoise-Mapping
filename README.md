@@ -18,8 +18,9 @@ One or two software-defined radios (an **SDRplay RSP1**, a **Hermes Lite 2**, or
 - Has a **practice mode** with pretend radio and GPS, so you can try everything at home.
 - Has a **panadapter**: a live spectrum and waterfall of the band with a built-in receiver (AM, USB, LSB, CW, narrow FM), so you can see and hear signals and pick frequencies to measure. (New, untested on the road.)
 - Works with the **SDRplay RSP1** (USB), the **Hermes Lite 2** (network cable), or **both at once**: each of the four frequency slots picks which radio measures it. The Hermes Lite 2's receivers all run at the same time, so its frequencies are read at the same instant; the SDRplay covers VHF, airband and 70 cm. (Hermes Lite 2 support is new: tested against a simulated radio, not yet on a real one.)
-- Shows a live **slices** view: a small panadapter for every frequency you measure, side by side. Hermes Lite 2 slices also have **sound and per-slice WAV recording, even while driving** - handy for hearing the buzz rise and fall as you pass a pole.
-- Every slice can be **tuned on the spot**: type a frequency, nudge it with the − / + buttons or the mouse wheel (100 Hz to 1 MHz steps), click a signal on the picture to tune to it, or drag the picture to slide the frequency; set the receive filter and AGC, and change its width or which radio measures it. Each slot has a **Mode** (AM, SAM, USB, LSB, NFM) and the measured band follows it: below the frequency for LSB, above for USB, both sides for the rest, so a nearby station on the wrong side is not counted. The green band shows the receive filter for the chosen mode (below the frequency for LSB, above for USB, both sides for AM) - in the preview and while logging. The slice pictures refresh about 15 times a second.
+- Shows **four live slots**: each frequency is its own panadapter with a **waterfall**, labelled Slot 1-4. They start by themselves, stay live while the program runs, and remember their settings. Hermes Lite 2 slots also have **sound (any number at once, with volume and mute) and per-slot WAV recording, even while driving** - handy for hearing the buzz rise and fall as you pass a pole. A **Pop out** button opens a slot in its own full-size browser tab, and **Compact view** fits all four on one screen.
+- Every slot can be **tuned on the spot**: type a frequency (in the slot or in the readings table - both change together), nudge it with the - / + buttons or the mouse wheel (100 Hz to 1 MHz steps), click a signal on the picture to tune to it, or drag the picture to slide the frequency; set the receive filter and AGC, and change its width or which radio measures it. Each slot has a **Mode** (AM, SAM, USB, LSB, NFM) and the measured band follows it: below the frequency for LSB, above for USB, both sides for the rest. The green band shows the receive filter. Drag the **dB numbers** beside a picture to move its scale like Thetis or SmartSDR (or leave it on automatic), and use the **Gain** slider in the slot (an OVERLOAD warning stays on screen for 10 seconds).
+- **Pause recording** at a traffic light: no dots are saved and every slot goes back to a full live picture (an SDRplay slot shows only its latest reading while mapping, because it must retune between frequencies). **Pause automatically** does it by itself after you have not moved for a number of seconds, and resumes when you move.
 - Saves every reading with its time to the millisecond, so a map can be made with **one dot every X feet** worked out from the clock, whatever speed you drove.
 - A **Close program** button sits at the top of the panel; if a drive is being recorded it asks first, then saves the drive and closes. The panel shows its version number, and warns you if new program files were installed while an older copy is still running.
 - Has built-in checks: **Check setup**, **Find my GPS** and a one-minute **Full test**.
@@ -28,13 +29,13 @@ One or two software-defined radios (an **SDRplay RSP1**, a **Hermes Lite 2**, or
 
 *The map above uses practice data, not a real drive.*
 
-![The Slices view: one live panadapter per measured frequency, with per-slice zoom, sound and recording](docs/images/slices.png)
+![Slots 1-4: live panadapters with waterfalls](docs/images/slices.png)
 
-*The Slices view: one live panadapter per measured frequency - each with its own zoom slider, and on Hermes Lite 2 slots sound and per-slice recording, even while driving. (Simulated radio shown.)*
+*Slots 1-4: one live panadapter with a waterfall per frequency, each with its own tuning, gain slider, hand-set or automatic dB scale, volume and recording, and a Pop out button for a full-size tab. (Simulated radio shown.)*
 
 ![The slices in their own tab, 2x2, for a second screen or full screen](docs/images/slices-fulltab.png)
 
-*"Open in its own tab" shows only the four slices, large, with a Full screen button - handy on a second screen in the car.*
+*"Open in its own tab" shows only the four slots, large, with a Full screen button - handy on a second screen in the car.*
 
 ## How it works
 

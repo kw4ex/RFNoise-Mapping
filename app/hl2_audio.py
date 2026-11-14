@@ -269,10 +269,6 @@ class SliceSound:
                     d.listen = False
                     self._reap(ch)
             return
-        for k, d in list(self.slices.items()):     # one listener at a time
-            if k != ch:
-                d.listen = False
-                self._reap(k)
         self._get(ch, mode, bw, agc).listen = True
 
     def set_mode(self, ch, mode, bw=None, agc=None):

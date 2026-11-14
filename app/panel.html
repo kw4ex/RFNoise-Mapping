@@ -33,6 +33,29 @@ button.sm{font-size:13px;padding:4px 9px}
 .slbox .slrow input,.slbox .slrow select{font-size:13px;padding:3px 6px}
 .slbox .slrow button.sm{padding:3px 9px}
 .slbox .slRw{display:inline-flex;align-items:center;gap:6px}
+.slbox{background:#fff;border:1px solid #d5dde6;border-radius:10px;padding:8px 10px}
+.slbox .slh{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:13px;margin-bottom:3px}
+.slbox canvas{width:100%;display:block;border-radius:4px}
+.slbox .slsp{height:170px;background:#0b1620}
+.slbox .slwf{height:96px;background:#000028;margin-top:2px}
+.slbox .slview{position:relative}
+.slbox .slmsg{position:absolute;inset:0;display:none;align-items:center;justify-content:center;text-align:center;color:#cfe3f3;font-size:13px;padding:10px;background:rgba(11,22,32,.9);border-radius:4px}
+.slbox.empty .slview,.slbox.empty .slctl{display:none}
+.slbox.fb .slwf{display:none}
+body.only-slot header,body.only-slot footer,body.only-slot main>section.card:not(#cSlices),body.only-slot #cSlices>h2,body.only-slot #cSlices>p.sub,body.only-slot #bSlCompact,body.only-slot #bSlPop,body.only-slot .slPop,body.only-slot #staleBanner,body.only-slot #warnBanner,body.only-slot #blockBanner{display:none !important}
+body.only-slot main{max-width:none;margin:6px auto;padding:0 12px 12px}
+body.only-slot #slGrid{display:block !important}
+body.only-slot #slGrid .slbox{display:none}
+body.only-slot #slGrid .slbox.me{display:block}
+body.only-slot #slGrid .slsp{height:44vh} body.only-slot #slGrid .slwf{height:26vh}
+body.only-slot #slGrid .slh{font-size:18px}
+.slbox button.on{background:#1f5fd6;border-color:#1f5fd6;color:#fff}
+.slbox button.slMute.on{background:#c0392b;border-color:#c0392b}
+#slGrid.compact{grid-template-columns:repeat(2,1fr) !important;gap:8px !important}
+#slGrid.compact .slctl,#slGrid.compact .sltune{display:none}
+#slGrid.compact .slbox.empty{opacity:.6}
+#slGrid.compact .slsp{height:calc((100vh - 230px)/2*.6)}
+#slGrid.compact .slwf{height:calc((100vh - 230px)/2*.4 - 30px)}
 button:disabled{opacity:.45;cursor:default}
 button.lock{font-size:19px;font-weight:800;letter-spacing:.5px;padding:10px 18px;border-radius:10px;border:3px solid #1e8e3e;background:#e6f6ea;color:#14692c;min-width:210px}
 button.lock.on{border-color:#b3261e;background:#d93025;color:#fff;box-shadow:0 0 0 3px rgba(217,48,37,.28)}
@@ -74,8 +97,9 @@ details summary{cursor:pointer;color:var(--acc);font-size:13.5px;margin:6px 0}
 body.only-slices header, body.only-slices main>section.card:not(#cSlices), body.only-slices footer{display:none}
 body.only-slices main{max-width:none;margin:6px auto;padding:0 10px 10px}
 body.only-slices #slGrid{grid-template-columns:repeat(auto-fit,minmax(620px,1fr)) !important;gap:14px !important}
-body.only-slices #slGrid canvas{height:30vh}
+body.only-slices #slGrid .slsp{height:30vh} body.only-slices #slGrid .slwf{height:18vh}
 body.only-slices #cSlices>p.sub{display:none}
+body.only-slices #staleBanner,body.only-slices #warnBanner,body.only-slices #blockBanner{display:none !important}
 #busy{position:fixed;left:50%;transform:translateX(-50%);top:70px;background:#1d4ed8;color:#fff;padding:12px 20px;border-radius:10px;font-size:15px;display:none;z-index:100;max-width:90%;box-shadow:0 4px 18px rgba(0,0,0,.35)}
 #busy .sp{display:inline-block;width:14px;height:14px;border:3px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:bspin .8s linear infinite;vertical-align:-2px;margin-right:9px}
 @keyframes bspin{to{transform:rotate(360deg)}}
@@ -153,7 +177,7 @@ body.only-slices #cSlices>p.sub{display:none}
   </div>
 
   <div>
-   <b>Frequencies to measure (up to 4)</b>
+   <b>Readings and frequencies (Slots 1&ndash;4)</b>
    <table id="chTable"></table>
    <div class="mut">Low bands (0.75, 3.7, 7.3&nbsp;MHz) show the general area. A VHF or <b>AM airband</b> (118&ndash;137&nbsp;MHz) channel pinpoints a pole or house. Pick a quiet channel with no stations. You can change these <b>while driving</b>.</div>
    <div class="row" style="margin-top:10px">
@@ -164,13 +188,18 @@ body.only-slices #cSlices>p.sub{display:none}
        <input type="number" id="interval" min="0.5" max="3600" step="0.5" style="width:80px" onchange="spacingChanged()"> seconds)</div>
      <div id="spBtns"><span class="seg"><button class="sm" onclick="setSpacing(5)">5</button><button class="sm" onclick="setSpacing(10)">10</button><button class="sm" onclick="setSpacing(20)">20</button><button class="sm" onclick="setSpacing(50)">50</button><button class="sm" onclick="setSpacing(100)">100</button></span> <span class="mut">ft</span></div>
    </div>
+   <div class="row" style="margin-top:6px;align-items:center">
+     <label class="chk"><input type="checkbox" id="apOn" onchange="autoPauseChanged()"> <span><b>Pause automatically</b> when I have not moved for</span></label>
+     <input type="number" id="apSec" min="3" max="600" step="1" value="10" style="width:70px" onchange="autoPauseChanged()"> <span>seconds</span>
+     <span class="mut" style="flex:1 1 300px">Handy at a traffic light: no dots pile up while you wait, and the slots go back to their full live pictures. Recording carries on by itself when you move again. Not used in &ldquo;by time&rdquo; mode. You can change it while driving.</span>
+   </div>
    <div class="mut">Distance (the usual) saves a dot each time you drive that far. <b>Time</b> saves a reading every few seconds even when you are standing still &mdash; useful for catching an <b>intermittent noise</b> at one spot. Time readings at one place pile up on one dot on the map.</div>
    <div class="mut">10&nbsp;ft is a good start. Smaller gives more detail (slow streets, walking); larger suits highways and gives smaller files. <b>You can change it while driving</b>: it applies from the next dot. If you drive faster than the radio can keep up, dots end up farther apart than this setting.</div>
    <details><summary>More settings</summary>
     <div class="row" id="hl2Gain" style="display:none">
       <div><label>Radio gain (dB, &minus;12 to +48)</label><br><input type="number" id="hl2g" min="-12" max="48" onchange="gainChanged()"></div>
       <div><br><button class="sm" onclick="hl2GainReset()">Reset to default (+15)</button></div>
-      <div class="mut" style="flex:1 1 300px">Higher gain hears weaker signals but overloads sooner. If the slices view shows <b>OVERLOAD</b>, lower it. Pick a value before a drive and leave it alone so dots can be compared.</div>
+      <div class="mut" style="flex:1 1 300px">Higher gain hears weaker signals but overloads sooner. If a slot shows <b>OVERLOAD</b>, lower it (each Hermes slot has a Gain slider). Pick a value before a drive and leave it alone so dots can be compared.</div>
     </div>
     <div class="row" id="sdrGain">
       <div><label>IF attenuation (dB, 20&ndash;59)</label><br><input type="number" id="ifgr" min="20" max="59" onchange="gainChanged()"></div>
@@ -186,7 +215,7 @@ body.only-slices #cSlices>p.sub{display:none}
   <button class="pri" id="bStart" onclick="startLog()">&#9654; Start logging</button>
   <button class="stop" id="bStop" onclick="stopLog()" style="display:none">&#9632; Stop logging</button>
   <button id="bApply" onclick="applyLive()" style="display:none">Apply frequency changes now</button>
-  <button id="bPause" onclick="pauseLog()" style="display:none">Pause / resume</button>
+  <button id="bPause" onclick="slPause()" style="display:none">&#9208; Pause recording</button>
   <label class="chk"><input type="checkbox" id="autoMap"> <span>Make a map automatically when I stop</span></label>
  </div>
  <div id="startErr" class="note err" style="display:none"></div>
@@ -197,20 +226,22 @@ body.only-slices #cSlices>p.sub{display:none}
 </section>
 
 
-<!-- ======================= SLICES ======================= -->
+<!-- ======================= SLOTS ======================= -->
 <section class="card" id="cSlices">
- <h2>Slices: every frequency at once <span class="tag" id="slTag"></span></h2>
- <p class="sub">One small panadapter for each frequency you are measuring, side by side. With the Hermes Lite 2 they are all live together. The shaded stripe is the part that is measured. Shown automatically while logging; press <b>Preview</b> to check your antenna and gain before a drive.</p>
+ <h2>Slots 1&ndash;4: your frequencies, live <span class="tag" id="slTag"></span></h2>
+ <p class="sub">Each slot is a live panadapter with a waterfall for one frequency. They start by themselves and stay live as long as the program runs and the slot has a frequency and a working radio. Type a frequency in a slot (or in the readings table in box 1); everything you set is remembered. The yellow stripe is the part that is measured and logged.</p>
  <div class="row" style="align-items:center">
-  <button class="pri" id="bSlStart" onclick="slStart()">&#9654; Preview slices</button>
-  <button class="stop" id="bSlStop" onclick="slStop()" style="display:none">&#9632; Stop preview</button>
-  <button class="sm" id="bSlPop" onclick="window.open('/?view=slices','_blank')" title="A page with only the four slices, good for a second screen or the car">Open in its own tab</button>
+  <button class="pri" id="bSlStart" onclick="slStart()" style="display:none">&#9654; Start live view</button>
+  <button class="pri" id="bSlPause" onclick="slPause()" style="display:none">&#9208; Pause recording</button>
+  <button class="sm" id="bSlStop" onclick="slStop()" style="display:none" title="Lets other programs use the radio">&#9632; Stop live view</button>
+  <button class="sm" id="bSlCompact" onclick="slCompact()" title="All four slots on one screen: pictures only">Compact view (all 4 on one screen)</button>
+  <button class="sm" id="bSlPop" onclick="window.open('/?view=slices','_blank')" title="A page with only the four slots, good for a second screen or the car">Open in its own tab</button>
   <button class="sm" id="bSlFull" style="display:none" onclick="slFull()">Full screen</button>
   <span class="mut" id="slStatus"></span>
-  <span style="margin-left:auto;display:inline-flex;gap:8px;align-items:center"><label>Volume</label><input type="range" id="slVol" min="0" max="100" value="70" style="width:110px" oninput="slsVol()"><label class="chk" style="display:inline-flex;margin:0"><input type="checkbox" id="slMute" onchange="slsVol()"> <span>Mute</span></label></span>
  </div>
+ <div id="slPauseBar" style="display:none;margin-top:8px;padding:8px 12px;border-radius:8px;background:#fff4cc;border:1px solid #e0b400;font-weight:600"></div>
  <div id="slWarn" class="note err" style="display:none;margin-top:8px"></div>
- <div id="slGrid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:10px;margin-top:10px"></div>
+ <div id="slGrid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:12px;margin-top:10px"></div>
 </section>
 
 <!-- ======================= PANADAPTER ======================= -->
@@ -424,12 +455,13 @@ async function guard(fn){try{return await fn();}catch(e){toast("&#9888; "+esc(e.
 /* ---------- form <-> config ---------- */
 function chRow(c,i){const r=c.radio||"auto", md=(c.mode||"AM").toUpperCase();
  const opt=(v,t)=>`<option value="${v}" ${r===v?"selected":""}>${t}</option>`;
- return `<tr><td><input type="number" step="any" class="cm" value="${esc(c.mhz)}" placeholder="MHz"></td>
- <td><input type="number" step="any" class="cb" value="${esc(c.bw_khz)}"></td>
- <td><select class="cmd" title="Sets which side of the frequency is measured: below for LSB, above for USB, both sides for AM / SAM / NFM. Also the listening mode.">${["AM","SAM","USB","LSB","NFM"].map(m=>`<option ${m===md?"selected":""}>${m}</option>`).join("")}</select></td>
- <td><input type="number" step="any" class="cc" value="${esc(c.cal_db)}"></td>
- <td class="radcol"><select class="cr">${opt("auto","Auto")}${opt("hl2","Hermes")}${opt("sdrplay","SDRplay")}</select></td>
- <td class="lvlcell" id="lvl${i}" style="min-width:120px"><span class="mut">&ndash;</span></td></tr>`;}
+ return `<tr><td><b>Slot ${i+1}</b></td><td><input type="number" step="any" class="cm" value="${esc(c.mhz)}" placeholder="MHz" onchange="chEdited()"></td>
+ <td><input type="number" step="any" class="cb" value="${esc(c.bw_khz)}" onchange="chEdited()"></td>
+ <td><select class="cmd" onchange="chEdited()" title="Sets which side of the frequency is measured: below for LSB, above for USB, both sides for AM / SAM / NFM. Also the listening mode.">${["AM","SAM","USB","LSB","NFM"].map(m=>`<option ${m===md?"selected":""}>${m}</option>`).join("")}</select></td>
+ <td><input type="number" step="any" class="cc" value="${esc(c.cal_db)}" onchange="chEdited()"></td>
+ <td class="radcol"><select class="cr" onchange="chEdited()">${opt("auto","Auto")}${opt("hl2","Hermes")}${opt("sdrplay","SDRplay")}</select></td>
+ <td class="lvlcell" id="lvl${i}" style="min-width:120px"><span class="mut">&ndash;</span></td>
+ <td id="lt${i}" class="mut" style="min-width:84px">&ndash;</td></tr>`;}
 function useSdr(){ return $("useSdr").checked; }
 function useHl2(){ return $("useHl2").checked; }
 function showRadioFields(){ const hl=useHl2(), sd=useSdr();
@@ -442,7 +474,7 @@ function radioChanged(){ showRadioFields();
   if(!useSdr()&&!useHl2()) toast("&#9888; No radio is ticked. Tick at least one (or use Practice mode).",7000);
   else if(useHl2()&&!useSdr()){ const hi=[...document.querySelectorAll(".cm")].map(x=>+x.value).filter(v=>v>38);
     if(hi.length) toast("&#9888; "+hi[0]+" MHz is above what the Hermes Lite 2 can receive (about 38 MHz). Change that frequency, or tick the SDRplay too.",9000); }
-  guard(()=>api("/api/config",{use_sdrplay:useSdr(),use_hl2:useHl2(),hl2_ip:$("hl2ip").value.trim(),hl2_rate:+$("hl2rate").value})); }
+  guard(async()=>{ await api("/api/config",{use_sdrplay:useSdr(),use_hl2:useHl2(),hl2_ip:$("hl2ip").value.trim(),hl2_rate:+$("hl2rate").value}); await slRestart(); }); }
 async function findHl2(){
   const b=$("btnFindHl2"); b.disabled=true; const old=b.textContent; b.textContent="Searching the network... (about 3 s)"; $("hl2Msg").textContent="";
   try{
@@ -456,259 +488,397 @@ async function findHl2(){
 }
 function hl2GainReset(){ $("hl2g").value=15; gainChanged(); }
 
-/* ---------- slices ---------- */
-const SL={on:false,timer:null,busy:false};
+/* ---------- slots: four live panadapters ---------- */
+const SL={logging:false,live:false,busy:false,starting:false,manualStop:false,lastTry:0,health:{},byCh:{},startErr:"",radio:"",lastSync:0,seen:{},last:{},paused:false,autoPaused:false};
+const SLH={0:[],1:[],2:[],3:[]};      // the last readings saved for each slot (for the readout shown when a slot's radio is busy mapping)
 const ONLY_SLICES=new URLSearchParams(location.search).get("view")==="slices";
-if(ONLY_SLICES){ document.body.classList.add("only-slices"); document.title="RF Noise Map - Slices";
+const POPSLOT=Math.min(4,Math.max(0,+new URLSearchParams(location.search).get("slot")||0));
+if(POPSLOT){ document.body.classList.add("only-slot"); document.title="RF Noise Map - Slot "+POPSLOT; }
+else { try{ if(!ONLY_SLICES) localStorage.removeItem("rfmapManualStop"); }catch(e){} }
+function slPopOut(i){ window.open("/?slot="+(i+1),"rfslot"+(i+1)); }
+if(POPSLOT||ONLY_SLICES) setInterval(()=>{ const t=String(Date.now()); try{ if(POPSLOT) localStorage.setItem("rfmapPop"+POPSLOT,t); else for(let k=1;k<=4;k++) localStorage.setItem("rfmapPop"+k,t); }catch(e){} },2000);
+function popClaimed(i){ if(POPSLOT||ONLY_SLICES) return false; try{ const t=+localStorage.getItem("rfmapPop"+(i+1)); return t>0&&Date.now()-t<6000; }catch(e){ return false; } }   // a pop-out tab plays that slot's sound
+window.addEventListener("storage",e=>{ if(e.key==="rfmapSlots"&&e.newValue){ try{ const j=JSON.parse(e.newValue); for(const k in j) Object.assign(slp(k),j[k]); }catch(_){} } });
+if(ONLY_SLICES){ document.body.classList.add("only-slices"); document.title="RF Noise Map - Slots";
   window.addEventListener("load",()=>{ $("bSlPop").style.display="none"; $("bSlFull").style.display="inline-block"; }); }
 function slFull(){ const d=document.documentElement;
   if(document.fullscreenElement){ document.exitFullscreen(); }
   else if(d.requestFullscreen){ d.requestFullscreen(); toast("Full screen. Press Esc (or this button) to leave.",4000); } }
-const SLZ=(()=>{try{return JSON.parse(localStorage.getItem("rfmapSlz")||"{}")}catch(e){return{}}})();
-function slzSet(ch,z){ SLZ[String(ch)]=+z||1; try{localStorage.setItem("rfmapSlz",JSON.stringify(SLZ));}catch(e){} }
+/* what each slot remembers between visits (the frequency, mode, width, radio and gain are kept in the program's settings) */
+const SLP=(()=>{try{return JSON.parse(localStorage.getItem("rfmapSlots")||"{}")}catch(e){return{}}})();
+function slp(i){ return SLP[i]||(SLP[i]={step:"1",zoom:1,bwsel:"",agc:"medium",vol:0,mute:false,auto:true,lo:-130,hi:-60}); }
+function slpSave(){ try{localStorage.setItem("rfmapSlots",JSON.stringify(SLP));}catch(e){} }
 const slzOf=v=>Math.pow(2,(+v||0)/4);            // slider 0..16 -> zoom 1x..16x, smooth steps
 const slzPos=z=>Math.round(4*Math.log2(Math.max(1,+z||1)));
 function slzSpanTxt(rate,z){ const spn=rate/z; return "showing "+(spn>=1e6?(spn/1e6).toFixed(1)+" MHz":Math.round(spn/1e3)+" kHz")+" of band"; }
-function slDraw(cv,f,zoom){
-  const g=cv.getContext("2d"), W=cv.width, H=cv.height; g.clearRect(0,0,W,H);
-  g.fillStyle="#0b1620"; g.fillRect(0,0,W,H);
-  const raw=atob(f.spec), n=raw.length, rate=f.rate;
+const BWDEF={AM:8000,SAM:8000,USB:2800,LSB:2800,NFM:12000};
+const rowEl=(cls,i)=>document.querySelectorAll("."+cls)[i];
+const slotEl=i=>$("slGrid").children[i];
+function rowFilled(i){ const m=rowEl("cm",i); return !!m && String(m.value).trim()!==""; }
+function slotCh(i){ if(!rowFilled(i)) return -1; let n=0; for(let k=0;k<i;k++) if(rowFilled(k)) n++; return n; }   // number the radio uses for this slot
+function slRadioFor(i,f){ if(f&&f.radio) return f.radio; if($("practice").checked) return "practice";
+  const sel=(rowEl("cr",i)||{}).value||"auto"; if(sel!=="auto") return sel;
+  const hl=useHl2(), sd=useSdr(), mhz=+((rowEl("cm",i)||{}).value)||0;
+  if(hl&&!sd) return "hl2"; if(sd&&!hl) return "sdrplay"; return mhz<=38?"hl2":"sdrplay"; }
+
+/* ----- building the four panels ----- */
+function slotHTML(i){ return '<div class="slh"><span><b class="slt">Slot '+(i+1)+'</b> <span class="slf"></span></span><span><span class="slv"></span> <button class="sm slPop" title="Open this slot in its own browser tab, as big as you like (up to four tabs)" onclick="slPopOut('+i+')">&#10064; Pop out</button></span></div>'+
+ '<div class="slview"><canvas class="slsp"></canvas><canvas class="slwf"></canvas><div class="slmsg"></div></div>'+
+ '<div class="slrow sltune"><span class="rn">Tune</span>'+
+ '<button class="sm slDn" title="Tune down one step">&minus;</button>'+
+ '<input type="number" step="any" class="slF" style="width:104px" placeholder="MHz" title="Frequency in MHz. Type a frequency and press Enter, use the - and + buttons or the mouse wheel, or click or drag on the picture. Clear the box to switch this slot off.">'+
+ '<button class="sm slUp" title="Tune up one step">+</button><span class="mut">MHz</span>'+
+ '<label>Step</label><select class="sm slStep" title="How far each click of the - and + buttons, or each notch of the mouse wheel, moves the frequency">'+
+ '<option value="0.1">100 Hz</option><option value="0.5">500 Hz</option><option value="1">1 kHz</option><option value="5">5 kHz</option>'+
+ '<option value="10">10 kHz</option><option value="100">100 kHz</option><option value="1000">1 MHz</option></select></div>'+
+ '<div class="slctl">'+
+ '<div class="slrow"><span class="rn">Measure</span>'+
+ '<label>Mode</label><select class="sm slsMode" title="Which side of the frequency is measured and listened to: LSB below it, USB above it, AM / SAM / NFM both sides"><option>AM</option><option>SAM</option><option>USB</option><option>LSB</option><option>NFM</option></select>'+
+ '<label title="The signal power inside this many kHz is what gets logged and mapped (the yellow bar on the picture). It is not the listening filter.">Width</label><input type="number" step="any" class="slW" style="width:60px" title="The signal power inside this many kHz is what gets logged and mapped (the yellow bar on the picture). It is not the listening filter."><span class="mut">kHz</span>'+
+ '<span class="slRw"><label>Radio</label><select class="sm slR" title="Which radio measures this slot"><option value="auto">Auto</option><option value="hl2">Hermes</option><option value="sdrplay">SDRplay</option></select></span></div>'+
+ '<div class="slrow"><span class="rn">View</span>'+
+ '<label>Zoom</label><input type="range" class="slzoom" min="0" max="16" step="1" value="0" style="width:110px"><span class="mut slspan"></span>'+
+ '<button class="sm slAuto" title="Automatic scale keeps the noise floor and the strongest signal in view. To set the scale by hand, drag the dB numbers at the left of the picture up or down (the mouse wheel there stretches it).">Auto scale</button>'+
+ '<span class="mut">Drag the dB numbers on the picture to move the scale.</span></div>'+
+ '<div class="slrow slgain"><span class="rn">Gain</span>'+
+ '<span class="gHl" style="display:none;align-items:center;gap:6px"><input type="range" class="gHlS" min="-12" max="48" step="1" style="width:170px" title="Hermes gain. Higher hears weaker signals but overloads sooner. One gain for the whole radio, so every Hermes slot moves together."><b class="gHlV"></b><span class="mut">dB (whole radio)</span></span>'+
+ '<span class="gSd" style="display:none;align-items:center;gap:6px"><label>IF att.</label><input type="range" class="gIfS" min="20" max="59" step="1" style="width:110px"><b class="gIfV"></b><label>RF att.</label><input type="range" class="gRfS" min="0" max="27" step="1" style="width:90px"><b class="gRfV"></b></span>'+
+ '<span class="gOv" style="display:none;color:#b3261e;font-weight:700">OVERLOAD - lower the gain</span></div>'+
+ '<div class="slsnd slrow" style="display:none"><span class="rn">Listen</span>'+
+ '<label>Volume</label><input type="range" class="slVol" min="0" max="100" step="1" style="width:100px" title="Raise the volume above 0 to hear this slot. Any number of slots can play together.">'+
+ '<button class="sm slMute" title="Silences this slot without losing its volume setting">Mute</button>'+
+ '<label>Filter</label><select class="sm slsBw" title="Receive filter width: the green band on the picture">'+
+ '<option value="">Auto</option><option value="match">= Width</option><option value="500">500 Hz</option><option value="1000">1.0 kHz</option><option value="1800">1.8 kHz</option><option value="2400">2.4 kHz</option>'+
+ '<option value="2800">2.8 kHz</option><option value="3600">3.6 kHz</option><option value="6000">6 kHz</option><option value="8000">8 kHz</option><option value="12000">12 kHz</option></select>'+
+ '<label>AGC</label><select class="sm slsAgc" title="Off keeps the background noise at its true level next to the signals. Slow, Medium and Fast level the volume.">'+
+ '<option value="off">Off</option><option value="slow">Slow</option><option value="medium">Medium</option><option value="fast">Fast</option></select>'+
+ '<button class="sm recbtn slsRec"></button><span class="mut slsRecInfo"></span></div></div>'; }
+function ensureSlots(){ const grid=$("slGrid"); if(grid.children.length===4) return;
+  grid.innerHTML=""; for(let i=0;i<4;i++){ const d=document.createElement("div"); d.className="slbox empty"; d.innerHTML=slotHTML(i); if(POPSLOT===i+1) d.classList.add("me"); grid.appendChild(d); slotInit(i,d); }
+  if(localStorage.getItem("rfmapSlCompact")==="1"){ grid.classList.add("compact"); $("bSlCompact").textContent="Full-size view"; } }
+function slotTune(i,p,delay){ const cm=rowEl("cm",i); if(!cm) return;
+  if(!slUndo) slUndo=[...document.querySelectorAll(".cm")].map((_,k)=>({m:rowEl("cm",k).value,b:rowEl("cb",k).value,r:rowEl("cr",k).value,d:(rowEl("cmd",k)||{}).value}));
+  if(p.mhz!==undefined){ cm.value=p.mhz; if(String(p.mhz).trim()!==""&&!(+rowEl("cb",i).value>0)) rowEl("cb",i).value=5; }
+  if(p.bw!==undefined) rowEl("cb",i).value=p.bw;
+  if(p.radio!==undefined) rowEl("cr",i).value=p.radio;
+  if(p.mode!==undefined){ const cd=rowEl("cmd",i); if(cd) cd.value=p.mode; }
+  clearTimeout(slTuneTimer); slTuneTimer=setTimeout(slPush,delay||250); }
+let slTuneTimer=null, slUndo=null;
+function slotInit(i,d){ const q=s=>d.querySelector(s), p=slp(i);
+  const fi=q(".slF"), wi=q(".slW"), ri=q(".slR"), st=q(".slStep"), ms=q(".slsMode"), cv=q(".slsp");
+  const stepNow=()=>+st.value||1, cur=()=>parseFloat(fi.value)||parseFloat((rowEl("cm",i)||{}).value)||0;
+  const move=dir=>{ const nv=Math.max(0.001,Math.round((cur()+dir*stepNow()/1000)*1e6)/1e6); fi.value=String(nv); slotTune(i,{mhz:String(nv)}); };
+  q(".slDn").onclick=()=>move(-1); q(".slUp").onclick=()=>move(1);
+  st.value=p.step||"1"; st.onchange=()=>{ p.step=st.value; slpSave(); };
+  fi.onchange=()=>slotTune(i,{mhz:fi.value.trim()});
+  fi.onwheel=e=>{ e.preventDefault(); move(e.deltaY<0?1:-1); };
+  wi.onchange=()=>{ if(+wi.value>0){ slotTune(i,{bw:wi.value}); if(d._rad==="hl2"&&p.bwsel==="match") setTimeout(()=>slsMode(i),400); } };
+  ri.onchange=()=>slotTune(i,{radio:ri.value});
+  ms.onchange=()=>{ slotTune(i,{mode:ms.value}); if(d._rad==="hl2") slsMode(i); };
+  const bs=q(".slsBw"), ag=q(".slsAgc"); bs.value=p.bwsel||""; ag.value=p.agc||"medium";
+  bs.onchange=()=>{ p.bwsel=bs.value; slpSave(); slsMode(i); if(d._f) slDraw(i,d._f); };
+  ag.onchange=()=>{ p.agc=ag.value; slpSave(); slsMode(i); };
+  const zs=q(".slzoom"); zs.value=String(slzPos(p.zoom));
+  zs.oninput=()=>{ p.zoom=slzOf(zs.value); slpSave(); if(d._f){ q(".slspan").textContent=slzSpanTxt(d._f.rate,p.zoom); slDraw(i,d._f,true);} };
+  q(".slAuto").onclick=()=>{ p.auto=!p.auto; if(!p.auto){ const r=SLR[i]; if(r){ p.lo=r.lo; p.hi=r.hi; } } slpSave(); if(d._f) slDraw(i,d._f); };
+  // gain sliders (the Hermes has one gain for the whole radio; the SDRplay has two attenuators)
+  const gh=q(".gHlS"), gi=q(".gIfS"), gr=q(".gRfS");
+  gh.oninput=()=>{ $("hl2g").value=gh.value; q(".gHlV").textContent=(+gh.value>0?"+":"")+gh.value; slGainSoon(); };
+  gi.oninput=()=>{ $("ifgr").value=gi.value; q(".gIfV").textContent=gi.value; gainSync(); slGainSoon(); };
+  gr.oninput=()=>{ $("rfgr").value=gr.value; q(".gRfV").textContent=gr.value; gainSync(); slGainSoon(); };
+  // sound
+  const vo=q(".slVol"), mu=q(".slMute"); vo.value=String(p.vol||0);
+  vo.oninput=()=>{ p.vol=+vo.value; slpSave(); slsCtx(); slsGainSet(i); slsSyncSoon(); };
+  mu.onclick=()=>{ p.mute=!p.mute; slpSave(); slsCtx(); slsGainSet(i); slsSyncSoon(); };
+  q(".slsRec").onclick=()=>slsRec(i);
+  // the picture: wheel = step, click = tune to that spot, drag = grab the band and slide it; the dB numbers at the left move the scale
+  cv.style.touchAction="none";
+  const inScale=e=>{ const r=cv.getBoundingClientRect(); return e.clientX-r.left<SCW; };
+  cv.onwheel=e=>{ e.preventDefault(); if(inScale(e)){ const R=SLR[i]; if(!R) return; const mid=(R.lo+R.hi)/2, half=(R.hi-R.lo)/2*(e.deltaY<0?0.88:1.14);
+      p.auto=false; p.lo=mid-Math.max(10,Math.min(80,half)); p.hi=mid+Math.max(10,Math.min(80,half)); slpSave(); if(d._f) slDraw(i,d._f); } else move(e.deltaY<0?1:-1); };
+  cv.ondblclick=e=>{ if(inScale(e)){ p.auto=true; slpSave(); if(d._f) slDraw(i,d._f); } };
+  cv.onpointerdown=e=>{ if(e.button>0) return; const r=cv.getBoundingClientRect();
+    if(inScale(e)){ const R=SLR[i]; if(!R) return; cv._sd={y0:e.clientY,lo:R.lo,hi:R.hi,h:r.height}; try{cv.setPointerCapture(e.pointerId);}catch(_){} return; }
+    const m=cv._map; if(!m) return;
+    cv._drag={x0:e.clientX,f0:cur(),hzpp:m.span/r.width,moved:false,clickHz:m.w0+(e.clientX-r.left)/r.width*m.span};
+    try{cv.setPointerCapture(e.pointerId);}catch(_){} cv.style.cursor="grabbing"; };
+  cv.onpointermove=e=>{ const s=cv._sd, g=cv._drag;
+    if(s){ const span=s.hi-s.lo, dd=(e.clientY-s.y0)/(s.h*0.8)*span; p.auto=false; p.lo=s.lo+dd; p.hi=s.hi+dd; if(d._f) slDraw(i,d._f); return; }
+    if(!g){ cv.style.cursor=inScale(e)?"ns-resize":"grab"; return; }
+    const dx=e.clientX-g.x0; if(Math.abs(dx)>4) g.moved=true;
+    if(g.moved){ const nv=Math.max(0.001,Math.round((g.f0-dx*g.hzpp/1e6)*1e4)/1e4); fi.value=String(nv); slotTune(i,{mhz:String(nv)},90); } };
+  cv.onpointerup=cv.onpointercancel=e=>{ if(cv._sd){ cv._sd=null; slpSave(); return; }
+    const g=cv._drag; cv._drag=null; cv.style.cursor="grab";
+    if(g&&!g.moved){ const nv=Math.max(0.001,Math.round(g.clickHz/1e6*1e4)/1e4); fi.value=String(nv); slotTune(i,{mhz:String(nv)},90); } };
+}
+const SCW=54;                 // width (px) of the dB-number strip at the left of each picture
+const SLR={};                 // the dB range now shown, per slot
+let slGainT=null;
+function slGainSoon(){ clearTimeout(slGainT); slGainT=setTimeout(()=>guard(()=>gainChanged()),350); }
+
+/* ----- drawing ----- */
+function slFit(cv){ const r=cv.getBoundingClientRect(); if(r.width<20||r.height<10) return null; const dpr=window.devicePixelRatio||1;
+  const w=Math.round(r.width*dpr), h=Math.round(r.height*dpr); let ch=false;
+  if(cv.width!==w){cv.width=w;ch=true;} if(cv.height!==h){cv.height=h;ch=true;}
+  return {W:w,H:h,sc:dpr*Math.max(1,r.width/760),dpr:dpr,ch:ch}; }
+function slDraw(i,f,force){
+  const d=slotEl(i), cv=d.querySelector(".slsp"), wf=d.querySelector(".slwf"), p=slp(i), F=slFit(cv); if(!F) return;
+  const g=cv.getContext("2d"), W=F.W, H=F.H, sc=F.sc;
+  const raw=atob(f.spec), n=raw.length, rate=f.rate, m0=f.db_lo, mk=(f.db_hi-f.db_lo)/255;
   // light smoothing between frames, so the trace glides like a real panadapter instead of jumping
-  let bin=cv._sm; if(!bin||bin.length!==n){ bin=new Float32Array(n); for(let i=0;i<n;i++) bin[i]=raw.charCodeAt(i); cv._sm=bin; }
-  else { for(let i=0;i<n;i++) bin[i]=bin[i]*0.45+raw.charCodeAt(i)*0.55; }
-  // the window shown: the whole capture, or a slice of it centred on the measured frequency
-  zoom=Math.max(1,+zoom||1);
-  const span=rate/zoom;
-  let w0=f.tune-span/2;
-  w0=Math.min(Math.max(w0,f.center-rate/2), f.center+rate/2-span);
-  const w1=w0+span;
-  const toX=hz=>((hz-w0)/span)*W;
-  const sc=W/(cv.getBoundingClientRect().width||W), fs=Math.round(13*sc), bh=fs+Math.round(8*sc), PH=H-bh;   // PH = height of the trace area above the frequency strip
-  g.strokeStyle="#223445"; g.lineWidth=1; for(let k=1;k<4;k++){ g.beginPath(); g.moveTo(0,PH*k/4); g.lineTo(W,PH*k/4); g.stroke(); }
-  // measured stripe
+  let bin=cv._sm; if(!bin||bin.length!==n){ bin=new Float32Array(n); for(let k=0;k<n;k++) bin[k]=raw.charCodeAt(k); cv._sm=bin; }
+  else if(cv._seq!==f.seq){ for(let k=0;k<n;k++) bin[k]=bin[k]*0.45+raw.charCodeAt(k)*0.55; }
+  cv._seq=f.seq;
+  const zoom=Math.max(1,+p.zoom||1), span=rate/zoom;
+  let w0=f.tune-span/2; w0=Math.min(Math.max(w0,f.center-rate/2), f.center+rate/2-span);
+  const w1=w0+span, toX=hz=>((hz-w0)/span)*W;
+  const b0=((w0-(f.center-rate/2))/rate)*n, bw=(span/rate)*n;
+  // the dB range: automatic (follows the noise floor and the strongest signal in view) or set by hand
+  let R=SLR[i]||(SLR[i]={lo:-130,hi:-60,init:false});
+  if(p.auto){ const a=Math.max(0,Math.floor(b0)), b=Math.min(n,Math.ceil(b0+bw)), seg=Float32Array.from(bin.subarray(a,Math.max(a+1,b))).sort();
+    const lo=m0+seg[Math.floor(seg.length*0.08)]*mk-8, mx=m0+seg[seg.length-1]*mk, hi=Math.max(mx+6,lo+45);
+    if(!R.init){ R.lo=lo; R.hi=hi; R.init=true; } else { R.lo+=0.1*(lo-R.lo); R.hi+=0.1*(hi-R.hi); } }
+  else { R.lo=p.lo; R.hi=p.hi; R.init=true; }
+  if(R.hi-R.lo<10) R.hi=R.lo+10;
+  const bh=Math.round(13*sc)+Math.round(8*sc), PH=H-bh, fs=Math.round(13*sc);
+  const yOf=db=>{ const t=(db-R.lo)/(R.hi-R.lo); return PH-Math.max(0,Math.min(1,t))*PH; };
+  g.fillStyle="#0b1620"; g.fillRect(0,0,W,H);
+  // grid lines and the dB numbers
+  const stp=(R.hi-R.lo)>100?20:(R.hi-R.lo)>50?10:(R.hi-R.lo)>25?5:2;
+  g.lineWidth=1; g.font=Math.round(11*sc)+"px sans-serif"; g.textAlign="right";
+  for(let v=Math.ceil(R.lo/stp)*stp; v<R.hi; v+=stp){ const y=yOf(v); g.strokeStyle="#223445"; g.beginPath(); g.moveTo(0,y); g.lineTo(W,y); g.stroke(); }
   cv._map={w0:w0,span:span};
-  const mw=(+f.bw)||5000;
-  const x0=toX(f.tune+(cv._mode==="LSB"?-mw:cv._mode==="USB"?0:-mw/2)), x1=toX(f.tune+(cv._mode==="LSB"?0:cv._mode==="USB"?mw:mw/2)), pb=cv._pb;
-  if(pb){   // the receive filter follows the mode: LSB below the tuned frequency, USB above, AM/NFM both sides
-    const p0=toX(f.tune+pb.lo), p1=toX(f.tune+pb.hi);
-    g.fillStyle="rgba(80,220,120,.30)"; g.fillRect(Math.max(0,p0),0,Math.max(2,p1-p0),H);
-    g.fillStyle="rgba(255,200,60,.85)"; g.fillRect(Math.max(0,x0),0,Math.max(2,x1-x0),5);      // what is measured and logged
-    g.strokeStyle="rgba(255,255,255,.9)"; g.lineWidth=1.2; g.beginPath(); g.moveTo(toX(f.tune),0); g.lineTo(toX(f.tune),H); g.stroke();
-  } else { g.fillStyle="rgba(255,200,60,.28)"; g.fillRect(Math.max(0,x0),0,Math.max(2,x1-x0),H); }
-  g.strokeStyle="#59d0ff"; g.lineWidth=1.3; g.beginPath();
-  const b0=((w0-(f.center-rate/2))/rate)*n;
-  const bw=(span/rate)*n;
-  for(let x=0;x<W;x++){ const a=Math.floor(b0+x*bw/W), b=Math.max(a+1,Math.floor(b0+(x+1)*bw/W)); let m=0;
-    for(let i=Math.max(0,a);i<Math.min(n,b);i++){const v=bin[i]; if(v>m)m=v;}
-    const y=PH-(m/255)*PH; if(x===0)g.moveTo(x,y); else g.lineTo(x,y); }
+  const mw=(+f.bw)||5000, mode=d.querySelector(".slsMode").value;
+  const x0=toX(f.tune+(mode==="LSB"?-mw:mode==="USB"?0:-mw/2)), x1=toX(f.tune+(mode==="LSB"?0:mode==="USB"?mw:mw/2)), pb=cv._pb;
+  if(pb){ const p0=toX(f.tune+pb.lo), p1=toX(f.tune+pb.hi);
+    g.fillStyle="rgba(80,220,120,.30)"; g.fillRect(Math.max(0,p0),0,Math.max(2,p1-p0),PH);
+    g.fillStyle="rgba(255,200,60,.85)"; g.fillRect(Math.max(0,x0),0,Math.max(2,x1-x0),5);
+    g.strokeStyle="rgba(255,255,255,.9)"; g.lineWidth=1.2; g.beginPath(); g.moveTo(toX(f.tune),0); g.lineTo(toX(f.tune),PH); g.stroke();
+  } else { g.fillStyle="rgba(255,200,60,.28)"; g.fillRect(Math.max(0,x0),0,Math.max(2,x1-x0),PH); }
+  g.strokeStyle="#59d0ff"; g.lineWidth=1.3*Math.max(1,F.dpr*0.8); g.beginPath();
+  const colDb=new Float32Array(W);
+  for(let x=0;x<W;x++){ const a=Math.floor(b0+x*bw/W), b=Math.max(a+1,Math.floor(b0+(x+1)*bw/W)); let mm=0;
+    for(let k=Math.max(0,a);k<Math.min(n,b);k++){ const v=bin[k]; if(v>mm)mm=v; }
+    const db=m0+mm*mk; colDb[x]=db; const y=yOf(db); if(x===0)g.moveTo(x,y); else g.lineTo(x,y); }
   g.stroke();
+  // the dB numbers on a strip at the left: drag them to move the scale
+  g.fillStyle="rgba(8,16,26,.72)"; g.fillRect(0,0,SCW*F.dpr,PH);
+  g.fillStyle="#9fc0d8"; g.textAlign="right";
+  for(let v=Math.ceil(R.lo/stp)*stp; v<R.hi; v+=stp){ const y=yOf(v); if(y>22*sc&&y<PH-4*sc) g.fillText(String(v),(SCW-6)*F.dpr,y+4*sc); }
+  g.textAlign="left"; g.fillStyle="rgba(159,192,216,.9)"; g.font="bold "+Math.round(10*sc)+"px sans-serif"; g.fillText("dB"+(p.auto?" auto":""),4*F.dpr,12*sc);
   // frequency scale along the bottom: the two limits of the view (bold), the tuned frequency, and marks in between
+  g.font=fs+"px sans-serif";
   const dec=span>=1e6?3:(span>=100e3?4:5);
-  const nice=(()=>{ const raw=span/5, m=Math.pow(10,Math.floor(Math.log10(raw))), r=raw/m; return (r<=1?1:r<=2?2:r<=5?5:10)*m; })();
-  g.fillStyle="rgba(8,16,26,.82)"; g.fillRect(0,H-bh,W,bh);
-  g.strokeStyle="rgba(143,176,200,.35)"; g.lineWidth=1; g.fillStyle="#9fc0d8"; g.font=fs+"px sans-serif"; g.textAlign="center";
-  const tw=t=>g.measureText(t).width, gap=8*sc, used=[];
+  const nice=(()=>{ const r=span/5, m=Math.pow(10,Math.floor(Math.log10(r))), q=r/m; return (q<=1?1:q<=2?2:q<=5?5:10)*m; })();
+  g.fillStyle="rgba(8,16,26,.9)"; g.fillRect(0,PH,W,bh);
+  g.strokeStyle="rgba(143,176,200,.35)"; g.lineWidth=1; g.fillStyle="#9fc0d8"; g.textAlign="center";
+  const tw=t=>g.measureText(t).width, gap=8*sc, used=[], ty=H-Math.round(5*sc);
   g.font="bold "+fs+"px sans-serif";
   const lTxt=(w0/1e6).toFixed(dec), rTxt=(w1/1e6).toFixed(dec)+" MHz", tTxt=(f.tune/1e6).toFixed(dec), tx=toX(f.tune);
   used.push([4*sc-gap,4*sc+tw(lTxt)+gap],[W-4*sc-tw(rTxt)-gap,W-4*sc+gap],[tx-tw(tTxt)/2-gap,tx+tw(tTxt)/2+gap]);
   g.font=fs+"px sans-serif"; g.fillStyle="#9fc0d8"; g.textAlign="center";
   for(let t=Math.ceil(w0/nice)*nice; t<w1; t+=nice){ const x=toX(t);
-    g.beginPath(); g.moveTo(x,H-bh); g.lineTo(x,H-bh-6*sc); g.stroke();
+    g.beginPath(); g.moveTo(x,PH); g.lineTo(x,PH+5*sc); g.stroke();
     const lab=(t/1e6).toFixed(dec), a0=x-tw(lab)/2-gap, a1=x+tw(lab)/2+gap;
-    if(used.every(u=>a1<u[0]||a0>u[1])){ g.fillText(lab,x,H-Math.round(5*sc)); used.push([a0,a1]); } }
-  if(f.db_lo!==undefined){ g.font=Math.round(11*sc)+"px sans-serif"; g.fillStyle="rgba(159,192,216,.8)"; g.textAlign="left";
-    g.fillText("scale "+Math.round(f.db_lo)+" to "+Math.round(f.db_hi)+" dB (automatic)",Math.round(5*sc),Math.round(13*sc)); }
+    if(used.every(u=>a1<u[0]||a0>u[1])){ g.fillText(lab,x,ty); used.push([a0,a1]); } }
   g.font="bold "+fs+"px sans-serif"; g.fillStyle="#ffffff";
-  g.textAlign="left"; g.fillText(lTxt,Math.round(4*sc),H-Math.round(5*sc));
-  g.textAlign="right"; g.fillText(rTxt,W-Math.round(4*sc),H-Math.round(5*sc));
-  g.font="bold "+fs+"px sans-serif";
-  { const t0=tx-tw(tTxt)/2-gap, t1=tx+tw(tTxt)/2+gap;       // the tuned frequency's label, unless it would sit on a limit's label
-    if(tx>0 && tx<W && t1<used[1][0] && t0>used[0][1]){ g.fillStyle="#ffd24a"; g.textAlign="center"; g.fillText(tTxt,tx,H-Math.round(5*sc)); } }
+  g.textAlign="left"; g.fillText(lTxt,Math.round(4*sc),ty);
+  g.textAlign="right"; g.fillText(rTxt,W-Math.round(4*sc),ty);
+  { const t0=tx-tw(tTxt)/2-gap, t1=tx+tw(tTxt)/2+gap;
+    if(tx>0 && tx<W && t1<used[1][0] && t0>used[0][1]){ g.fillStyle="#ffd24a"; g.textAlign="center"; g.fillText(tTxt,tx,ty); } }
+  // the waterfall: one new line each time a new picture arrives, newest at the top
+  const G=slFit(wf); if(G){ const w=wf.getContext("2d"), key=Math.round(w0)+"|"+Math.round(span);
+    if(G.ch||wf._k!==key){ w.fillStyle="#000028"; w.fillRect(0,0,G.W,G.H); wf._k=key; wf._seq=-1; }
+    if(wf._seq!==f.seq){ wf._seq=f.seq; const rh=Math.max(1,Math.round(G.dpr));
+      w.drawImage(wf,0,0,G.W,G.H-rh,0,rh,G.W,G.H-rh);
+      const im=w.createImageData(G.W,1), px=im.data, den=(R.hi-R.lo)||1;
+      for(let x=0;x<G.W;x++){ const xs=Math.min(W-1,Math.floor(x*W/G.W)), t=Math.max(0,Math.min(1,(colDb[xs]-R.lo)/den)), li=Math.round(t*255)*3;
+        px[x*4]=WF_LUT[li]; px[x*4+1]=WF_LUT[li+1]; px[x*4+2]=WF_LUT[li+2]; px[x*4+3]=255; }
+      for(let r=0;r<rh;r++) w.putImageData(im,0,r); } }
 }
+
+/* ----- one pass over the four panels, many times a second ----- */
+function slMsg(){ if(SL.manualStop) return "Live view is stopped. Press <b>Start live view</b> (above) to use the radio again.";
+  if(SL.starting) return "Starting the radio... (a few seconds)";
+  if(PAN&&PAN.on) return "The wide panadapter below is using the radio. Press its Stop button and this slot comes back.";
+  if(!$("practice").checked&&!useSdr()&&!useHl2()) return "Tick a radio under <b>Your radios</b> in box 1 above (or use Practice mode).";
+  if(SL.startErr) return "The radio is not available: "+esc(SL.startErr)+"<br><span style='font-size:12px'>Trying again every 15 seconds.</span>";
+  return "Waiting for the radio..."; }
 function slRender(j){
-  const grid=$("slGrid"), fr=j.frames||[];
-  while(grid.children.length<fr.length){ const d=document.createElement("div"); d.className="slbox";
-    d.innerHTML='<div class="slh" style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:2px"><b class="slt"></b><span class="slv"></span></div>'+
-      '<canvas width="'+(ONLY_SLICES?1000:520)+'" height="'+(ONLY_SLICES?240:140)+'" style="width:100%;border-radius:4px"></canvas>'+
-      '<div class="slrow"><span class="rn">Tune</span>'+
-      '<button class="sm slDn" title="Tune down one step">&minus;</button>'+
-      '<input type="number" step="any" class="slF" style="width:104px" title="Frequency in MHz. Type a frequency and press Enter, use the - and + buttons or the mouse wheel, or click or drag on the picture.">'+
-      '<button class="sm slUp" title="Tune up one step">+</button><span class="mut">MHz</span>'+
-      '<label>Step</label><select class="sm slStep" title="How far each click of the - and + buttons, or each notch of the mouse wheel, moves the frequency">'+
-      '<option value="0.1">100 Hz</option><option value="0.5">500 Hz</option><option value="1" selected>1 kHz</option><option value="5">5 kHz</option>'+
-      '<option value="10">10 kHz</option><option value="100">100 kHz</option><option value="1000">1 MHz</option></select></div>'+
-      '<div class="slrow"><span class="rn">Measure</span>'+
-      '<label>Mode</label><select class="sm slsMode" title="Which side of the frequency is measured and listened to: LSB below it, USB above it, AM / SAM / NFM both sides"><option>AM</option><option>SAM</option><option>USB</option><option>LSB</option><option>NFM</option></select>'+
-      '<label title="The signal power inside this many kHz is what gets logged and mapped (the yellow bar on the picture). It is not the listening filter.">Width</label><input type="number" step="any" class="slW" style="width:60px" title="The signal power inside this many kHz is what gets logged and mapped (the yellow bar on the picture). It is not the listening filter."><span class="mut">kHz</span>'+
-      '<span class="slRw"><label>Radio</label><select class="sm slR" title="Which radio measures this slice"><option value="auto">Auto</option><option value="hl2">Hermes</option><option value="sdrplay">SDRplay</option></select></span></div>'+
-      '<div class="slrow"><span class="rn">Zoom</span>'+
-      '<input type="range" class="slzoom" min="0" max="16" step="1" value="0" style="width:130px"><span class="mut slspan"></span></div>'+
-      '<div class="slsnd slrow" style="display:none"><span class="rn">Listen</span>'+
-      '<button class="sm slsListen"></button><label>Filter</label><select class="sm slsBw" title="Receive filter width: the green band on the picture">'+
-      '<option value="">Auto</option><option value="match">= Width</option><option value="500">500 Hz</option><option value="1000">1.0 kHz</option><option value="1800">1.8 kHz</option><option value="2400">2.4 kHz</option>'+
-      '<option value="2800">2.8 kHz</option><option value="3600">3.6 kHz</option><option value="6000">6 kHz</option><option value="8000">8 kHz</option><option value="12000">12 kHz</option></select>'+
-      '<label>AGC</label><select class="sm slsAgc" title="Off keeps the background noise at its true level next to the signals. Slow, Medium and Fast level the volume.">'+
-      '<option value="off">Off</option><option value="slow">Slow</option><option value="medium" selected>Medium</option><option value="fast">Fast</option></select>'+
-      '<button class="sm recbtn slsRec"></button><span class="mut slsRecInfo"></span></div>'; grid.appendChild(d); }
-  while(grid.children.length>fr.length) grid.removeChild(grid.lastChild);
-  const cal=[...document.querySelectorAll(".cc")];
-  fr.forEach((f,i)=>{ const d=grid.children[i]; d.querySelector(".slt").textContent="Slice "+(f.channel+1)+": "+(f.tune/1e6).toFixed(4)+" MHz"+(f.radio==="hl2"?" (Hermes)":(f.radio==="sdrplay"?" (SDRplay)":""));
-    const c=+((cal[f.channel]||{}).value||0); d.querySelector(".slv").innerHTML="<b>"+(f.smeter+c).toFixed(1)+" dB</b>";
-    d.dataset.ch=String(f.channel);
-    slTuneWire(d,f);
-    const zsel=d.querySelector(".slzoom"), z=SLZ[String(f.channel)]||1;
-    if(document.activeElement!==zsel&&+zsel.value!==slzPos(z)) zsel.value=String(slzPos(z));
-    zsel.oninput=()=>{ const nz=slzOf(zsel.value); slzSet(f.channel,nz);
-      d.querySelector(".slspan").textContent=slzSpanTxt(f.rate,nz);
-      slDraw(d.querySelector("canvas"),f,nz); };              // redraw at once while sliding
-    d.querySelector(".slspan").textContent=slzSpanTxt(f.rate,z);
-    slDraw(d.querySelector("canvas"),f,z);
-    const snd=d.querySelector(".slsnd"), ch=f.channel, st=(SLS.sound||{})[String(ch)]||{};
-    if(f.radio==="hl2"){
-      snd.style.display="flex";
-      const lb=d.querySelector(".slsListen"); lb.textContent=st.listen?"\u25A0 Sound off":"\uD83D\uDD0A Listen"; lb.onclick=()=>slsListen(ch,!st.listen);
-      const ms=d.querySelector(".slsMode"), bs=d.querySelector(".slsBw"), ag=d.querySelector(".slsAgc");
-      if(!d.dataset.synced&&st.mode){ bs.value=(st.bw&&BWDEF[st.mode]!==st.bw&&Math.abs(st.bw-f.bw)>1)?String(Math.round(st.bw)):""; if(st.agc) ag.value=st.agc; d.dataset.synced="1"; }
-      bs.onchange=ag.onchange=()=>{ slsMode(ch); const cv=d.querySelector("canvas"); cv._pb=slPassband(ms.value,bs.value,f.bw); slDraw(cv,f,SLZ[String(f.channel)]||1); };
-      const rb=d.querySelector(".slsRec"); const on=!!st.rec_file;
-      rb.textContent=on?"\u25A0 Stop recording":"\u25CF Record"; rb.onclick=()=>slsRec(ch,!on);
-      d.querySelector("canvas")._pb=slPassband(ms.value,bs.value,f.bw);
-      d.querySelector(".slsRecInfo").textContent=on?(st.rec_file+"  "+Math.floor((st.rec_s||0)/60)+":"+String(Math.floor((st.rec_s||0)%60)).padStart(2,"0")):"";
-    } else { snd.style.display="none"; d.querySelector("canvas")._pb=null; } });
-  const h=j.health||{}, w=$("slWarn"), msg=[];
+  if(!formFilled) return;
+  const fr=j.frames||[]; SL.health=j.health||{}; SL.byCh={}; fr.forEach(f=>{SL.byCh[f.channel]=f;});
+  ensureSlots(); const calEls=[...document.querySelectorAll(".cc")];
+  for(let i=0;i<4;i++){ const d=slotEl(i), p=slp(i), c=slotCh(i), f0=c>=0?SL.byCh[c]:null, q=s=>d.querySelector(s);
+    let f=f0; if(f0){ const s=SL.seen[c]; if(!s||s.seq!==f0.seq) SL.seen[c]={seq:f0.seq,at:Date.now()}; else if(Date.now()-s.at>2500) f=null; }   // a picture that stopped updating is not shown as live
+    const filled=c>=0; d.classList.toggle("empty",!filled);
+    const mapping=SL.logging&&!SL.paused&&!SL.autoPaused, fb=filled&&!f&&mapping&&SL.live; d.classList.toggle("fb",fb);
+    const lastL=(SL.logging&&SL.last&&SL.last[c])?SL.last[c].level:null;
+    const fi=q(".slF"), wi=q(".slW"), ri=q(".slR"), ms=q(".slsMode"), cm=rowEl("cm",i);
+    if(document.activeElement!==fi && fi.value!==String(cm.value)) fi.value=cm.value;
+    if(document.activeElement!==wi && wi.value!==String(rowEl("cb",i).value)) wi.value=rowEl("cb",i).value;
+    if(document.activeElement!==ri && ri.value!==rowEl("cr",i).value) ri.value=rowEl("cr",i).value;
+    const cmd=rowEl("cmd",i); if(cmd&&document.activeElement!==ms&&ms.value!==cmd.value) ms.value=cmd.value;
+    q(".slRw").style.display=(useSdr()&&useHl2())?"inline-flex":"none";
+    { const st=q(".slStep"), bs=q(".slsBw"), ag=q(".slsAgc"); if(document.activeElement!==st&&st.value!==p.step) st.value=p.step||"1";
+      if(document.activeElement!==bs&&bs.value!==(p.bwsel||"")) bs.value=p.bwsel||""; if(document.activeElement!==ag&&ag.value!==(p.agc||"medium")) ag.value=p.agc||"medium"; }
+    const rad=filled?slRadioFor(i,f):""; d._rad=rad;
+    q(".slf").textContent=filled?((+cm.value).toFixed(4)+" MHz"+(rad==="hl2"?" (Hermes)":rad==="sdrplay"?" (SDRplay)":"")):"- not in use. Type a frequency below to switch it on.";
+    const cal=+((calEls[i]||{}).value||0);
+    const lv=f?(f.smeter+cal):lastL;
+    q(".slv").innerHTML=lv!=null?("<b>"+lv.toFixed(1)+" dB</b>"):"";
+    const msg=q(".slmsg"); if(filled&&!f&&!fb){ msg.style.display="flex"; const t=slMsg(); if(msg._t!==t){ msg.innerHTML=t; msg._t=t; } } else msg.style.display="none";
+    // level and last-reading cells in the readings table
+    const lc=$("lvl"+i); if(lc){ const t=lv!=null?lv.toFixed(1):""; if(lc._t!==t){ lc._t=t; lc.innerHTML=lv!=null?('<b>'+t+'</b><div class="bar"><i style="left:'+posPct(lv)+'%"></i></div>'):'<span class="mut">&ndash;</span>'; } }
+    // gain row
+    const hl=rad==="hl2", sd=rad==="sdrplay"; q(".slgain").style.display=(hl||sd)?"flex":"none";
+    q(".gHl").style.display=hl?"inline-flex":"none"; q(".gSd").style.display=sd?"inline-flex":"none";
+    const gh=q(".gHlS"), gi=q(".gIfS"), gr=q(".gRfS");
+    if(hl&&document.activeElement!==gh){ gh.value=$("hl2g").value||15; q(".gHlV").textContent=(+gh.value>0?"+":"")+gh.value; }
+    if(sd){ if(document.activeElement!==gi){ gi.value=$("ifgr").value||40; q(".gIfV").textContent=gi.value; } if(document.activeElement!==gr){ gr.value=$("rfgr").value||0; q(".gRfV").textContent=gr.value; } }
+    q(".gOv").style.display=(hl&&SL.health.overload)?"inline":"none";
+    // sound row (Hermes slots only)
+    const snd=q(".slsnd"); snd.style.display=hl?"flex":"none";
+    if(hl){ const st=(SLS.sound||{})[String(c)]||{}; const vo=q(".slVol"); if(document.activeElement!==vo&&+vo.value!==p.vol) vo.value=String(p.vol);
+      const mu=q(".slMute"); mu.textContent=p.mute?"Muted":"Mute"; mu.classList.toggle("on",!!p.mute);
+      const on=!!st.rec_file, rb=q(".slsRec"); rb.textContent=on?"■ Stop recording":"● Record";
+      q(".slsRecInfo").textContent=on?(st.rec_file+"  "+Math.floor((st.rec_s||0)/60)+":"+String(Math.floor((st.rec_s||0)%60)).padStart(2,"0")):"";
+      q(".slsp")._pb=slPassband(ms.value,p.bwsel,(+wi.value||5)*1000); }
+    else q(".slsp")._pb=null;
+    const au=q(".slAuto"); au.classList.toggle("on",!!p.auto); au.textContent=p.auto?"Auto scale: on":"Auto scale";
+    if(fb) slFallback(i);
+    if(f){ d._f=f; q(".slspan").textContent=slzSpanTxt(f.rate,p.zoom); const zs=q(".slzoom"); if(document.activeElement!==zs&&+zs.value!==slzPos(p.zoom)) zs.value=String(slzPos(p.zoom)); slDraw(i,f); } else d._f=null; }
+  const h=SL.health, w=$("slWarn"), msg=[];
   const ovPill=$("pOv"); if(ovPill) ovPill.style.display=h.overload?"inline-flex":"none";
-  if(h.overload) msg.push("<b>OVERLOAD</b> ("+(h.overload_count||0)+" times so far): a strong signal (often a broadcast station) is overloading the radio, so readings are not trustworthy. Lower the Hermes gain, "+
-    "<button class='sm' onclick='ovLower()'>Lower gain by 6 dB</button> or use an antenna filter.");
+  if(h.overload) msg.push("<b>OVERLOAD</b> ("+(h.overload_count||0)+" times so far): a strong signal (often a broadcast station) is overloading the radio, so readings are not trustworthy. Lower the Hermes gain with the <b>Gain</b> slider in any Hermes slot, "+
+    "<button class='sm' onclick='ovLower()'>or lower it by 6 dB now</button> or use an antenna filter.");
   if(h.lost_packets>50) msg.push("The network is dropping packets ("+h.lost_packets+" lost). Use a direct cable, or a lower detail setting.");
   w.style.display=msg.length?"block":"none"; w.innerHTML=msg.join("<br>");
+  if(Date.now()-SL.lastSync>700){ SL.lastSync=Date.now(); slsSync(); }
 }
-const BWDEF={AM:8000,SAM:8000,USB:2800,LSB:2800,NFM:12000};
+function slFallback(i){     // while mapping, a radio that has to retune between frequencies cannot draw a live picture: show its readings instead
+  const d=slotEl(i), cv=d.querySelector(".slsp"), F=slFit(cv); if(!F) return; const g=cv.getContext("2d"), W=F.W, H=F.H, sc=F.sc;
+  g.fillStyle="#0b1620"; g.fillRect(0,0,W,H);
+  const h=SLH[i], last=h.length?h[h.length-1]:null;
+  g.textAlign="center"; g.fillStyle="#ffffff"; g.font="bold "+Math.round(34*sc)+"px sans-serif";
+  g.fillText(last?last.v.toFixed(1)+" dB":"waiting for the first reading...",W/2,H*0.34);
+  g.font=Math.round(12.5*sc)+"px sans-serif"; g.fillStyle="#9fc0d8";
+  g.fillText("Mapping is using this radio, so its live picture is paused.",W/2,H*0.48);
+  g.fillText("It comes back when you pause or stop recording.",W/2,H*0.48+17*sc);
+  if(h.length>1){ const lo=Math.min(...h.map(x=>x.v))-2, hi=Math.max(...h.map(x=>x.v))+2, y0=H*0.70, y1=H-10*sc;
+    g.strokeStyle="#59d0ff"; g.lineWidth=1.5*F.dpr; g.beginPath();
+    h.forEach((p,k)=>{ const x=10*F.dpr+(W-20*F.dpr)*k/(h.length-1), y=y1-(p.v-lo)/(hi-lo)*(y1-y0); if(k) g.lineTo(x,y); else g.moveTo(x,y); }); g.stroke();
+    g.textAlign="left"; g.font=Math.round(10.5*sc)+"px sans-serif"; g.fillStyle="#9fc0d8";
+    g.fillText("last "+h.length+" readings: "+lo.toFixed(0)+" to "+hi.toFixed(0)+" dB",10*F.dpr,y0-6*sc); } }
 function slPassband(mode,bwSel,measHz){ const bw=(bwSel==="match"?+measHz:+bwSel)||BWDEF[mode]||8000;
   if(mode==="LSB") return {lo:-bw,hi:0}; if(mode==="USB") return {lo:0,hi:bw}; return {lo:-bw/2,hi:bw/2}; }
-function slsPrefs(ch){ const box=[...document.querySelectorAll("#slGrid .slbox")].find(b=>b.dataset.ch===String(ch)); if(!box) return {};
-  const bw=box.querySelector(".slsBw").value, mw=(+box.querySelector(".slW").value||5)*1000;
-  return {mode:box.querySelector(".slsMode").value, bw:bw==="match"?mw:(bw?+bw:undefined), agc:box.querySelector(".slsAgc").value}; }
-/* tune a slice: frequency, step, width and radio, live in the preview and while logging */
-const SLSTEP={};
-function slRowOf(ch){ const m=[...document.querySelectorAll(".cm")]; let n=-1;
-  for(let i=0;i<m.length;i++){ if(String(m[i].value).trim()!==""){ n++; if(n===ch) return i; } } return -1; }
-function slTuneWire(d,f){
-  const ch=f.channel, row=slRowOf(ch); if(row<0) return;
-  const cm=document.querySelectorAll(".cm")[row], cb=document.querySelectorAll(".cb")[row], cr=document.querySelectorAll(".cr")[row];
-  const fi=d.querySelector(".slF"), wi=d.querySelector(".slW"), ri=d.querySelector(".slR"), st=d.querySelector(".slStep");
-  if(document.activeElement!==fi && fi.value!==String(cm.value)) fi.value=cm.value;
-  if(document.activeElement!==wi && wi.value!==String(cb.value)) wi.value=cb.value;
-  d.querySelector(".slRw").style.display=(useSdr()&&useHl2())?"inline-flex":"none";
-  if(cr && document.activeElement!==ri) ri.value=cr.value;
-  if(SLSTEP[ch]&&document.activeElement!==st) st.value=SLSTEP[ch];
-  const move=dir=>{ const stepKhz=+st.value||1, cur=parseFloat(fi.value)||parseFloat(cm.value)||0;
-    const nv=Math.max(0.001,Math.round((cur+dir*stepKhz/1000)*1e6)/1e6); fi.value=String(nv); slTune(ch,{mhz:String(nv)}); };
-  d.querySelector(".slDn").onclick=()=>move(-1);
-  d.querySelector(".slUp").onclick=()=>move(1);
-  st.onchange=()=>{ SLSTEP[ch]=st.value; };
-  fi.onchange=()=>{ if(fi.value.trim()!=="") slTune(ch,{mhz:fi.value.trim()}); };
-  fi.onwheel=e=>{ e.preventDefault(); move(e.deltaY<0?1:-1); };
-  wi.onchange=()=>{ if(+wi.value>0){ slTune(ch,{bw:wi.value}); if(f.radio==="hl2"&&d.querySelector(".slsBw").value==="match") setTimeout(()=>slsMode(ch),400); } };
-  ri.onchange=()=>slTune(ch,{radio:ri.value});
-  const ms=d.querySelector(".slsMode"), cmd=document.querySelectorAll(".cmd")[row], cv0=d.querySelector("canvas");
-  if(cmd&&document.activeElement!==ms&&ms.value!==cmd.value) ms.value=cmd.value;
-  cv0._mode=ms.value;
-  ms.onchange=()=>{ cv0._mode=ms.value; slTune(ch,{mode:ms.value}); if(f.radio==="hl2") slsMode(ch); };
-  // the picture itself: wheel = step, click = tune to that spot, drag = grab the band and slide it
-  const cv=d.querySelector("canvas"); cv.style.cursor="grab"; cv.style.touchAction="none";
-  const setF=(mhz,delay)=>{ const nv=Math.max(0.001,Math.round(mhz*1e4)/1e4); fi.value=String(nv); slTune(ch,{mhz:String(nv)},delay); };
-  cv.onwheel=e=>{ e.preventDefault(); move(e.deltaY<0?1:-1); };
-  cv.onpointerdown=e=>{ const m=cv._map; if(!m||e.button>0) return; const r=cv.getBoundingClientRect();
-    cv._drag={x0:e.clientX,f0:parseFloat(fi.value)||parseFloat(cm.value)||0,hzpp:m.span/r.width,moved:false,clickHz:m.w0+(e.clientX-r.left)/r.width*m.span};
-    try{cv.setPointerCapture(e.pointerId);}catch(_){} cv.style.cursor="grabbing"; };
-  cv.onpointermove=e=>{ const g=cv._drag; if(!g) return; const dx=e.clientX-g.x0; if(Math.abs(dx)>4) g.moved=true;
-    if(g.moved) setF(g.f0-dx*g.hzpp/1e6,90); };
-  cv.onpointerup=cv.onpointercancel=e=>{ const g=cv._drag; cv._drag=null; cv.style.cursor="grab"; if(g&&!g.moved) setF(g.clickHz/1e6,90); };
-}
-let slTuneTimer=null, slUndo=null;
-function slTune(ch,p,delay){ const r=slRowOf(ch); if(r<0) return;
-  const cm=document.querySelectorAll(".cm")[r], cb=document.querySelectorAll(".cb")[r], cr=document.querySelectorAll(".cr")[r];
-  if(!slUndo) slUndo=[...document.querySelectorAll(".cm")].map((_,i)=>({m:document.querySelectorAll(".cm")[i].value,
-      b:document.querySelectorAll(".cb")[i].value, r:document.querySelectorAll(".cr")[i].value, d:(document.querySelectorAll(".cmd")[i]||{}).value}));   // to go back if refused
-  if(p.mhz!==undefined) cm.value=p.mhz;
-  if(p.bw!==undefined) cb.value=p.bw;
-  if(p.radio!==undefined) cr.value=p.radio;
-  if(p.mode!==undefined){ const cd=document.querySelectorAll(".cmd")[r]; if(cd) cd.value=p.mode; }
-  clearTimeout(slTuneTimer); slTuneTimer=setTimeout(slPush,delay||250); }
+function slCompact(){ const g=$("slGrid"), on=!g.classList.contains("compact"); g.classList.toggle("compact",on);
+  $("bSlCompact").textContent=on?"Full-size view":"Compact view (all 4 on one screen)";
+  try{localStorage.setItem("rfmapSlCompact",on?"1":"0");}catch(e){}
+  if(on) $("cSlices").scrollIntoView({behavior:"smooth",block:"start"}); }
+
+/* ----- tuning pushes ----- */
 async function slPush(){
-  const undo=slUndo; slUndo=null;
+  const undo=slUndo; slUndo=null; slTuneTimer=null; SL.pushing=true;
   try{ const cfg=readForm(); await api("/api/config",cfg);
-    if(SL.logging) await api("/api/apply",cfg); else await api("/api/slices/set",{channels:cfg.channels});
+    const any=cfg.channels.some(c=>String(c.mhz).trim()!=="");
+    if(SL.logging) await api("/api/apply",cfg);
+    else if(!any){ await api0("/api/slices/stop",{}); }
+    else { SL.lastTry=0; await api("/api/slices/set",{channels:cfg.channels}); }
   }catch(e){
-    if(undo){ const m=document.querySelectorAll(".cm"), b=document.querySelectorAll(".cb"), r=document.querySelectorAll(".cr");
-      const dm=document.querySelectorAll(".cmd");
-      undo.forEach((u,i)=>{ if(m[i]){ m[i].value=u.m; b[i].value=u.b; r[i].value=u.r; if(dm[i]&&u.d) dm[i].value=u.d; } });
+    if(undo){ const k=undo.length; undo.forEach((u,i)=>{ const m=rowEl("cm",i); if(m){ m.value=u.m; rowEl("cb",i).value=u.b; rowEl("cr",i).value=u.r; const dm=rowEl("cmd",i); if(dm&&u.d) dm.value=u.d; } });
       try{ await api("/api/config",readForm()); }catch(_){}
-      document.querySelectorAll("#slGrid .slF,#slGrid .slW").forEach(e=>{ if(document.activeElement===e) e.blur(); }); }   // let the box show the restored value
-    toast("&#9888; "+esc(e.message),7000); } }
-const SLS={sound:{},listen:-1,after:0,actx:null,gain:null,aNext:0,atimer:null};
-function slsVol(){ if(SLS.gain) SLS.gain.gain.value=$("slMute").checked?0:((+$("slVol").value||0)/100)*1.5; }
-function slsAudioStart(){ if(SLS.actx) return; const AC=window.AudioContext||window.webkitAudioContext; SLS.actx=new AC(); SLS.gain=SLS.actx.createGain(); SLS.gain.connect(SLS.actx.destination); slsVol(); }
-async function slsPollAudio(){
-  if(SLS.listen<0)return;
-  try{
-    const r=await fetch("/api/slices/audio?ch="+SLS.listen+"&after="+SLS.after,{cache:"no-store"});
+      document.querySelectorAll("#slGrid .slF,#slGrid .slW").forEach(e=>{ if(document.activeElement===e) e.blur(); }); }
+    toast("&#9888; "+esc(e.message),7000); }
+  SL.pushing=false; }
+function chEdited(){ clearTimeout(slTuneTimer); slTuneTimer=setTimeout(slPush,250); }      // the readings table is live too
+
+/* ----- sound: any slot plays when its volume is above 0 and it is not muted ----- */
+const SLS={sound:{},actx:null,ch:{}};
+function slsCtx(){ if(!SLS.actx){ const AC=window.AudioContext||window.webkitAudioContext; SLS.actx=new AC(); } if(SLS.actx.state==="suspended") SLS.actx.resume(); return SLS.actx; }
+document.addEventListener("pointerdown",()=>{ if(SLS.actx&&SLS.actx.state==="suspended") SLS.actx.resume(); },true);
+function slsChan(c){ let o=SLS.ch[c]; if(!o){ const ctx=slsCtx(), g=ctx.createGain(); g.connect(ctx.destination); o=SLS.ch[c]={gain:g,after:0,aNext:0,timer:null,req:0,on:false}; } return o; }
+function slsGainSet(i){ const c=slotCh(i); if(c<0) return; const o=slsChan(c), p=slp(i); o.gain.gain.value=p.mute?0:(p.vol/100)*1.5; }
+async function slsPoll(c){
+  const o=SLS.ch[c]; if(!o||!o.on){ if(o) o.timer=null; return; }
+  try{ const r=await fetch("/api/slices/audio?ch="+c+"&after="+o.after,{cache:"no-store"});
     const seq=+r.headers.get("X-Seq"), rate=+r.headers.get("X-Rate")||12000, buf=await r.arrayBuffer();
-    if(seq<SLS.after) SLS.aNext=0;
-    if(buf.byteLength>=2 && SLS.actx){
-      const i16=new Int16Array(buf), f=new Float32Array(i16.length); for(let i=0;i<i16.length;i++) f[i]=i16[i]/32768;
+    if(seq<o.after) o.aNext=0;
+    if(buf.byteLength>=2 && SLS.actx){ const i16=new Int16Array(buf), f=new Float32Array(i16.length); for(let k=0;k<i16.length;k++) f[k]=i16[k]/32768;
       const ab=SLS.actx.createBuffer(1,f.length,rate); ab.copyToChannel(f,0);
-      const src=SLS.actx.createBufferSource(); src.buffer=ab; src.connect(SLS.gain);
-      const now=SLS.actx.currentTime; if(SLS.aNext<now+0.03||SLS.aNext>now+1.2) SLS.aNext=now+0.25;
-      src.start(SLS.aNext); SLS.aNext+=ab.duration;
-    }
-    SLS.after=seq;
-  }catch(e){}
-  SLS.atimer=setTimeout(slsPollAudio,90);
+      const src=SLS.actx.createBufferSource(); src.buffer=ab; src.connect(o.gain);
+      const now=SLS.actx.currentTime; if(o.aNext<now+0.03||o.aNext>now+1.2) o.aNext=now+0.25;
+      src.start(o.aNext); o.aNext+=ab.duration; }
+    o.after=seq; }catch(e){}
+  o.timer=setTimeout(()=>slsPoll(c),90);
 }
-async function slsListen(ch,on){
+function slsPrefs(i){ const p=slp(i), cmd=rowEl("cmd",i), cb=rowEl("cb",i);
+  return {mode:cmd?cmd.value:"AM", bw:p.bwsel==="match"?(+cb.value||5)*1000:(p.bwsel?+p.bwsel:undefined), agc:p.agc}; }
+let slsSyncT=null; function slsSyncSoon(){ clearTimeout(slsSyncT); slsSyncT=setTimeout(()=>{ SL.lastSync=Date.now(); slsSync(); },120); }
+async function slsSync(){
+  if(SL.syncBusy||!SL.live) return; SL.syncBusy=true;
   try{
-    if(on){ slsAudioStart(); if(SLS.actx.state==="suspended") SLS.actx.resume(); }
-    await api("/api/slices/listen",Object.assign({channel:ch,on:on},slsPrefs(ch)));
-    clearTimeout(SLS.atimer); SLS.listen=on?ch:-1; SLS.after=0; SLS.aNext=0;
-    if(on){ toast("Sound on: slice "+(ch+1)+". One slice plays at a time; recording other slices still works.",4500); slsPollAudio(); }
-    slPoll();
-  }catch(e){ toast("&#9888; "+esc(e.message),7000); }
-}
-async function slsMode(ch){ try{ await api("/api/slices/sound_mode",Object.assign({channel:ch},slsPrefs(ch))); }catch(e){ toast("&#9888; "+esc(e.message),6000);} }
-async function slsRec(ch,on){
-  try{
-    const r=await api("/api/slices/rec",Object.assign({channel:ch,on:on},slsPrefs(ch)));
-    if(on) toast("Recording slice "+(ch+1)+" to a WAV file. It keeps recording while you drive; press Stop recording to finish.",6000);
+    const want={}; for(let i=0;i<4;i++){ const c=slotCh(i); if(c>=0&&SL.byCh[c]&&slRadioFor(i,SL.byCh[c])==="hl2"&&slp(i).vol>0&&!slp(i).mute&&(!POPSLOT||POPSLOT===i+1)&&!popClaimed(i)) want[c]=i; }
+    for(const c in want){ const i=want[c], o=slsChan(+c), st=SLS.sound[c]||{};
+      if(!st.listen&&Date.now()-o.req>2500){ o.req=Date.now(); await api("/api/slices/listen",Object.assign({channel:+c,on:true},slsPrefs(i))); }
+      o.on=true; if(!o.timer) slsPoll(+c); slsGainSet(i);
+      if(SLS.actx&&SLS.actx.state==="suspended"&&!SL.hintShown){ SL.hintShown=true; toast("Click anywhere on this page once to allow sound.",6000); } }
+    for(const c in SLS.sound){ if(SLS.sound[c].listen&&!(c in want)){ await api("/api/slices/listen",{channel:+c,on:false}); } }
+    for(const c in SLS.ch){ if(!(c in want)){ const o=SLS.ch[c]; o.on=false; clearTimeout(o.timer); o.timer=null; } }
+  }catch(e){ }
+  SL.syncBusy=false; }
+async function slsMode(i){ try{ const c=slotCh(i); if(c>=0&&(SLS.sound[String(c)]||{}).listen||(c>=0&&(SLS.sound[String(c)]||{}).rec_file)) await api("/api/slices/sound_mode",Object.assign({channel:c},slsPrefs(i))); }catch(e){ toast("&#9888; "+esc(e.message),6000);} }
+async function slsRec(i){ const c=slotCh(i); if(c<0) return; const on=!((SLS.sound[String(c)]||{}).rec_file);
+  try{ const r=await api("/api/slices/rec",Object.assign({channel:c,on:on},slsPrefs(i)));
+    if(on) toast("Recording slot "+(i+1)+" to a WAV file. It keeps recording while you drive; press Stop recording to finish.",6000);
     else { toast(r.file?("Recording saved: "+esc(r.file)+" (in the Audio recordings box below)"):"Recording stopped.",8000); recList(); }
-    slPoll();
-  }catch(e){ toast("&#9888; "+esc(e.message),7000); }
-}
+    SL.lastSync=0; slPoll();
+  }catch(e){ toast("&#9888; "+esc(e.message),7000); } }
+
+/* ----- keeping the live view running by itself ----- */
 async function slPoll(){
   if(window.__quit) return;
   if(SL.busy||document.hidden) return; SL.busy=true;
   try{ const j=await api("/api/slices");
-    const live=j.logging||j.running; SL.logging=!!j.logging; SL.live=!!live;
-    $("bSlStart").style.display=(j.logging||j.running)?"none":"inline-block"; $("bSlStop").style.display=(!j.logging&&j.running)?"inline-block":"none";
-    $("slTag").textContent=j.logging?"logging":(j.running?"preview":"");
-    $("slStatus").textContent=j.error?("Stopped: "+j.error):(j.logging?"Live from the logger.":(live?(j.radio?("Radio: "+j.radio):""):"Not running."));
+    try{ SL.manualStop=localStorage.getItem("rfmapManualStop")==="1"; }catch(e){}
+    slSyncCfg(j);
+    SL.logging=!!j.logging; SL.live=!!(j.logging||j.running); SL.radio=j.radio||"";
     SLS.sound=j.sound||{};
-    if(SLS.listen>=0 && !((SLS.sound[String(SLS.listen)]||{}).listen)){ clearTimeout(SLS.atimer); SLS.listen=-1; }
-    if(live||(j.frames&&j.frames.length)) slRender(j);
+    $("bSlStart").style.display=(SL.manualStop&&!j.logging)?"inline-block":"none"; $("bSlStop").style.display=(!SL.manualStop&&!j.logging&&j.running)?"inline-block":"none";
+    $("slTag").textContent=j.logging?"logging":(j.running?"live":"");
+    $("slStatus").textContent=j.error?("Stopped: "+j.error):(j.logging?(SL.paused?"Logging, paused by you.":(SL.autoPaused?"Logging, paused (stopped).":"Mapping: live from the logger.")):(j.running&&j.radio?("Radio: "+j.radio):""));
+    if(!j.logging) for(const k in SLH) SLH[k]=[];
+    slRender(j); slAuto(j);
   }catch(e){} SL.busy=false;
 }
-async function slStart(){ await guard(async()=>{ await api("/api/config",readForm()); const r=await api("/api/slices/start",{}); toast("Slices running on "+esc(r.radio||"the radio")); slPoll(); }); }
-async function slStop(){ await guard(()=>api("/api/slices/stop",{})); $("slGrid").innerHTML=""; slPoll(); }
-// ask for a new picture about 15 times a second while the slices are live (4 times a second when idle)
-(function slLoop(){ const live=SL.on||SL.live; setTimeout(async()=>{ await slPoll(); slLoop(); }, SL.live?60:450); })();
+function slSyncCfg(j){ const c=j&&j.cfg; if(!c||slTuneTimer||slUndo||SL.pushing||!formFilled) return;
+  const ae=document.activeElement, mine=el=>el===ae;
+  (c.channels||[]).slice(0,4).forEach((ch,i)=>{ const m=rowEl("cm",i); if(!m) return;
+    const set=(el,v)=>{ if(el&&!mine(el)&&String(el.value)!==String(v)) el.value=v; };
+    set(m,ch.mhz===undefined?"":ch.mhz); set(rowEl("cb",i),ch.bw_khz); set(rowEl("cc",i),ch.cal_db); set(rowEl("cr",i),ch.radio||"auto"); set(rowEl("cmd",i),(ch.mode||"AM").toUpperCase()); });
+  const g=(id,v)=>{ const el=$(id); if(el&&!mine(el)&&!slGainT&&String(el.value)!==String(v)) el.value=v; };
+  g("hl2g",c.hl2_gain_db); g("ifgr",c.if_gain_db); g("rfgr",c.rf_gain_state); gainSync(); }
+function slWanted(){ if(!formFilled) return false; if(!$("practice").checked&&!useSdr()&&!useHl2()) return false; return [0,1,2,3].some(rowFilled); }
+async function slAuto(j){
+  if(j.logging||j.running||SL.manualStop||SL.starting||(typeof PAN!=="undefined"&&(PAN.on||PAN.viewOnly))||!slWanted()) return;
+  if(Date.now()-SL.lastTry<15000) return;
+  SL.lastTry=Date.now(); SL.starting=true;
+  try{ await api0("/api/config",readForm()); await api0("/api/slices/start",{}); SL.startErr=""; }
+  catch(e){ SL.startErr=e.message; }
+  SL.starting=false; }
+async function slRestart(){ if(SL.logging) return; try{ await api0("/api/slices/stop",{}); }catch(e){} SL.lastTry=0; SL.startErr=""; }
+async function slStart(){ SL.manualStop=false; try{localStorage.removeItem("rfmapManualStop");}catch(e){} SL.lastTry=0; await guard(async()=>{ await api("/api/config",readForm()); SL.starting=true; try{ await api("/api/slices/start",{}); SL.startErr=""; }finally{ SL.starting=false; } }); slPoll(); }
+async function slStop(){ SL.manualStop=true; try{localStorage.setItem("rfmapManualStop","1");}catch(e){} await guard(()=>api("/api/slices/stop",{})); slPoll(); }
+// ask for a new picture about 15 times a second while the slots are live (twice a second when waiting)
+(function slLoop(){ setTimeout(async()=>{ await slPoll(); slLoop(); }, SL.live?60:500); })();
+
 
 function fillForm(cfg){
   $("route").value=cfg.route_name||""; $("practice").checked=!!cfg.practice;
   (document.querySelector(`input[name=gpsm][value=${cfg.gps_mode}]`)||document.querySelector("input[name=gpsm][value=usb]")).checked=true;
   $("gHost").value=cfg.gps_host; $("gPort").value=cfg.gps_port; $("gBaud").value=cfg.gps_baud;
-  $("autoMap").checked=!!cfg.auto_map; $("spacing").value=cfg.spacing_ft; $("interval").value=cfg.interval_s||5; (document.querySelector(`input[name=smode][value=${cfg.sample_mode==="time"?"time":"distance"}]`)).checked=true; spacingNote(); $("ifgr").value=cfg.if_gain_db; $("rfgr").value=cfg.rf_gain_state; gainSync();
+  $("autoMap").checked=!!cfg.auto_map; $("apOn").checked=!!cfg.auto_pause; $("apSec").value=cfg.auto_pause_s||10; $("spacing").value=cfg.spacing_ft; $("interval").value=cfg.interval_s||5; (document.querySelector(`input[name=smode][value=${cfg.sample_mode==="time"?"time":"distance"}]`)).checked=true; spacingNote(); $("ifgr").value=cfg.if_gain_db; $("rfgr").value=cfg.rf_gain_state; gainSync();
   $("useSdr").checked=(cfg.use_sdrplay!==false); $("useHl2").checked=!!cfg.use_hl2; $("hl2ip").value=cfg.hl2_ip||""; $("hl2rate").value=String(cfg.hl2_rate||96000); $("hl2g").value=(cfg.hl2_gain_db===undefined?15:cfg.hl2_gain_db);
-  let h="<tr><th>MHz</th><th title='The signal power inside this width is what is logged and mapped'>Measure width (kHz)</th><th title='LSB measures below the frequency, USB above, the others both sides'>Mode</th><th>Calibration (dB)</th><th class=radcol title='Which radio measures this slot. Auto: the Hermes Lite 2 takes what it can hear; the SDRplay takes the rest.'>Radio</th><th>Level now (dB)</th></tr>";
+  let h="<tr><th>Slot</th><th title='Type a frequency here and its slot panel below changes at once'>MHz</th><th title='The signal power inside this width is what is logged and mapped'>Measure width (kHz)</th><th title='LSB measures below the frequency, USB above, the others both sides'>Mode</th><th>Calibration (dB)</th><th class=radcol title='Which radio measures this slot. Auto: the Hermes Lite 2 takes what it can hear; the SDRplay takes the rest.'>Radio</th><th>Level now (dB)</th><th title='The time of the last reading saved to the drive. While you are not logging it shows that the slot is live.'>Last reading</th></tr>";
   for(let i=0;i<4;i++) h+=chRow(cfg.channels[i]||{mhz:"",bw_khz:5,cal_db:0},i);
   $("chTable").innerHTML=h; showRadioFields(); $("phoneAccess").checked=!!cfg.phone_access; panMemLoad(cfg);
 }
@@ -717,7 +887,7 @@ function readForm(){
   return {route_name:$("route").value.trim(), practice:$("practice").checked,
     gps_mode:(document.querySelector("input[name=gpsm]:checked")||{value:"usb"}).value, gps_host:$("gHost").value.trim(),
     gps_port:+$("gPort").value||11123, gps_serial:$("gSerial").value, gps_baud:+$("gBaud").value,
-    auto_map:$("autoMap").checked, spacing_ft:+$("spacing").value||10, sample_mode:smode(), interval_s:+$("interval").value||5, if_gain_db:+$("ifgr").value||40, rf_gain_state:+$("rfgr").value||0,
+    auto_map:$("autoMap").checked, auto_pause:$("apOn").checked, auto_pause_s:Math.min(600,Math.max(3,+$("apSec").value||10)), spacing_ft:+$("spacing").value||10, sample_mode:smode(), interval_s:+$("interval").value||5, if_gain_db:+$("ifgr").value||40, rf_gain_state:+$("rfgr").value||0,
     use_sdrplay:useSdr(), use_hl2:useHl2(), hl2_ip:$("hl2ip").value.trim(), hl2_rate:+$("hl2rate").value||96000, hl2_gain_db:Math.round(+$("hl2g").value||0),
     channels:m.map((x,i)=>({mhz:x.value, bw_khz:b[i].value||5, cal_db:c[i].value||0, radio:(rr[i]||{value:"auto"}).value, mode:(md[i]||{value:"AM"}).value}))};
 }
@@ -782,7 +952,18 @@ async function stopLog(){
   else { if(win) win.close(); if(r&&r.map_error) toast(esc(r.map_error)); }
 }
 async function applyLive(){ await guard(async()=>{await api("/api/apply",readForm());toast("Frequencies updated.");}); }
-async function pauseLog(){ await guard(()=>api("/api/pause",{})); }
+async function slPause(){        // pause or resume recording; if it paused by itself at a stop, this resumes right now
+  await guard(async()=>{ if(SL.autoPaused&&!SL.paused) await api("/api/pause",{resume:true}); else await api("/api/pause",{paused:!SL.paused}); });
+  refreshLive(); }
+async function autoPauseChanged(){ await guard(()=>api("/api/pause",{auto_pause:$("apOn").checked,auto_pause_s:Math.min(600,Math.max(3,+$("apSec").value||10))})); }
+function pauseUi(lg,st){ SL.paused=!!(lg&&st&&st.settings&&st.settings.paused); SL.autoPaused=!!(lg&&st&&st.auto_paused);
+  const off=SL.paused||SL.autoPaused;
+  for(const id of ["bSlPause","bPause"]){ const b=$(id); if(!b) continue; b.style.display=lg?"":"none";
+    b.innerHTML=SL.paused?"&#9654; Resume recording":(SL.autoPaused?"&#9654; Resume now":"&#9208; Pause recording"); b.className=(id==="bSlPause"||off)?"pri":""; }
+  const bar=$("slPauseBar"); bar.style.display=off?"block":"none";
+  bar.innerHTML=SL.paused?"&#9208; RECORDING PAUSED by you. No dots are being saved, and every slot is fully live again. Press Resume recording to carry on."
+    :(SL.autoPaused?"&#9208; PAUSED AUTOMATICALLY: you have stopped moving. No dots are being saved and every slot is fully live again. Recording carries on by itself when you move.":"");
+  if(lg&&!SL.wasLg){ for(let i=0;i<4;i++) SLH[i]=[]; } SL.wasLg=lg; }
 
 /* ---------- live status ---------- */
 function setPill(dotId,textId,cls,text){$(dotId).className="dot "+cls;$(textId).textContent=text;}
@@ -790,11 +971,11 @@ function posPct(v){return Math.max(0,Math.min(100,(v+120)/100*100));}
 async function refreshLive(){
   if(window.__quit) return;
   let j; try{j=await api("/api/live");}catch(e){setPill("dLog","tLog","bad","Lost contact with program");return;}
-  const lg=j.logging, st=j.logger; window.__logging=!!lg;
+  const lg=j.logging, st=j.logger; window.__logging=!!lg; pauseUi(lg,st);
   if(j.version) $("tVer").textContent="v"+j.version; $("staleBanner").style.display=j.stale?"block":"none";
   setPill("dLog","tLog",lg?"on":"","Logging"+(lg?"":": off")+(lg&&st&&st.settings.paused?" (paused)":""));
   $("bStart").style.display=lg?"none":""; $("bStop").style.display=lg?"":"none";
-  $("bApply").style.display=lg?"":"none"; $("bPause").style.display=lg?"":"none";
+  $("bApply").style.display=lg?"":"none";
   for(const id of ["practice","route"]) $(id).disabled=lg;
   PAN.logging=lg; if(!PAN.on) $("bPanStart").innerHTML=lg?"&#9654; Watch a band while logging":"&#9654; Start panadapter";
   document.querySelectorAll("input[name=gpsm],#gHost,#gPort,#gSerial,#gBaud").forEach(e=>e.disabled=lg);
@@ -804,11 +985,12 @@ async function refreshLive(){
     setPill("dGps","tGps",good?"on":"warn","GPS: "+(good?"OK":g)+(st.sats!=null?` (${st.sats} sats)`:""));
     $("liveLine").innerHTML=`<b>${st.rows}</b> dots saved &nbsp;|&nbsp; ${st.speed_mph!=null?Math.round(st.speed_mph)+" mph":"waiting for GPS"} &nbsp;|&nbsp; ${esc(st.sdr)}`;
     $("liveCards").innerHTML=(st.last||[]).map(l=>`<div class="big"><span>${l.mhz} MHz</span><b>${l.level.toFixed(1)} dB</b><div class="bar"><i style="left:${posPct(l.level)}%"></i></div></div>`).join("")||'<div class="mut">Waiting for the first position...</div>';
-    const byCh={}; (st.last||[]).forEach(l=>{byCh[l.ch!=null?l.ch:l.mhz]=l;});
-    for(let i=0;i<4;i++){ const c=$("lvl"+i); if(!c) continue; const m=document.querySelectorAll(".cm")[i];
-      const l=byCh[i]; c.innerHTML=(l&&m&&m.value!=="")?`<b>${l.level.toFixed(1)}</b><div class="bar"><i style="left:${posPct(l.level)}%"></i></div>`:'<span class="mut">&ndash;</span>'; }
+    const byCh={}; (st.last||[]).forEach(l=>{byCh[l.ch!=null?l.ch:l.mhz]=l;}); SL.last=byCh;
+    for(let i=0;i<4;i++){ const l=byCh[slotCh(i)]; const h=SLH[i]; if(l&&l.t&&(!h.length||h[h.length-1].t!==l.t)){ h.push({t:l.t,v:l.level}); if(h.length>90) h.shift(); } }
+    for(let i=0;i<4;i++){ const c=$("lt"+i); if(!c) continue; const l=byCh[slotCh(i)];
+      c.textContent=(l&&l.t)?new Date(l.t*1000).toLocaleTimeString([],{hour12:false}):(st.settings.paused?"paused":"\u2013"); }
   } else if(!lg){ setPill("dGps","tGps","","GPS: idle");
-    for(let i=0;i<4;i++){ const c=$("lvl"+i); if(c) c.innerHTML='<span class="mut">&ndash;</span>'; } }
+    for(let i=0;i<4;i++){ const c=$("lt"+i); if(c) c.innerHTML=(SL.live&&slotCh(i)>=0)?'<span class="mut">live, not logged</span>':'&ndash;'; } }
   if(j.crashed){ $("startErr").textContent="Logging stopped unexpectedly. "+(j.log_tail||""); $("startErr").style.display="block"; }
   if(wasLogging&&!lg){
     const mine=stoppedByUser; stoppedByUser=false;
@@ -1359,7 +1541,7 @@ window.addEventListener("unhandledrejection",e=>clientLog("unhandled: "+((e.reas
 /* ---------- wiring ---------- */
 document.querySelectorAll("input[name=gpsm]").forEach(r=>r.onchange=showGpsFields);
 checkBlockers();
-$("practice").onchange=showGpsFields;
+$("practice").onchange=()=>{ showGpsFields(); guard(async()=>{ await api("/api/config",{practice:$("practice").checked}); await slRestart(); }); };
 panInit(); mkLoad(); mkChanged(); panWire(); setInterval(panSlotLabels,1500); recList(); setInterval(recPoll,1000);
 $("phoneAccess").onchange=()=>guard(async()=>{await api("/api/config",{phone_access:$("phoneAccess").checked});toast("Saved. Quit and reopen RF Noise Map to apply.");});
 refreshAll().then(()=>refreshLive()).catch(()=>{});
