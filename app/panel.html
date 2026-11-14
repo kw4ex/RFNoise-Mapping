@@ -437,27 +437,41 @@ function hl2GainReset(){ $("hl2g").value=15; gainChanged(); }
 
 /* ---------- slices ---------- */
 const SL={on:false,timer:null,busy:false};
-function slDraw(cv,f){
+const SLZ=(()=>{try{return JSON.parse(localStorage.getItem("rfmapSlz")||"{}")}catch(e){return{}}})();
+function slzSet(ch,z){ SLZ[String(ch)]=+z||1; try{localStorage.setItem("rfmapSlz",JSON.stringify(SLZ));}catch(e){} }
+function slDraw(cv,f,zoom){
   const g=cv.getContext("2d"), W=cv.width, H=cv.height; g.clearRect(0,0,W,H);
   g.fillStyle="#0b1620"; g.fillRect(0,0,W,H);
   const bin=atob(f.spec), n=bin.length, rate=f.rate;
+  // the window shown: the whole capture, or a slice of it centred on the measured frequency
+  zoom=Math.max(1,+zoom||1);
+  const span=rate/zoom;
+  let w0=f.tune-span/2;
+  w0=Math.min(Math.max(w0,f.center-rate/2), f.center+rate/2-span);
+  const w1=w0+span;
+  const toX=hz=>((hz-w0)/span)*W;
   g.strokeStyle="#223445"; g.lineWidth=1; for(let k=1;k<4;k++){ g.beginPath(); g.moveTo(0,H*k/4); g.lineTo(W,H*k/4); g.stroke(); }
   // measured stripe
-  const x0=((f.tune-f.bw/2-f.center)/rate+0.5)*W, x1=((f.tune+f.bw/2-f.center)/rate+0.5)*W;
+  const x0=toX(f.tune-f.bw/2), x1=toX(f.tune+f.bw/2);
   g.fillStyle="rgba(255,200,60,.28)"; g.fillRect(Math.max(0,x0),0,Math.max(2,x1-x0),H);
   g.strokeStyle="#59d0ff"; g.lineWidth=1.3; g.beginPath();
-  for(let x=0;x<W;x++){ const a=Math.floor(x*n/W), b=Math.max(a+1,Math.floor((x+1)*n/W)); let m=0; for(let i=a;i<b;i++){const v=bin.charCodeAt(i); if(v>m)m=v;}
+  const b0=((w0-(f.center-rate/2))/rate)*n;
+  const bw=(span/rate)*n;
+  for(let x=0;x<W;x++){ const a=Math.floor(b0+x*bw/W), b=Math.max(a+1,Math.floor(b0+(x+1)*bw/W)); let m=0;
+    for(let i=Math.max(0,a);i<Math.min(n,b);i++){const v=bin.charCodeAt(i); if(v>m)m=v;}
     const y=H-(m/255)*H; if(x===0)g.moveTo(x,y); else g.lineTo(x,y); }
   g.stroke();
   g.fillStyle="#8fb0c8"; g.font="11px sans-serif";
-  const lo=(f.center-rate/2)/1e6, hi=(f.center+rate/2)/1e6, dec=rate>=1e6?3:4;
-  g.textAlign="left"; g.fillText(lo.toFixed(dec),3,H-4); g.textAlign="right"; g.fillText(hi.toFixed(dec)+" MHz",W-3,H-4);
+  const dec=span>=1e6?3:(span>=100e3?4:5);
+  g.textAlign="left"; g.fillText((w0/1e6).toFixed(dec),3,H-4); g.textAlign="right"; g.fillText((w1/1e6).toFixed(dec)+" MHz",W-3,H-4);
 }
 function slRender(j){
   const grid=$("slGrid"), fr=j.frames||[];
   while(grid.children.length<fr.length){ const d=document.createElement("div"); d.className="slbox";
     d.innerHTML='<div class="slh" style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:2px"><b class="slt"></b><span class="slv"></span></div>'+
       '<canvas width="520" height="140" style="width:100%;border-radius:4px"></canvas>'+
+      '<div style="display:flex;gap:8px;align-items:center;margin-top:3px;flex-wrap:wrap"><label class="mut" style="font-size:12px">Zoom</label>'+
+      '<select class="sm slzoom"><option value="1">Full width</option><option value="2">&times;2</option><option value="4">&times;4</option><option value="8">&times;8</option><option value="16">&times;16</option></select><span class="mut slspan" style="font-size:12px"></span></div>'+
       '<div class="slsnd" style="display:none;gap:8px;align-items:center;margin-top:4px;flex-wrap:wrap">'+
       '<button class="sm slsListen"></button><select class="sm slsMode"><option>AM</option><option>SAM</option><option>USB</option><option>LSB</option><option>NFM</option></select>'+
       '<button class="sm recbtn slsRec"></button><span class="mut slsRecInfo"></span></div>'; grid.appendChild(d); }
@@ -465,7 +479,12 @@ function slRender(j){
   const cal=[...document.querySelectorAll(".cc")];
   fr.forEach((f,i)=>{ const d=grid.children[i]; d.querySelector(".slt").textContent="Slice "+(f.channel+1)+": "+(f.tune/1e6).toFixed(4)+" MHz"+(f.radio==="hl2"?" (Hermes)":(f.radio==="sdrplay"?" (SDRplay)":""));
     const c=+((cal[f.channel]||{}).value||0); d.querySelector(".slv").innerHTML="<b>"+(f.smeter+c).toFixed(1)+" dB</b>";
-    slDraw(d.querySelector("canvas"),f);
+    const zsel=d.querySelector(".slzoom"), z=SLZ[String(f.channel)]||1;
+    if(document.activeElement!==zsel&&zsel.value!==String(z)) zsel.value=String(z);
+    zsel.onchange=()=>slzSet(f.channel,zsel.value);
+    const spn=f.rate/z, u=spn>=1e6?(spn/1e6).toFixed(1)+" MHz":Math.round(spn/1e3)+" kHz";
+    d.querySelector(".slspan").textContent="showing "+u+" of band";
+    slDraw(d.querySelector("canvas"),f,z);
     const snd=d.querySelector(".slsnd"), ch=f.channel, st=(SLS.sound||{})[String(ch)]||{};
     if(f.radio==="hl2"){
       snd.style.display="flex";
