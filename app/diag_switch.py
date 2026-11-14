@@ -25,7 +25,7 @@ CANDIDATES_MHZ = [3.7, 7.3, 14.2, 50.2, 88.5, 97.1, 100.1, 107.9, 118.0, 127.0, 
 def true_level(sdr, mhz, settings, wait_s=1.0):
     """Reading taken after the radio has had a full second on that frequency (keeps draining the queue)."""
     hz = mhz * 1e6
-    sdr.DRAIN, sdr.SETTLE = True, 8192
+    sdr.DRAIN, sdr.SETTLE, sdr.SETTLE_LONG = True, 8192, 65536
     sdr.measure(hz, 5000.0, 0, 0, settings)
     t_end = time.time() + wait_s
     while time.time() < t_end:
@@ -45,6 +45,7 @@ def profile(sdr, strong, quiet, settings, pause_s, drain, trials=6, nseg=16):
     rows = []
     for _ in range(trials):
         sdr.DRAIN, sdr.SETTLE = False, 4096
+        sdr.SETTLE_LONG = sdr.SETTLE
         sdr.measure(strong * 1e6, 5000.0, 0, 0, settings)
         if pause_s:
             time.sleep(pause_s)
@@ -73,8 +74,10 @@ def settle_trials(sdr, strong, quiet, settings, tb, settle, drain, trials=20):
     bad, worst, t0 = 0, 0.0, time.time()
     for _ in range(trials):
         sdr.DRAIN, sdr.SETTLE = False, 4096
+        sdr.SETTLE_LONG = sdr.SETTLE
         sdr.measure(strong * 1e6, 5000.0, 0, 0, settings)
         sdr.DRAIN, sdr.SETTLE = drain, settle
+        sdr.SETTLE_LONG = sdr.SETTLE
         v = sdr.measure(quiet * 1e6, 5000.0, 0, 0, settings)
         e = v - tb
         worst = max(worst, e)
@@ -86,6 +89,7 @@ def settle_trials(sdr, strong, quiet, settings, tb, settle, drain, trials=20):
 def run_pattern(sdr, fa, fb, settings, pause_s, drain, settle, rounds=8):
     """Jump A, B, A, B ... like the logger. Returns (mean error of A, mean error of B, seconds per reading)."""
     sdr.DRAIN, sdr.SETTLE = drain, settle
+    sdr.SETTLE_LONG = sdr.SETTLE
     ea, eb, t_tot, n = [], [], 0.0, 0
     for _ in range(rounds):
         for mhz, ref, store in ((fa[0], fa[1], ea), (fb[0], fb[1], eb)):

@@ -362,6 +362,8 @@ class SoapySdr:
     SAMPLE_RATE = 2_000_000
     NSAMP = 32768           # samples per measurement (about 16 ms)
     SETTLE = 8192           # fresh samples thrown away after a retune (about 4 ms)
+    SETTLE_LONG = 65536     # used when jumping DOWN from a much stronger frequency (about 33 ms)
+    JUMP_DB = 10.0          # a drop of more than this many dB counts as 'much stronger before'
     DRAIN = True            # first empty out old samples still queued from the previous frequency
     FFT_N = 4096
 
@@ -401,6 +403,7 @@ class SoapySdr:
         d.activateStream(self.stream)
         self.buf = np.zeros(self.NSAMP, np.complex64)
         self.scratch = np.zeros(65536, np.complex64)
+        self._levels, self._prev_level, self._prev_freq = {}, None, None
         self.window = np.hanning(self.FFT_N).astype(np.float32)
         self.win_pow = float(np.sum(self.window ** 2))
 
@@ -456,7 +459,14 @@ class SoapySdr:
         # samples (the retune glitch) before measuring.
         if self.DRAIN:
             self._drain()
-        self._skip(self.SETTLE)
+        # Test results on real hardware: a strong signal's leftovers swamp a quiet reading unless
+        # about 65,000 fresh samples are thrown away. That costs ~33 ms, so only do it when the
+        # previous reading was much stronger than this frequency's last known level (or unknown).
+        known = self._levels.get(freq_hz)
+        prev = self._prev_level
+        long_wait = (prev is not None and (known is None or prev - known > self.JUMP_DB)
+                     and self._prev_freq != freq_hz)
+        self._skip(self.SETTLE_LONG if long_wait else self.SETTLE)
         if not self._read(self.NSAMP):
             return float("nan")
         x = self.buf
@@ -470,6 +480,8 @@ class SoapySdr:
         band = spec[centre - half: centre + half + 1]
         level = 10.0 * math.log10(float(band.sum()) + 1e-20)    # dBFS
         self._last = (lo, self.SAMPLE_RATE, spec, level)
+        self._levels[freq_hz] = level
+        self._prev_level, self._prev_freq = level, freq_hz
         return level
 
     def last_frame(self):
