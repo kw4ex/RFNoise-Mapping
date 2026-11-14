@@ -883,11 +883,11 @@ def make_handler(settings, state, stop_event, sdr=None):
                     import hl2_audio
                     req = json.loads(body)
                     hl2_audio.SND.listen(int(req.get("channel", 0)), bool(req.get("on")),
-                                         req.get("mode"), req.get("bw"))
+                                         req.get("mode"), req.get("bw"), req.get("agc"))
                 elif self.path == "/slice_mode":
                     import hl2_audio
                     req = json.loads(body)
-                    hl2_audio.SND.set_mode(int(req.get("channel", 0)), req.get("mode"), req.get("bw"))
+                    hl2_audio.SND.set_mode(int(req.get("channel", 0)), req.get("mode"), req.get("bw"), req.get("agc"))
                 elif self.path == "/slice_rec":
                     import hl2_audio
                     req = json.loads(body)
@@ -896,7 +896,7 @@ def make_handler(settings, state, stop_event, sdr=None):
                     mhz = chans[ch]["mhz"] if 0 <= ch < len(chans) else 0
                     name = hl2_audio.SND.record(ch, bool(req.get("on")),
                                                 "slice%d_%gMHz" % (ch + 1, mhz),
-                                                req.get("mode"), req.get("bw"))
+                                                req.get("mode"), req.get("bw"), req.get("agc"))
                     return self._send(200, json.dumps({"file": name or ""}))
                 elif self.path == "/pause":
                     cur = settings.get()

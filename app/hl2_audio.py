@@ -22,6 +22,11 @@ import numpy as np
 AUDIO_RATE = 12000                    # audio samples per second (all Hermes rates divide evenly into it)
 MODES = ("AM", "SAM", "USB", "LSB", "NFM")
 BW_DEF = {"AM": 8000.0, "SAM": 8000.0, "USB": 2800.0, "LSB": 2800.0, "NFM": 12000.0}
+# volume levelling ("AGC"): how fast the volume recovers after a loud peak. Off = a fixed gain, so the
+# background noise keeps its true level next to the signals (best for hunting noise).
+AGC_DECAY = {"slow": 0.995, "medium": 0.95, "fast": 0.80, "off": None}
+AGC_DEF = "medium"
+FIXED_GAIN = 400.0                    # AGC off: audio = tanh(sample * this), so loud signals are limited, not clipped
 REC_MAX_S = 3600                      # a recording stops itself after an hour (about 83 MB would be 1 h; see below)
 
 
@@ -76,10 +81,11 @@ class WavRecorder:
 class _SliceDemod:
     """Turns one receiver's sample stream into audio. Runs in its own small thread."""
 
-    def __init__(self, client, rx, rate, mode, bw):
+    def __init__(self, client, rx, rate, mode, bw, agc=None):
         self.client, self.rx, self.rate = client, rx, int(rate)
         self.decim = max(1, self.rate // AUDIO_RATE)
-        self.set_mode(mode, bw)
+        self.agc = AGC_DEF
+        self.set_mode(mode, bw, agc)
         self.count = client.count[rx]              # start from "now", not from old samples
         self.tail = np.zeros(0, np.complex64)
         self.phase = 0
@@ -96,7 +102,9 @@ class _SliceDemod:
         self.th = threading.Thread(target=self._loop, daemon=True)
         self.th.start()
 
-    def set_mode(self, mode, bw=None):
+    def set_mode(self, mode, bw=None, agc=None):
+        if agc in AGC_DECAY:
+            self.agc = agc
         mode = mode if mode in MODES else "AM"
         bw = float(bw or BW_DEF[mode])
         bw = min(max(bw, 200.0), min(16000.0, self.rate * 0.8))
@@ -199,8 +207,11 @@ class _SliceDemod:
             dc = k * dc + (1 - k) * v
             out[i] = v - dc
         self.dc = dc
+        decay = AGC_DECAY.get(self.agc)
+        if decay is None:                           # AGC off: fixed gain, true background level
+            return (np.tanh(out * FIXED_GAIN) * 0.8 * 32767.0).astype(np.int16)
         pk = float(np.max(np.abs(out))) if out.size else 0.0
-        self.peak = max(self.peak * 0.995, pk, 1e-4)
+        self.peak = max(self.peak * decay, pk, 1e-4)
         return np.clip(out / self.peak * 0.5 * 32767.0, -32767, 32767).astype(np.int16)
 
     def get_audio(self, after):
@@ -233,7 +244,7 @@ class SliceSound:
         self.lookup = lookup
         self.rec_dir = rec_dir
 
-    def _get(self, ch, mode=None, bw=None):
+    def _get(self, ch, mode=None, bw=None, agc=None):
         with self.lock:
             d = self.slices.get(ch)
             if d is None:
@@ -244,13 +255,13 @@ class SliceSound:
                     raise ValueError("Sound works on the Hermes Lite 2 slots only. This slot is measured by "
                                      "the SDRplay, which cannot stream sound while it is measuring.")
                 client, rx, rate = got
-                d = _SliceDemod(client, rx, rate, mode or "AM", bw)
+                d = _SliceDemod(client, rx, rate, mode or "AM", bw, agc)
                 self.slices[ch] = d
         if mode:
-            d.set_mode(mode, bw)
+            d.set_mode(mode, bw, agc)
         return d
 
-    def listen(self, ch, on, mode=None, bw=None):
+    def listen(self, ch, on, mode=None, bw=None, agc=None):
         if not on:
             with self.lock:
                 d = self.slices.get(ch)
@@ -262,15 +273,15 @@ class SliceSound:
             if k != ch:
                 d.listen = False
                 self._reap(k)
-        self._get(ch, mode, bw).listen = True
+        self._get(ch, mode, bw, agc).listen = True
 
-    def set_mode(self, ch, mode, bw=None):
+    def set_mode(self, ch, mode, bw=None, agc=None):
         with self.lock:
             d = self.slices.get(ch)
         if d:
-            d.set_mode(mode, bw)
+            d.set_mode(mode, bw, agc)
 
-    def record(self, ch, on, label="slice", mode=None, bw=None):
+    def record(self, ch, on, label="slice", mode=None, bw=None, agc=None):
         if not on:
             with self.lock:
                 d = self.slices.get(ch)
@@ -281,7 +292,7 @@ class SliceSound:
                     d.rec = None
                 self._reap(ch)
                 return out
-        d = self._get(ch, mode, bw)
+        d = self._get(ch, mode, bw, agc)
         with d.lock:
             if d.rec is None:
                 os.makedirs(self.rec_dir, exist_ok=True)
@@ -307,7 +318,7 @@ class SliceSound:
         out = {}
         with self.lock:
             for ch, d in self.slices.items():
-                st = {"listen": d.listen, "mode": d.mode, "bw": d.bw}
+                st = {"listen": d.listen, "mode": d.mode, "bw": d.bw, "agc": d.agc}
                 if d.rec is not None:
                     st["rec_file"] = os.path.basename(d.rec.path)
                     st["rec_s"] = round(d.rec.seconds(), 1)

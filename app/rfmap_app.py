@@ -869,14 +869,14 @@ class Handler(BaseHTTPRequestHandler):
                 if not SLICES.running:
                     raise ValueError("Start the slices preview (or logging) first.")
                 import hl2_audio
-                hl2_audio.SND.listen(ch, bool(b.get("on")), b.get("mode"), b.get("bw"))
+                hl2_audio.SND.listen(ch, bool(b.get("on")), b.get("mode"), b.get("bw"), b.get("agc"))
             return {"ok": True}
         if path == "/api/slices/sound_mode":
             if APP.running():
                 APP.logger_call("/slice_mode", b, timeout=3)
             else:
                 import hl2_audio
-                hl2_audio.SND.set_mode(int(b.get("channel", 0)), b.get("mode"), b.get("bw"))
+                hl2_audio.SND.set_mode(int(b.get("channel", 0)), b.get("mode"), b.get("bw"), b.get("agc"))
             return {"ok": True}
         if path == "/api/slices/rec":
             ch = int(b.get("channel", 0))
@@ -889,7 +889,7 @@ class Handler(BaseHTTPRequestHandler):
             chans = APP.cfg.get("channels", [])
             mhz = chans[ch]["mhz"] if 0 <= ch < len(chans) else 0
             name = hl2_audio.SND.record(ch, bool(b.get("on")), "slice%d_%sMHz" % (ch + 1, mhz),
-                                        b.get("mode"), b.get("bw"))
+                                        b.get("mode"), b.get("bw"), b.get("agc"))
             return {"ok": True, "file": name or ""}
         if path == "/api/slices/stop":
             SLICES.stop()

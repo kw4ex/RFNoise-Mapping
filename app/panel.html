@@ -471,8 +471,14 @@ function slDraw(cv,f,zoom){
   const toX=hz=>((hz-w0)/span)*W;
   g.strokeStyle="#223445"; g.lineWidth=1; for(let k=1;k<4;k++){ g.beginPath(); g.moveTo(0,H*k/4); g.lineTo(W,H*k/4); g.stroke(); }
   // measured stripe
-  const x0=toX(f.tune-f.bw/2), x1=toX(f.tune+f.bw/2);
-  g.fillStyle="rgba(255,200,60,.28)"; g.fillRect(Math.max(0,x0),0,Math.max(2,x1-x0),H);
+  cv._map={w0:w0,span:span};
+  const x0=toX(f.tune-f.bw/2), x1=toX(f.tune+f.bw/2), pb=cv._pb;
+  if(pb){   // the receive filter follows the mode: LSB below the tuned frequency, USB above, AM/NFM both sides
+    const p0=toX(f.tune+pb.lo), p1=toX(f.tune+pb.hi);
+    g.fillStyle="rgba(80,220,120,.30)"; g.fillRect(Math.max(0,p0),0,Math.max(2,p1-p0),H);
+    g.fillStyle="rgba(255,200,60,.85)"; g.fillRect(Math.max(0,x0),0,Math.max(2,x1-x0),5);      // what is measured and logged
+    g.strokeStyle="rgba(255,255,255,.9)"; g.lineWidth=1.2; g.beginPath(); g.moveTo(toX(f.tune),0); g.lineTo(toX(f.tune),H); g.stroke();
+  } else { g.fillStyle="rgba(255,200,60,.28)"; g.fillRect(Math.max(0,x0),0,Math.max(2,x1-x0),H); }
   g.strokeStyle="#59d0ff"; g.lineWidth=1.3; g.beginPath();
   const b0=((w0-(f.center-rate/2))/rate)*n;
   const bw=(span/rate)*n;
@@ -494,7 +500,7 @@ function slRender(j){
       '<button class="sm slDn" title="Tune down one step">&minus;</button>'+
       '<input type="number" step="any" class="slF" style="width:108px" title="Frequency in MHz. Press Enter, or use the buttons or the mouse wheel.">'+
       '<button class="sm slUp" title="Tune up one step">+</button><span class="mut" style="font-size:12px">MHz</span>'+
-      '<select class="sm slStep" title="How far each click or wheel notch moves the frequency">'+
+      '<label class="mut" style="font-size:12px">Step</label><select class="sm slStep" title="How far each click of the - and + buttons, or each notch of the mouse wheel, moves the frequency">'+
       '<option value="0.1">100 Hz</option><option value="0.5">500 Hz</option><option value="1" selected>1 kHz</option><option value="5">5 kHz</option>'+
       '<option value="10">10 kHz</option><option value="100">100 kHz</option><option value="1000">1 MHz</option></select>'+
       '<label class="mut" style="font-size:12px">Width</label><input type="number" step="any" class="slW" style="width:64px" title="Measured width in kHz"><span class="mut" style="font-size:12px">kHz</span>'+
@@ -503,11 +509,17 @@ function slRender(j){
       '<input type="range" class="slzoom" min="0" max="16" step="1" value="0" style="width:130px;vertical-align:middle"><span class="mut slspan" style="font-size:12px"></span></div>'+
       '<div class="slsnd" style="display:none;gap:8px;align-items:center;margin-top:4px;flex-wrap:wrap">'+
       '<button class="sm slsListen"></button><select class="sm slsMode"><option>AM</option><option>SAM</option><option>USB</option><option>LSB</option><option>NFM</option></select>'+
+      '<label class="mut" style="font-size:12px">Filter</label><select class="sm slsBw" title="Receive filter width: the green band on the picture">'+
+      '<option value="">Auto</option><option value="500">500 Hz</option><option value="1000">1.0 kHz</option><option value="1800">1.8 kHz</option><option value="2400">2.4 kHz</option>'+
+      '<option value="2800">2.8 kHz</option><option value="3600">3.6 kHz</option><option value="6000">6 kHz</option><option value="8000">8 kHz</option><option value="12000">12 kHz</option></select>'+
+      '<label class="mut" style="font-size:12px">AGC</label><select class="sm slsAgc" title="Off keeps the background noise at its true level next to the signals. Slow, Medium and Fast level the volume.">'+
+      '<option value="off">Off</option><option value="slow">Slow</option><option value="medium" selected>Medium</option><option value="fast">Fast</option></select>'+
       '<button class="sm recbtn slsRec"></button><span class="mut slsRecInfo"></span></div>'; grid.appendChild(d); }
   while(grid.children.length>fr.length) grid.removeChild(grid.lastChild);
   const cal=[...document.querySelectorAll(".cc")];
   fr.forEach((f,i)=>{ const d=grid.children[i]; d.querySelector(".slt").textContent="Slice "+(f.channel+1)+": "+(f.tune/1e6).toFixed(4)+" MHz"+(f.radio==="hl2"?" (Hermes)":(f.radio==="sdrplay"?" (SDRplay)":""));
     const c=+((cal[f.channel]||{}).value||0); d.querySelector(".slv").innerHTML="<b>"+(f.smeter+c).toFixed(1)+" dB</b>";
+    d.dataset.ch=String(f.channel);
     slTuneWire(d,f);
     const zsel=d.querySelector(".slzoom"), z=SLZ[String(f.channel)]||1;
     if(document.activeElement!==zsel&&+zsel.value!==slzPos(z)) zsel.value=String(slzPos(z));
@@ -520,16 +532,24 @@ function slRender(j){
     if(f.radio==="hl2"){
       snd.style.display="flex";
       const lb=d.querySelector(".slsListen"); lb.textContent=st.listen?"\u25A0 Sound off":"\uD83D\uDD0A Listen"; lb.onclick=()=>slsListen(ch,!st.listen);
-      const ms=d.querySelector(".slsMode"); if(document.activeElement!==ms&&st.mode&&ms.value!==st.mode) ms.value=st.mode; ms.onchange=()=>slsMode(ch,ms.value);
+      const ms=d.querySelector(".slsMode"), bs=d.querySelector(".slsBw"), ag=d.querySelector(".slsAgc");
+      if(!d.dataset.synced&&st.mode){ ms.value=st.mode; bs.value=(st.bw&&BWDEF[st.mode]!==st.bw)?String(Math.round(st.bw)):""; if(st.agc) ag.value=st.agc; d.dataset.synced="1"; }
+      ms.onchange=bs.onchange=ag.onchange=()=>{ slsMode(ch); const cv=d.querySelector("canvas"); cv._pb=slPassband(ms.value,bs.value); slDraw(cv,f,SLZ[String(f.channel)]||1); };
       const rb=d.querySelector(".slsRec"); const on=!!st.rec_file;
-      rb.textContent=on?"\u25A0 Stop recording":"\u25CF Record"; rb.onclick=()=>slsRec(ch,!on,ms.value);
+      rb.textContent=on?"\u25A0 Stop recording":"\u25CF Record"; rb.onclick=()=>slsRec(ch,!on);
+      d.querySelector("canvas")._pb=slPassband(ms.value,bs.value);
       d.querySelector(".slsRecInfo").textContent=on?(st.rec_file+"  "+Math.floor((st.rec_s||0)/60)+":"+String(Math.floor((st.rec_s||0)%60)).padStart(2,"0")):"";
-    } else snd.style.display="none"; });
+    } else { snd.style.display="none"; d.querySelector("canvas")._pb=null; } });
   const h=j.health||{}, w=$("slWarn"), msg=[];
   if(h.overload) msg.push("<b>OVERLOAD</b>: a strong signal is overloading the radio. Lower the radio gain (More settings).");
   if(h.lost_packets>50) msg.push("The network is dropping packets ("+h.lost_packets+" lost). Use a direct cable, or a lower detail setting.");
   w.style.display=msg.length?"block":"none"; w.innerHTML=msg.join("<br>");
 }
+const BWDEF={AM:8000,SAM:8000,USB:2800,LSB:2800,NFM:12000};
+function slPassband(mode,bwSel){ const bw=+bwSel||BWDEF[mode]||8000;
+  if(mode==="LSB") return {lo:-bw,hi:0}; if(mode==="USB") return {lo:0,hi:bw}; return {lo:-bw/2,hi:bw/2}; }
+function slsPrefs(ch){ const box=[...document.querySelectorAll("#slGrid .slbox")].find(b=>b.dataset.ch===String(ch)); if(!box) return {};
+  const bw=box.querySelector(".slsBw").value; return {mode:box.querySelector(".slsMode").value, bw:bw?+bw:undefined, agc:box.querySelector(".slsAgc").value}; }
 /* tune a slice: frequency, step, width and radio, live in the preview and while logging */
 const SLSTEP={};
 function slRowOf(ch){ const m=[...document.querySelectorAll(".cm")]; let n=-1;
@@ -552,16 +572,26 @@ function slTuneWire(d,f){
   fi.onwheel=e=>{ e.preventDefault(); move(e.deltaY<0?1:-1); };
   wi.onchange=()=>{ if(+wi.value>0) slTune(ch,{bw:wi.value}); };
   ri.onchange=()=>slTune(ch,{radio:ri.value});
+  // the picture itself: wheel = step, click = tune to that spot, drag = grab the band and slide it
+  const cv=d.querySelector("canvas"); cv.style.cursor="grab"; cv.style.touchAction="none";
+  const setF=(mhz,delay)=>{ const nv=Math.max(0.001,Math.round(mhz*1e4)/1e4); fi.value=String(nv); slTune(ch,{mhz:String(nv)},delay); };
+  cv.onwheel=e=>{ e.preventDefault(); move(e.deltaY<0?1:-1); };
+  cv.onpointerdown=e=>{ const m=cv._map; if(!m||e.button>0) return; const r=cv.getBoundingClientRect();
+    cv._drag={x0:e.clientX,f0:parseFloat(fi.value)||parseFloat(cm.value)||0,hzpp:m.span/r.width,moved:false,clickHz:m.w0+(e.clientX-r.left)/r.width*m.span};
+    try{cv.setPointerCapture(e.pointerId);}catch(_){} cv.style.cursor="grabbing"; };
+  cv.onpointermove=e=>{ const g=cv._drag; if(!g) return; const dx=e.clientX-g.x0; if(Math.abs(dx)>4) g.moved=true;
+    if(g.moved) setF(g.f0-dx*g.hzpp/1e6,90); };
+  cv.onpointerup=cv.onpointercancel=e=>{ const g=cv._drag; cv._drag=null; cv.style.cursor="grab"; if(g&&!g.moved) setF(g.clickHz/1e6,90); };
 }
 let slTuneTimer=null, slUndo=null;
-function slTune(ch,p){ const r=slRowOf(ch); if(r<0) return;
+function slTune(ch,p,delay){ const r=slRowOf(ch); if(r<0) return;
   const cm=document.querySelectorAll(".cm")[r], cb=document.querySelectorAll(".cb")[r], cr=document.querySelectorAll(".cr")[r];
   if(!slUndo) slUndo=[...document.querySelectorAll(".cm")].map((_,i)=>({m:document.querySelectorAll(".cm")[i].value,
       b:document.querySelectorAll(".cb")[i].value, r:document.querySelectorAll(".cr")[i].value}));   // to go back if refused
   if(p.mhz!==undefined) cm.value=p.mhz;
   if(p.bw!==undefined) cb.value=p.bw;
   if(p.radio!==undefined) cr.value=p.radio;
-  clearTimeout(slTuneTimer); slTuneTimer=setTimeout(slPush,250); }
+  clearTimeout(slTuneTimer); slTuneTimer=setTimeout(slPush,delay||250); }
 async function slPush(){
   const undo=slUndo; slUndo=null;
   try{ const cfg=readForm(); await api("/api/config",cfg);
@@ -595,17 +625,16 @@ async function slsPollAudio(){
 async function slsListen(ch,on){
   try{
     if(on){ slsAudioStart(); if(SLS.actx.state==="suspended") SLS.actx.resume(); }
-    const mode=(SLS.sound[String(ch)]||{}).mode;
-    await api("/api/slices/listen",{channel:ch,on:on,mode:mode});
+    await api("/api/slices/listen",Object.assign({channel:ch,on:on},slsPrefs(ch)));
     clearTimeout(SLS.atimer); SLS.listen=on?ch:-1; SLS.after=0; SLS.aNext=0;
     if(on){ toast("Sound on: slice "+(ch+1)+". One slice plays at a time; recording other slices still works.",4500); slsPollAudio(); }
     slPoll();
   }catch(e){ toast("&#9888; "+esc(e.message),7000); }
 }
-async function slsMode(ch,m){ try{ await api("/api/slices/sound_mode",{channel:ch,mode:m}); }catch(e){ toast("&#9888; "+esc(e.message),6000);} }
-async function slsRec(ch,on,mode){
+async function slsMode(ch){ try{ await api("/api/slices/sound_mode",Object.assign({channel:ch},slsPrefs(ch))); }catch(e){ toast("&#9888; "+esc(e.message),6000);} }
+async function slsRec(ch,on){
   try{
-    const r=await api("/api/slices/rec",{channel:ch,on:on,mode:mode});
+    const r=await api("/api/slices/rec",Object.assign({channel:ch,on:on},slsPrefs(ch)));
     if(on) toast("Recording slice "+(ch+1)+" to a WAV file. It keeps recording while you drive; press Stop recording to finish.",6000);
     else { toast(r.file?("Recording saved: "+esc(r.file)+" (in the Audio recordings box below)"):"Recording stopped.",8000); recList(); }
     slPoll();
