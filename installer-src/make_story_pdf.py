@@ -9,9 +9,9 @@ out = os.path.join(REPO, "docs", "guides", "The-Story-of-RF-Noise-Map.pdf")
 md = open(src, encoding="utf-8").read()
 body = markdown.markdown(md, extensions=["tables", "fenced_code", "sane_lists"])
 css = """
-body{font-family:Georgia,'Times New Roman',serif;font-size:11.5pt;line-height:1.5;color:#1b1b1b;max-width:7in;margin:0 auto}
+body{font-family:Georgia,'Times New Roman',serif;font-size:11pt;line-height:1.45;color:#1b1b1b;max-width:7in;margin:0 auto}
 h1{font-size:26pt;margin:0 0 .3em;color:#12355b}
-h2{font-size:17pt;color:#12355b;border-bottom:1px solid #c9d3df;padding-bottom:.15em;margin-top:1.6em;page-break-after:avoid}
+h2{font-size:17pt;color:#12355b;border-bottom:1px solid #c9d3df;padding-bottom:.15em;margin-top:1.4em;page-break-after:avoid}
 h3{font-size:13pt;color:#12355b;page-break-after:avoid}
 img{max-width:100%;border:1px solid #ccd;margin:.6em 0;page-break-inside:avoid}
 table{border-collapse:collapse;width:100%;font-size:10pt;margin:.8em 0;page-break-inside:avoid}
