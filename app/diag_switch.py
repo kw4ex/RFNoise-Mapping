@@ -34,6 +34,39 @@ def true_level(sdr, mhz, settings, wait_s=1.0):
     return sum(vals) / len(vals)
 
 
+def profile(sdr, strong, quiet, settings, pause_s, drain, trials=6, nseg=16):
+    """After jumping strong -> quiet, read 2 ms slices and show the level of each slice (dB). Returns list of rows."""
+    import numpy as np
+    n = sdr.FFT_N
+    binw = sdr.SAMPLE_RATE / n
+    offset = sdr.OFFSET_HZ
+    centre = n // 2 + int(round(offset / binw))
+    half = max(int(round(5000.0 / binw / 2)), 1)
+    rows = []
+    for _ in range(trials):
+        sdr.DRAIN, sdr.SETTLE = False, 4096
+        sdr.measure(strong * 1e6, 5000.0, 0, 0, settings)
+        if pause_s:
+            time.sleep(pause_s)
+        sdr.dev.setFrequency(sdr.RX, 0, quiet * 1e6 - offset)
+        if drain:
+            sdr._drain()
+        row = []
+        buf = np.zeros(n, np.complex64)
+        for _k in range(nseg):
+            got = 0
+            while got < n:
+                sr = sdr.dev.readStream(sdr.stream, [buf[got:]], n - got, timeoutUs=500_000)
+                if sr.ret > 0:
+                    got += sr.ret
+                elif sr.ret < 0:
+                    break
+            spec = np.abs(np.fft.fftshift(np.fft.fft(buf * sdr.window))) ** 2 / (n * sdr.win_pow)
+            row.append(10.0 * math.log10(float(spec[centre - half: centre + half + 1].sum()) + 1e-20))
+        rows.append(row)
+    return rows
+
+
 def run_pattern(sdr, fa, fb, settings, pause_s, drain, settle, rounds=8):
     """Jump A, B, A, B ... like the logger. Returns (mean error of A, mean error of B, seconds per reading)."""
     sdr.DRAIN, sdr.SETTLE = drain, settle
@@ -129,6 +162,18 @@ def main():
                 worst_old = max(worst_old, w)
             elif name.startswith("NEW method"):
                 worst_new = max(worst_new, w)
+        say()
+        say("Step 4: time profile. After jumping from the strong to the quiet frequency, the level of each")
+        say(f"  2 ms slice (true quiet level is {tb:.0f} dBFS). Each line is the average of 6 jumps; slices run left to right.")
+        for pause, drain in ((0.0, False), (0.15, False), (0.15, True), (1.0, True)):
+            rows = profile(sdr, strong[1], quiet[1], settings, pause, drain)
+            avg = [sum(r[i] for r in rows) / len(rows) for i in range(len(rows[0]))]
+            say(f"  pause {pause:4.2f}s drain {'on ' if drain else 'off'}: " + " ".join(f"{v:4.0f}" for v in avg))
+            firsts = []
+            for r in rows:
+                k = next((i for i, v in enumerate(r) if v < tb + 3.0), None)
+                firsts.append("never" if k is None else str(k * 2))
+            say("      ms until within 3 dB of true, per jump: " + ", ".join(firsts))
         say()
         say("How to read this: 0.0 means the quick reading matches the true one. If readings are mixed up with the")
         say("frequency just before, the strong one reads too LOW (minus number) and the quiet one too HIGH (plus number).")
