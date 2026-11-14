@@ -75,6 +75,7 @@ DEFAULT_CONFIG = {
         {"mhz": 148.000, "bw_khz": 10.0, "cal_db": 0.0, "radio": "auto"},
         {"mhz": "", "bw_khz": 5.0, "cal_db": 0.0, "radio": "auto"},
     ],
+    "sdr_live": -1,                  # which SDRplay slot is the live one (-1 = the lowest-numbered SDRplay slot)
     "pan_mem": None,                 # saved panadapter memory frequencies (None = show the starter list)
     "phone_access": False,           # let an iPhone/iPad open this window too (needs restart)
     "token": "",
@@ -275,16 +276,19 @@ class App:
     def slot_cfg(self):
         c = self.cfg
         return {"channels": c.get("channels", []), "hl2_gain_db": c.get("hl2_gain_db", 15),
-                "if_gain_db": c.get("if_gain_db", 40), "rf_gain_state": c.get("rf_gain_state", 0)}
+                "if_gain_db": c.get("if_gain_db", 40), "rf_gain_state": c.get("rf_gain_state", 0),
+                "sdr_live": c.get("sdr_live", -1)}
 
     def clean_channels(self, chans, practice=None):
         """Checks the frequency slots and works out each slot's radio. Returns the list the logger uses."""
         if practice is None:
             practice = bool(self.cfg.get("practice"))
         out = []
-        for ch in chans[:4]:
-            if str(ch.get("mhz", "")).strip() == "":
-                continue
+        live_want = int(self.cfg.get("sdr_live", -1))
+        raw_idx = []
+        for n, ch in enumerate(chans[:4]):
+            if str(ch.get("mhz", "")).strip() == "" or str(ch.get("radio")) == "off":
+                continue                                   # empty, or switched off with the slot's Radio chooser
             mhz = float(ch["mhz"])
             if not (0.001 <= mhz <= 2000):
                 raise ValueError(f"{mhz} MHz is outside the radio's range (0.001 to 2000 MHz).")
@@ -292,6 +296,12 @@ class App:
                         "cal_db": float(ch.get("cal_db") or 0),
                         "mode": (str(ch.get("mode") or "AM").upper() if str(ch.get("mode") or "AM").upper() in ("AM", "SAM", "USB", "LSB", "NFM") else "AM"),
                         "radio": self.resolve_radio(mhz, str(ch.get("radio") or "auto"), practice)})
+            raw_idx.append(n)
+        # one SDRplay slot is "live" (kept on its frequency); the others are refreshed more slowly
+        sdr = [k for k, c2 in enumerate(out) if c2["radio"] == "sdrplay"]
+        if sdr:
+            pick = next((k for k in sdr if raw_idx[k] == live_want), sdr[0])
+            out[pick]["live"] = True
         if not out:
             raise ValueError("Enter at least one frequency.")
         return out

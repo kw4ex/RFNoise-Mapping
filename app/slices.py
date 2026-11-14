@@ -107,7 +107,13 @@ class SlicePreview:
                                                 chans[k]["bw_khz"] * 1e3, fr[3], k, chans[k].get("radio", ""))
                     time.sleep(0.03)
                 else:
+                    # one tuner: the "live" slot is measured every pass, the others only now and then
+                    npass = getattr(self, "_npass", 0) + 1
+                    self._npass = npass
+                    anylive = any(c.get("live") for c in chans)
                     for k, ch in enumerate(chans):
+                        if anylive and not ch.get("live") and npass % 8 != 1:
+                            continue
                         lv = sdr.measure(ch["mhz"] * 1e6, ch["bw_khz"] * 1e3, 0.0, 0.0, cfg)
                         fr = sdr.last_frame()
                         if fr:
