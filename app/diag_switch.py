@@ -67,6 +67,22 @@ def profile(sdr, strong, quiet, settings, pause_s, drain, trials=6, nseg=16):
     return rows
 
 
+def settle_trials(sdr, strong, quiet, settings, tb, settle, drain, trials=20):
+    """Jump strong -> quiet straight away; discard `settle` samples; measure. Returns (percent bad, worst error dB, ms)."""
+    import numpy as np
+    bad, worst, t0 = 0, 0.0, time.time()
+    for _ in range(trials):
+        sdr.DRAIN, sdr.SETTLE = False, 4096
+        sdr.measure(strong * 1e6, 5000.0, 0, 0, settings)
+        sdr.DRAIN, sdr.SETTLE = drain, settle
+        v = sdr.measure(quiet * 1e6, 5000.0, 0, 0, settings)
+        e = v - tb
+        worst = max(worst, e)
+        if e > 3.0:
+            bad += 1
+    return 100.0 * bad / trials, worst, (time.time() - t0) / trials * 1000.0
+
+
 def run_pattern(sdr, fa, fb, settings, pause_s, drain, settle, rounds=8):
     """Jump A, B, A, B ... like the logger. Returns (mean error of A, mean error of B, seconds per reading)."""
     sdr.DRAIN, sdr.SETTLE = drain, settle
@@ -174,6 +190,14 @@ def main():
                 k = next((i for i, v in enumerate(r) if v < tb + 3.0), None)
                 firsts.append("never" if k is None else str(k * 2))
             say("      ms until within 3 dB of true, per jump: " + ", ".join(firsts))
+        say()
+        say("Step 5: how much waiting after a jump is enough? 20 jumps from the strong to the quiet frequency each.")
+        say("  (bad = the quiet reading was more than 3 dB too high.  ms = time for the whole jump plus reading.)")
+        say(f"  {'discard after jump':22s} {'queue emptied':13s} {'bad':>6s} {'worst error':>12s} {'ms':>6s}")
+        for settle in (4096, 8192, 16384, 32768, 65536, 131072):
+            for drain in (False, True):
+                pb, worst, ms = settle_trials(sdr, strong[1], quiet[1], settings, tb, settle, drain)
+                say(f"  {settle:7d} samples      {'yes' if drain else 'no':13s} {pb:5.0f}% {worst:+10.1f} dB {ms:6.0f}")
         say()
         say("How to read this: 0.0 means the quick reading matches the true one. If readings are mixed up with the")
         say("frequency just before, the strong one reads too LOW (minus number) and the quiet one too HIGH (plus number).")

@@ -425,6 +425,17 @@ class SoapySdr:
                 return False
         return True
 
+    def _skip(self, n):
+        """Read and throw away n samples (in pieces that fit the scratch buffer)."""
+        left = n
+        while left > 0:
+            sr = self.dev.readStream(self.stream, [self.scratch], min(left, self.scratch.size), timeoutUs=500_000)
+            if sr.ret > 0:
+                left -= sr.ret
+            elif sr.ret < 0:
+                return False
+        return True
+
     def _drain(self, max_s=0.1):
         t_end = time.time() + max_s
         try:
@@ -445,7 +456,7 @@ class SoapySdr:
         # samples (the retune glitch) before measuring.
         if self.DRAIN:
             self._drain()
-        self._read(self.SETTLE)
+        self._skip(self.SETTLE)
         if not self._read(self.NSAMP):
             return float("nan")
         x = self.buf
