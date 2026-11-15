@@ -832,14 +832,16 @@ class Handler(BaseHTTPRequestHandler):
             APP.logger_call("/pan", {"channel": int(b.get("channel", -1))}, timeout=3)
             return {"ok": True}
         if path == "/api/gain":                   # attenuation, also while driving
-            a = int(min(max(int(b.get("if_gain_db", 40)), 20), 59))
-            r = int(min(max(int(b.get("rf_gain_state", 0)), 0), 27))
-            h = int(min(max(int(b.get("hl2_gain_db", APP.cfg.get("hl2_gain_db", 15))), -12), 48))
+            cf = APP.cfg                            # each radio's setting changes on its own: anything not sent stays as it was
+            a = int(min(max(int(b.get("if_gain_db", cf.get("if_gain_db", 40))), 20), 59))
+            r = int(min(max(int(b.get("rf_gain_state", cf.get("rf_gain_state", 0))), 0), 27))
+            h = int(min(max(int(b.get("hl2_gain_db", cf.get("hl2_gain_db", 15))), -12), 48))
             APP.update_cfg({"if_gain_db": a, "rf_gain_state": r, "hl2_gain_db": h})
+            sent = {k: v for k, v in (("if_gain_db", a), ("rf_gain_state", r), ("hl2_gain_db", h)) if k in b}
             if APP.running():
-                APP.logger_call("/set", {"if_gain_db": a, "rf_gain_state": r, "hl2_gain_db": h}, timeout=3)
+                APP.logger_call("/set", sent or {"if_gain_db": a, "rf_gain_state": r, "hl2_gain_db": h}, timeout=3)
             elif SLICES.running:
-                SLICES.set(gain={"if_gain_db": a, "rf_gain_state": r, "hl2_gain_db": h})
+                SLICES.set(gain=sent or {"if_gain_db": a, "rf_gain_state": r, "hl2_gain_db": h})
             return {"ok": True, "if_gain_db": a, "rf_gain_state": r, "hl2_gain_db": h}
         if path == "/api/spacing":                # dot spacing, also while driving
             sp = min(max(2.0, float(b.get("spacing_ft", 10))), 5280.0)

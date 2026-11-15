@@ -205,16 +205,16 @@ body.only-slices #staleBanner,body.only-slices #warnBanner,body.only-slices #blo
    <div class="mut">10&nbsp;ft is a good start. Smaller gives more detail (slow streets, walking); larger suits highways and gives smaller files. <b>You can change it while driving</b>: it applies from the next dot. If you drive faster than the radio can keep up, dots end up farther apart than this setting.</div>
    <details><summary>More settings</summary>
     <div class="row" id="hl2Gain" style="display:none">
-      <div><label>Radio gain (dB, &minus;12 to +48)</label><br><input type="number" id="hl2g" min="-12" max="48" onchange="gainChanged()"></div>
+      <div><label>Radio gain (dB, &minus;12 to +48)</label><br><input type="number" id="hl2g" min="-12" max="48" onchange="gainChanged('hl2')"></div>
       <div><br><button class="sm" onclick="hl2GainReset()">Reset to default (+15)</button></div>
-      <div class="mut" style="flex:1 1 300px">Higher gain hears weaker signals but overloads sooner. If a slot shows <b>OVERLOAD</b>, lower it (each Hermes slot has a Gain slider). Pick a value before a drive and leave it alone so dots can be compared.</div>
+      <div class="mut" style="flex:1 1 300px">Higher gain hears weaker signals but overloads sooner. <b>This setting is for the Hermes Lite 2 only</b> and does not touch the SDRplay. If a slot shows <b>OVERLOAD</b>, lower it (each Hermes slot has a Gain slider). Recording always uses this fixed number (never automatic gain). Pick a value before a drive and leave it alone so dots can be compared.</div>
     </div>
     <div class="row" id="sdrGain">
-      <div><label>IF attenuation (dB, 20&ndash;59)</label><br><input type="number" id="ifgr" min="20" max="59" onchange="gainChanged()"></div>
-      <div><label>RF attenuation (0&ndash;27)</label><br><input type="number" id="rfgr" min="0" max="27" onchange="gainChanged()"></div>
+      <div><label>IF attenuation (dB, 20&ndash;59)</label><br><input type="number" id="ifgr" min="20" max="59" onchange="gainChanged('sdr')"></div>
+      <div><label>RF attenuation (0&ndash;27)</label><br><input type="number" id="rfgr" min="0" max="27" onchange="gainChanged('sdr')"></div>
       <div><br><button class="sm" onclick="gainReset()">Reset to defaults (IF 40, RF 0)</button></div>
+      <div class="mut" style="flex:1 1 300px"><b>These settings are for the SDRplay only</b> and do not touch the Hermes Lite 2. Recording always uses these fixed numbers (never automatic gain). Pick values before a drive and leave them alone so dots can be compared. If readings are pinned at the top or bottom, or strong stations overload the radio, raise the attenuation; raise it more for stronger signals. You can change it while driving if you must, but dots before and after the change are then not directly comparable.</div>
     </div>
-    <div class="mut">Recording always uses these fixed numbers (never automatic gain). Pick values before a drive and leave them alone so dots can be compared. If readings are pinned at the top or bottom, or strong stations overload the radio, raise the attenuation; raise it more for stronger signals. You can change it while driving if you must, but dots before and after the change are then not directly comparable.</div>
    </details>
   </div>
  </div>
@@ -501,7 +501,7 @@ async function findHl2(){
   }catch(e){ $("hl2Msg").textContent="Could not search: "+e.message; }
   b.disabled=false; b.textContent=old;
 }
-function hl2GainReset(){ $("hl2g").value=15; gainChanged(); }
+function hl2GainReset(){ $("hl2g").value=15; gainChanged("hl2"); }
 
 /* ---------- slots: four live panadapters ---------- */
 const SL={logging:false,live:false,busy:false,starting:false,manualStop:false,lastTry:0,health:{},byCh:{},startErr:"",radio:"",lastSync:0,seen:{},last:{},paused:false,autoPaused:false};
@@ -627,7 +627,7 @@ function slotInit(i,d){ const q=s=>d.querySelector(s), p=slp(i);
     const sp=q(".slSpanS"); sp.value=String(Math.max(0,PAN_SPANS.indexOf(p.prate||2000000)));
     sp.oninput=()=>{ p.prate=PAN_SPANS[+sp.value]; q(".slSpanT").textContent=panSpanTxt(p.prate); slpSave(); d._wfclear=true; slPanPost({rate:p.prate}); }; }
   { const ga=q(".gAuto"); ga.checked=!!p.autoGain; ga.onchange=()=>{ p.autoGain=ga.checked; slpSave(); q(".gIfS").disabled=q(".gRfS").disabled=ga.checked; slPanPost({auto_gain:ga.checked}); };
-    q(".gReset").onclick=()=>{ $("ifgr").value=40; $("rfgr").value=0; p.autoGain=false; ga.checked=false; slpSave(); q(".gIfS").disabled=q(".gRfS").disabled=false; gainSync(); slGainSoon(); slPanPost({auto_gain:false,if_gain:40,rf_state:0}); }; }
+    q(".gReset").onclick=()=>{ $("ifgr").value=40; $("rfgr").value=0; p.autoGain=false; ga.checked=false; slpSave(); q(".gIfS").disabled=q(".gRfS").disabled=false; gainSync(); slGainSoon("sdr"); slPanPost({auto_gain:false,if_gain:40,rf_state:0}); }; }
   { const sq=q(".slSq"); sq.value=String(p.sq===undefined?-120:p.sq); sq.oninput=()=>{ p.sq=+sq.value; q(".slSqV").textContent=p.sq<=-119?"off":p.sq+" dB"; slpSave(); if(d._rad==="sdrplay") slPanPost({squelch:p.sq}); }; sq.oninput(); }
   q(".slMemSave").onclick=()=>slMemSave(i);
   d.addEventListener("pointerenter",()=>{ SL.focus=i; }); d.addEventListener("pointerdown",()=>{ SL.focus=i; },true);
@@ -641,9 +641,9 @@ function slotInit(i,d){ const q=s=>d.querySelector(s), p=slp(i);
   q(".slAuto").onclick=()=>{ p.auto=!p.auto; if(!p.auto){ const r=SLR[i]; if(r){ p.lo=r.lo; p.hi=r.hi; } } slpSave(); if(d._f) slDraw(i,d._f); };
   // gain sliders (the Hermes has one gain for the whole radio; the SDRplay has two attenuators)
   const gh=q(".gHlS"), gi=q(".gIfS"), gr=q(".gRfS");
-  gh.oninput=()=>{ $("hl2g").value=gh.value; q(".gHlV").textContent=(+gh.value>0?"+":"")+gh.value; slGainSoon(); };
-  gi.oninput=()=>{ $("ifgr").value=gi.value; q(".gIfV").textContent=gi.value; gainSync(); slGainSoon(); slPanPost({if_gain:+gi.value}); };
-  gr.oninput=()=>{ $("rfgr").value=gr.value; q(".gRfV").textContent=gr.value; gainSync(); slGainSoon(); slPanPost({rf_state:+gr.value}); };
+  gh.oninput=()=>{ $("hl2g").value=gh.value; q(".gHlV").textContent=(+gh.value>0?"+":"")+gh.value; slGainSoon("hl2"); };
+  gi.oninput=()=>{ $("ifgr").value=gi.value; q(".gIfV").textContent=gi.value; gainSync(); slGainSoon("sdr"); slPanPost({if_gain:+gi.value}); };
+  gr.oninput=()=>{ $("rfgr").value=gr.value; q(".gRfV").textContent=gr.value; gainSync(); slGainSoon("sdr"); slPanPost({rf_state:+gr.value}); };
   // sound
   const vo=q(".slVol"), mu=q(".slMute"); vo.value=String(p.vol||0);
   vo.oninput=()=>{ p.vol=+vo.value; slpSave(); slsCtx(); slsGainSet(i); slsSyncSoon(); };
@@ -751,7 +751,8 @@ document.addEventListener("keydown",function(e){
 const SCW=54;                 // width (px) of the dB-number strip at the left of each picture
 const SLR={};                 // the dB range now shown, per slot
 let slGainT=null;
-function slGainSoon(){ clearTimeout(slGainT); slGainT=setTimeout(()=>guard(()=>gainChanged()),350); }
+let slGainW=null;
+function slGainSoon(w){ slGainW=(slGainW&&slGainW!==w)?"both":w; clearTimeout(slGainT); slGainT=setTimeout(()=>{ const x=slGainW==="both"?undefined:slGainW; slGainW=null; guard(()=>gainChanged(x)); },350); }
 
 /* ----- drawing ----- */
 function slMarkAt(cv,e){ const r=cv.getBoundingClientRect(), x=(e.clientX-r.left)*cv.width/r.width, y=(e.clientY-r.top)*cv.height/r.height;
@@ -1454,19 +1455,19 @@ function panBand(i){ if(i==="")return; if(PAN.locked){ panLockMsg(); $("panBand"
   panFillBw(); panShowControls(); panSave(); panPost({center:PAN.center,rate:PAN.rate,tune:PAN.tune,mode:PAN.mode,bw:PAN.bw}); $("panBand").value=""; }
 function panWideChanged(){ try{localStorage.setItem("rfmapPanWide",$("panWide").checked?"1":"0");}catch(e){} }
 function gainSync(){ if($("panIf")){ $("panIf").value=$("ifgr").value||40; $("panRf").value=$("rfgr").value||0; } }
-function gainReset(){ $("ifgr").value=40; $("rfgr").value=0; gainChanged();
+function gainReset(){ $("ifgr").value=40; $("rfgr").value=0; gainChanged("sdr");
   if($("panAuto")&&$("panAuto").checked){ $("panAuto").checked=false; } if(!PAN.viewOnly&&PAN.on) panPost({auto_gain:false,if_gain:40,rf_state:0}); }
-function ovLower(){ $("hl2g").value=Math.max(-12,Math.round(+$("hl2g").value||15)-6); gainChanged(); }
-async function gainChanged(){
-  const a=Math.min(59,Math.max(20,Math.round(+$("ifgr").value||40))), r=Math.min(27,Math.max(0,Math.round(+$("rfgr").value||0)));
-  $("ifgr").value=a; $("rfgr").value=r; gainSync();
-  const h=Math.min(48,Math.max(-12,Math.round(+$("hl2g").value||0))); $("hl2g").value=h;
-  await guard(async()=>{ await api("/api/gain",{if_gain_db:a,rf_gain_state:r,hl2_gain_db:h});
-    if(useHl2()&&!useSdr()){ toast(PAN.logging?"Radio gain changed. Readings from now on are not directly comparable with the earlier dots in this drive.":"Radio gain saved ("+h+" dB). Recording uses this number.",PAN.logging?9000:5000); return; }
-    toast(PAN.logging?"Attenuation changed. Readings from now on are not directly comparable with the earlier dots in this drive.":"Attenuation saved (IF "+a+" dB, RF "+r+"). Recording uses these numbers.",PAN.logging?9000:5000); });
+function ovLower(){ $("hl2g").value=Math.max(-12,Math.round(+$("hl2g").value||15)-6); gainChanged("hl2"); }
+async function gainChanged(which){          // which = "hl2" (Hermes gain only), "sdr" (SDRplay attenuation only) or nothing (both)
+  const body={}, say=[];
+  if(which!=="hl2"){ const a=Math.min(59,Math.max(20,Math.round(+$("ifgr").value||40))), r=Math.min(27,Math.max(0,Math.round(+$("rfgr").value||0)));
+    $("ifgr").value=a; $("rfgr").value=r; gainSync(); body.if_gain_db=a; body.rf_gain_state=r; say.push("SDRplay attenuation saved (IF "+a+" dB, RF "+r+")"); }
+  if(which!=="sdr"){ const h=Math.min(48,Math.max(-12,Math.round(+$("hl2g").value||0))); $("hl2g").value=h; body.hl2_gain_db=h; say.push("Hermes gain saved ("+h+" dB)"); }
+  await guard(async()=>{ await api("/api/gain",body);
+    toast(PAN.logging?((which==="hl2"?"Hermes gain":which==="sdr"?"SDRplay attenuation":"Gain")+" changed. Readings from that radio from now on are not directly comparable with its earlier dots in this drive."):(say.join("; ")+". Recording uses these numbers."),PAN.logging?9000:5000); });
 }
 function panGain(){
-  $("ifgr").value=$("panIf").value; $("rfgr").value=$("panRf").value; gainChanged();
+  $("ifgr").value=$("panIf").value; $("rfgr").value=$("panRf").value; gainChanged("sdr");
   if(!PAN.viewOnly) panPost({auto_gain:$("panAuto").checked,if_gain:Math.min(59,Math.max(20,+$("panIf").value||40)),rf_state:Math.min(27,Math.max(0,+$("panRf").value||0))});
 }
 function panSquelch(){PAN.sq=+$("panSq").value; $("panSqV").textContent=PAN.sq<=-119?"off":PAN.sq+" dB"; panPost({squelch:PAN.sq});}
