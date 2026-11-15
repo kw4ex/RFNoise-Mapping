@@ -314,6 +314,14 @@ class App:
 
     def _start(self):
         had_view = SLICES.running or PAN.running
+        known = ""
+        try:                                               # the live view already found the Hermes: hand its address to the logger
+            info = getattr(getattr(SLICES, "sdr", None), "radios", {}).get("hl2")
+            info = getattr(info, "info", None)
+            if info and info.get("ip"):
+                known = "%s,%d" % (info["ip"], int(info.get("nrx", 1)))
+        except Exception:
+            known = ""
         PAN.stop(); SLICES.stop()                          # the radio can only do one job: close the panadapter first
         if had_view:
             time.sleep(1.2)                                # give the radio a moment to settle: a streaming Hermes ignores other programs
@@ -338,6 +346,8 @@ class App:
             cmd += ["--sim-speed", os.environ.get("RFMAP_SIM_SPEED", "20")]
         elif "hl2" in self.active_radios:
             rate = int(c.get("hl2_rate", 96000))
+            if known:
+                cmd += ["--hl2-known", known]
             cmd += ["--hl2-ip", str(c.get("hl2_ip", "")).strip(),
                     "--hl2-rate", str(rate if rate in (48000, 96000, 192000, 384000) else 96000)]
         log = open(self.logger_log, "w")

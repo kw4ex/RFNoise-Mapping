@@ -572,6 +572,9 @@ class SoapySdr:
             pass
 
 
+KNOWN_HL2 = None          # (ip, receivers) when the control panel hands over a radio it already found
+
+
 class HermesLite2:
     """Hermes Lite 2 over the network (see hl2.py). Its receivers run at the same time, each on its own
     frequency, so all channels are read at the SAME instant with no retuning in between."""
@@ -584,7 +587,9 @@ class HermesLite2:
         import hl2
         self.hl2 = hl2
         found = []
-        for _try in range(3):                      # a Hermes that was just released can take a few seconds to answer again
+        if KNOWN_HL2:                              # the control panel already found this radio: no need to ask again
+            found = [{"ip": KNOWN_HL2[0], "port": port, "nrx": KNOWN_HL2[1]}]
+        for _try in range(0 if found else 3):                      # a Hermes that was just released can take a few seconds to answer again
             found = hl2.discover(ip or None, timeout=3.0, port=port)
             if found:
                 break
@@ -1008,6 +1013,7 @@ def lan_ip():
 # MAIN
 # ----------------------------------------------------------------------------
 def main():
+    global KNOWN_HL2
     ap = argparse.ArgumentParser(description="Drive-route RF noise logger")
     ap.add_argument("--gps", required=True,
                     help="GPS source:  tcp:IP:PORT (iPhone GPS2IP) | "
@@ -1019,6 +1025,7 @@ def main():
     ap.add_argument("--hl2-rate", type=int, default=96000, choices=[48000, 96000, 192000, 384000],
                     help="Hermes Lite 2 sample rate per receiver")
     ap.add_argument("--hl2-port", type=int, default=1024, help=argparse.SUPPRESS)
+    ap.add_argument("--hl2-known", default="", help=argparse.SUPPRESS)
     ap.add_argument("--outdir", default="logs", help="folder for CSV files")
     ap.add_argument("--settings", default="settings.json", help="saved frequency settings")
     ap.add_argument("--port", type=int, default=8765, help="settings web page port")
@@ -1043,6 +1050,12 @@ def main():
         gps.start()
 
     # --- Radio
+    if args.hl2_known:
+        try:
+            _ip, _n = args.hl2_known.split(",")
+            KNOWN_HL2 = (_ip, int(_n))
+        except ValueError:
+            pass
     if args.sdr == "sim":
         sdr = SimSdr()
     elif args.sdr == "hl2":
