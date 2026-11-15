@@ -504,6 +504,7 @@ async function findHl2(){
 function hl2GainReset(){ $("hl2g").value=15; gainChanged("hl2"); }
 
 /* ---------- slots: four live panadapters ---------- */
+const PAGE_VER="1.3.0a";        /* the version of this page: it must match the program version shown in the top bar */
 const SL={logging:false,live:false,busy:false,starting:false,manualStop:false,lastTry:0,health:{},byCh:{},startErr:"",radio:"",lastSync:0,seen:{},last:{},paused:false,autoPaused:false};
 const SLH={0:[],1:[],2:[],3:[]};      // the last readings saved for each slot (for the readout shown when a slot's radio is busy mapping)
 const ONLY_SLICES=new URLSearchParams(location.search).get("view")==="slices";
@@ -1164,7 +1165,7 @@ async function refreshLive(){
   if(window.__quit) return;
   let j; try{j=await api("/api/live");}catch(e){setPill("dLog","tLog","bad","Lost contact with program");return;}
   const lg=j.logging, st=j.logger; window.__logging=!!lg; pauseUi(lg,st);
-  if(j.version) $("tVer").textContent="v"+j.version; $("staleBanner").style.display=j.stale?"block":"none";
+  if(j.version){ $("tVer").textContent="v"+j.version+(j.version!==PAGE_VER?"  (this page is v"+PAGE_VER+": press Ctrl+F5)":""); } $("staleBanner").style.display=j.stale?"block":"none";
   setPill("dLog","tLog",lg?"on":"","Logging"+(lg?"":": off")+(lg&&st&&st.settings.paused?" (paused)":""));
   $("bStart").style.display=lg?"none":""; $("bStop").style.display=lg?"":"none";
   $("bApply").style.display=lg?"":"none";
