@@ -68,6 +68,7 @@ DEFAULT_CONFIG = {
     "use_hl2": False,
     "hl2_ip": "",                    # empty = search the network
     "browser": "chrome",             # chrome = open the program in Google Chrome (if it is installed) | default = your normal browser
+    "hl2_speed": "normal",           # how often the Hermes slot pictures refresh: smooth | normal | light
     "hl2_rate": 96000,               # samples per second per receiver: 48000, 96000, 192000 or 384000
     "hl2_gain_db": 15,               # Hermes Lite 2 low-noise-amplifier gain, -12 to +48
     "channels": [
@@ -298,7 +299,7 @@ class App:
         c = self.cfg
         return {"channels": c.get("channels", []), "hl2_gain_db": c.get("hl2_gain_db", 15),
                 "if_gain_db": c.get("if_gain_db", 40), "rf_gain_state": c.get("rf_gain_state", 0),
-                "sdr_live": c.get("sdr_live", -1)}
+                "sdr_live": c.get("sdr_live", -1), "hl2_speed": c.get("hl2_speed", "normal")}
 
     def clean_channels(self, chans, practice=None, for_slices=False):
         """Checks the frequency slots and works out each slot's radio. Returns the list the logger uses."""
@@ -927,8 +928,13 @@ class Handler(BaseHTTPRequestHandler):
             SLICES.start(bool(c.get("practice")), APP.clean_channels(b.get("channels") or c["channels"], for_slices=True),
                          c.get("hl2_ip", ""), int(c.get("hl2_rate", 96000)),
                          {"if_gain_db": int(c["if_gain_db"]), "rf_gain_state": int(c["rf_gain_state"]),
-                          "hl2_gain_db": int(c.get("hl2_gain_db", 15))})
+                          "hl2_gain_db": int(c.get("hl2_gain_db", 15)), "view_speed": c.get("hl2_speed", "normal")})
             return {"ok": True, "radio": SLICES.name}
+        if path == "/api/slices/speed":               # runtime choice: how often the Hermes pictures refresh
+            v = b.get("speed") if b.get("speed") in ("smooth", "normal", "light") else "normal"
+            APP.update_cfg({"hl2_speed": v})
+            SLICES.set(gain={"view_speed": v})
+            return {"ok": True, "speed": v}
         if path == "/api/slices/set":
             if SLICES.running and b.get("channels"):
                 chans = APP.clean_channels(b["channels"], for_slices=True)
@@ -939,7 +945,7 @@ class Handler(BaseHTTPRequestHandler):
                             c = APP.cfg
                             SLICES.start(False, chans, c.get("hl2_ip", ""), int(c.get("hl2_rate", 96000)),
                                          {"if_gain_db": int(c["if_gain_db"]), "rf_gain_state": int(c["rf_gain_state"]),
-                                          "hl2_gain_db": int(c.get("hl2_gain_db", 15))})
+                                          "hl2_gain_db": int(c.get("hl2_gain_db", 15)), "view_speed": c.get("hl2_speed", "normal")})
                             return {"ok": True, "restarted": True}
                 SLICES.set(channels=chans)
             return {"ok": True}

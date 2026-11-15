@@ -30,7 +30,7 @@ class SlicePreview:
         self.stop()
         gain = gain or {}
         settings = {"channels": channels, "if_gain_db": gain.get("if_gain_db", 40),
-                    "rf_gain_state": gain.get("rf_gain_state", 0), "hl2_gain_db": gain.get("hl2_gain_db", 15)}
+                    "rf_gain_state": gain.get("rf_gain_state", 0), "hl2_gain_db": gain.get("hl2_gain_db", 15), "view_speed": gain.get("view_speed", "normal")}
         try:
             if practice:
                 sdr = RL.SimSdr()
@@ -108,7 +108,7 @@ class SlicePreview:
                     for (k, c), (_lv, _t, fr) in zip(act, res):
                         if fr:
                             RL.publish_spectrum(fr[0], fr[1], fr[2], c["mhz"] * 1e6, c["bw_khz"] * 1e3, fr[3], k, c.get("radio", ""))
-                    time.sleep(0.03)
+                    time.sleep({"smooth": 0.004, "light": 0.15}.get(cfg.get("view_speed"), 0.03))      # picture speed (a runtime choice)
                 else:
                     for k, ch in act:
                         lv = sdr.measure(ch["mhz"] * 1e6, ch["bw_khz"] * 1e3, 0.0, 0.0, cfg)

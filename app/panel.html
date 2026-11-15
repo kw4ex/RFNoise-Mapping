@@ -242,6 +242,7 @@ body.only-slices #staleBanner,body.only-slices #warnBanner,body.only-slices #blo
  <div class="row" style="align-items:center">
   <button class="pri" id="bSlStart" onclick="slStart()" style="display:none">&#9654; Start live view</button>
   <button class="pri" id="bSlPause" onclick="slPause()" style="display:none">&#9208; Pause recording</button>
+  <label class="mut" style="margin:0 2px 0 8px" title="How often the Hermes pictures refresh. Smooth uses more of the computer and the network.">Hermes picture</label><select id="viewSpd" class="sm" onchange="viewSpeed(this.value)"><option value="smooth">Smooth</option><option value="normal" selected>Normal</option><option value="light">Light (saves effort)</option></select>
   <button class="sm" id="bSlStop" onclick="slStop()" style="display:none" title="Lets other programs use the radio">&#9632; Stop live view</button>
   <button class="sm" id="bSlCompact" onclick="slCompact()" title="All four slots on one screen: pictures only">Compact view (all 4 on one screen)</button>
   <button class="sm" id="bSlPop" onclick="window.open('/?view=slices','_blank')" title="A page with only the four slots, good for a second screen or the car">Open in its own tab</button>
@@ -505,7 +506,7 @@ async function findHl2(){
 function hl2GainReset(){ $("hl2g").value=15; gainChanged("hl2"); }
 
 /* ---------- slots: four live panadapters ---------- */
-const PAGE_VER="1.3.0f";        /* the version of this page: it must match the program version shown in the top bar */
+const PAGE_VER="1.3.0g";        /* the version of this page: it must match the program version shown in the top bar */
 const SL={logging:false,live:false,busy:false,starting:false,manualStop:false,lastTry:0,health:{},byCh:{},startErr:"",radio:"",lastSync:0,seen:{},last:{},paused:false,autoPaused:false};
 const SLH={0:[],1:[],2:[],3:[]};      // the last readings saved for each slot (for the readout shown when a slot's radio is busy mapping)
 const ONLY_SLICES=new URLSearchParams(location.search).get("view")==="slices";
@@ -1052,6 +1053,7 @@ function slSyncCfg(j){ const c=j&&j.cfg; if(!c||slTuneTimer||slUndo||SL.pushing|
     set(m,ch.mhz===undefined?"":ch.mhz); set(rowEl("cb",i),ch.bw_khz); set(rowEl("cc",i),ch.cal_db); set(rowEl("cr",i),radNorm(ch));
     const pm=slp(i).pmode, sdm=(rowEl("cr",i).value==="sdrplay"&&pm)?(SLMODE[pm]||pm):""; set(rowEl("cmd",i),sdm||(ch.mode||"AM").toUpperCase()); });      /* an SDRplay slot keeps the mode picked here: a late reply from the server must not turn it back */
   if(c.sdr_live!==undefined&&!SL.liveBusy) SL.liveSel=+c.sdr_live;
+  if(c.hl2_speed&&c.hl2_speed!==SL.speed&&document.activeElement!==$("viewSpd")){ SL.speed=c.hl2_speed; $("viewSpd").value=c.hl2_speed; }
   const g=(id,v)=>{ const el=$(id); if(el&&!mine(el)&&!slGainT&&String(el.value)!==String(v)) el.value=v; };
   g("hl2g",c.hl2_gain_db); g("ifgr",c.if_gain_db); g("rfgr",c.rf_gain_state); gainSync(); }
 function slWanted(){ if(!formFilled) return false; if(!$("practice").checked&&!useSdr()&&!useHl2()) return false; return [0,1,2,3].some(k=>rowFilled(k)&&rowEl("cr",k).value!=="sdrplay"); }
@@ -1066,7 +1068,9 @@ async function slRestart(){ if(SL.logging) return; try{ await api0("/api/slices/
 async function slStart(){ SL.manualStop=false; try{localStorage.removeItem("rfmapManualStop");}catch(e){} SL.lastTry=0; await guard(async()=>{ await api("/api/config",readForm()); SL.starting=true; try{ await api("/api/slices/start",{}); SL.startErr=""; }finally{ SL.starting=false; } }); slPoll(); }
 async function slStop(){ SL.manualStop=true; try{localStorage.setItem("rfmapManualStop","1");}catch(e){} await guard(async()=>{ await api("/api/slices/stop",{}); SLP2.on=false; SLP2.tok++; await api("/api/pan/stop",{}); }); slPoll(); }
 // ask for a new picture about 15 times a second while the slots are live (twice a second when waiting)
-(function slLoop(){ setTimeout(async()=>{ await slPoll(); slLoop(); }, SL.live?60:500); })();
+const SPD_MS={smooth:25,normal:60,light:150};
+async function viewSpeed(v){ SL.speed=v; try{ await api("/api/slices/speed",{speed:v}); toast("Hermes pictures: "+({smooth:"smooth",normal:"normal",light:"light, saving effort"}[v]||v)+".",2500); }catch(e){ toast("&#9888; "+esc(e.message),6000); } }
+(function slLoop(){ setTimeout(async()=>{ await slPoll(); slLoop(); }, SL.live?(SPD_MS[SL.speed]||60):500); })();
 
 
 function fillForm(cfg){
