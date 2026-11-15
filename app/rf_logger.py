@@ -684,8 +684,15 @@ class HermesLite2:
             self._ov_t = now
             self._ov_n = getattr(self, "_ov_n", 0) + 1
         recent = (now - getattr(self, "_ov_t", 0.0)) < 10.0
+        hist = getattr(self, "_lh", None)
+        if hist is None:
+            hist = self._lh = []
+        hist.append((now, int(c.lost), int(c.packets)))              # losses in the last 15 s say more than the whole-session total
+        while len(hist) > 2 and now - hist[0][0] > 15.0:
+            hist.pop(0)
         return {"overload": bool(recent), "overload_count": int(getattr(self, "_ov_n", 0)),
-                "lost_packets": int(c.lost), "packets": int(c.packets), "rate": self.rate, "receivers": self.nrx}
+                "lost_packets": int(c.lost), "packets": int(c.packets), "rate": self.rate, "receivers": self.nrx,
+                "recent_lost": int(c.lost) - hist[0][1], "recent_packets": int(c.packets) - hist[0][2]}
 
     def close(self):
         try:

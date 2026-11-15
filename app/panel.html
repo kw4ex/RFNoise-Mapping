@@ -504,7 +504,7 @@ async function findHl2(){
 function hl2GainReset(){ $("hl2g").value=15; gainChanged("hl2"); }
 
 /* ---------- slots: four live panadapters ---------- */
-const PAGE_VER="1.3.0b";        /* the version of this page: it must match the program version shown in the top bar */
+const PAGE_VER="1.3.0c";        /* the version of this page: it must match the program version shown in the top bar */
 const SL={logging:false,live:false,busy:false,starting:false,manualStop:false,lastTry:0,health:{},byCh:{},startErr:"",radio:"",lastSync:0,seen:{},last:{},paused:false,autoPaused:false};
 const SLH={0:[],1:[],2:[],3:[]};      // the last readings saved for each slot (for the readout shown when a slot's radio is busy mapping)
 const ONLY_SLICES=new URLSearchParams(location.search).get("view")==="slices";
@@ -802,6 +802,9 @@ function slDraw(i,f,force){
     for(let k=Math.max(0,a);k<Math.min(n,b);k++){ const v=bin[k]; if(v>mm)mm=v; }
     const db=m0+mm*mk; colDb[x]=db; const y=yOf(db); if(x===0)g.moveTo(x,y); else g.lineTo(x,y); }
   g.stroke();
+  if(!f.sdr){ let top=-1e9; for(let x=0;x<W;x++) if(colDb[x]>top) top=colDb[x];
+    if(top<m0+2){ g.fillStyle="rgba(255,224,138,.95)"; g.font="bold "+Math.round(13*sc)+"px sans-serif"; g.textAlign="center";
+      g.fillText("Only the radio's own noise is arriving here. Is an antenna connected? (Is the gain too low?)",W/2,PH*0.45); g.textAlign="left"; } }
   // known-frequency markers (CB channels, time stations, ham calling frequencies ...): click one to tune the slot to it
   if(f.sdr){ g.fillStyle="rgba(120,120,120,.18)"; g.fillRect(0,0,W*0.06,PH); g.fillRect(W*0.94,0,W*0.06,PH); }      // the outer edges of an SDRplay picture are less accurate
   cv._mkh=[];
@@ -926,7 +929,7 @@ function slRender(j){
   const ovPill=$("pOv"); if(ovPill) ovPill.style.display=h.overload?"inline-flex":"none";
   if(h.overload) msg.push("<b>OVERLOAD</b> ("+(h.overload_count||0)+" times so far): a strong signal (often a broadcast station) is overloading the radio, so readings are not trustworthy. Lower the Hermes gain with the <b>Gain</b> slider in any Hermes slot, "+
     "<button class='sm' onclick='ovLower()'>or lower it by 6 dB now</button> or use an antenna filter.");
-  if(h.lost_packets>50) msg.push("The network is dropping packets ("+h.lost_packets+" lost). Use a direct cable, or a lower detail setting.");
+  if(h.recent_lost!==undefined?(h.recent_lost>20&&h.recent_lost>0.01*(h.recent_packets||1)):h.lost_packets>50) msg.push("The network is dropping packets right now ("+(h.recent_lost!==undefined?h.recent_lost+" in the last 15 seconds":h.lost_packets+" lost")+"). Use a direct cable, or a lower detail setting.");
   w.style.display=msg.length?"block":"none"; w.innerHTML=msg.join("<br>");
   if(Date.now()-SL.lastSync>700){ SL.lastSync=Date.now(); slsSync(); }
   slEngine(); slPanAudioSync();
