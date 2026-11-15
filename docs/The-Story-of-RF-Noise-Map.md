@@ -258,14 +258,15 @@ Version 1.3.0 ties the two radios together: a **"Your radios"** box, and a **Rad
 - A **live "Level now (dB)"** readout per frequency while recording, and a **Slices view**: one small live panadapter per measured frequency, side by side (shown while logging, or as a preview before a drive).
 - Every reading timed to the **millisecond**, so maps (and Google Earth exports) can show **one dot every X feet** of route — strongest-in-stretch or average — computed when the map is made, with the raw recording untouched.
 
-### Panadapter (see and hear the band)
+### The four slots (a panadapter for every frequency)
+- **Every measured frequency is a full panadapter**, stacked one under the other with a waterfall, labelled Slot 1-4 (Compact view fits all four on one screen; **Pop out** opens one in its own tab). Each slot has a **Radio** chooser: **Off**, **Hermes** or **SDRplay**. One SDRplay slot at a time is **Live** (the tuner is single); the others keep their settings and last picture. Controls a radio does not have are hidden. (This replaced the separate wide panadapter box.)
 - Live **spectrum + waterfall**, views from **250 kHz to 8 MHz wide** (and a **width slider**), auto-scale, drag/swipe to pan, auto-centre.
 - **Built-in receiver**: AM, **SAM** (synchronous AM), USB, LSB, CW, narrow FM and **broadcast FM** (mono); selectable bandwidth, squelch, signal meter, audio spectrum.
 - **Tuning**: click to tune, tuning steps from **1 Hz** up, **Left/Right arrow keys** (Shift = ten steps), a big **VFO lock**, **memory frequencies** (starter list, save/delete).
 - **Band jump** (AM broadcast, ham bands, **CB**, 6 m, airband, 2 m, 70 cm, **FM broadcast**) with an option to **widen the view to the whole band**.
 - **Clickable known-frequency markers** (CB 1–40, time stations, NOAA weather, ham calling, airband, marine, FRS/GMRS) with show/hide groups.
 - **Audio recording** to small, universal WAV files with play, save, show-in-folder and delete.
-- **Assign** any tuned signal to one of the four mapping slots; **watch while logging** (picture only).
+- The slot's frequency **is** the mapped frequency; while logging, Hermes slots stay live and SDRplay slots show their readings until you pause.
 - Optional **automatic gain for listening only**, with user-set IF/RF attenuation shared with recording and a **Reset to defaults** button.
 
 ### Installing and supporting it
@@ -284,7 +285,7 @@ Being straight about these is part of the job:
 - **Hermes Lite 2 support is bench-tested only.** It has been proven against a simulated radio (protocol, levels, gain, mirroring checks), not yet against a real one; `HL2_Test.bat` exists exactly for that first real test. It covers HF only (about 0.1–38 MHz), its levels use its own scale (not directly comparable with the RSP1's), and the listening panadapter still uses the SDRplay.
 - **Position accuracy is bounded by your GPS.** A 1-per-second phone GPS is corrected by dead-reckoning but is weaker in sharp turns, tunnels, and urban canyons. A faster USB puck is better at speed.
 - **A map shows *where it's loud*, not always *the source*.** Noise can travel along wires; the highest-reading street may be a few poles away from the fault. The map gets you close; a handheld radio and yagi (or the utility's own tools) finish the job.
-- **Panadapter limits.** Views are **8 MHz at most** (the whole FM band, for example, doesn't fit at once); the outer edges of the picture are less accurate. **SAM** uses a carrier-tracking filter rather than a full phase-locked loop; **broadcast FM is mono** (no stereo or RDS); there is no noise blanker or notch filter yet. You can **watch but not listen/tune** while logging, because the radio is busy measuring.
+- **Panadapter limits.** Views are **8 MHz at most** (the whole FM band, for example, doesn't fit at once); the outer edges of the picture are less accurate. **SAM** uses a carrier-tracking filter rather than a full phase-locked loop; **broadcast FM is mono** (no stereo or RDS); there is no noise blanker or notch filter yet. While logging, an SDRplay slot shows only its readings (the single tuner is busy measuring); Hermes slots stay live.
 - **Only one program can use the radio at a time.** The program offers to close SDRuno, SDRconnect, SDR Console, HDSDR and similar.
 - **Radio drivers come from elsewhere.** You need the **SDRplay API** (and **PothosSDR** on Windows) from their own sites; the installer explains how. On the Mac the SDRplay driver is built from source, which is sensitive to the Mac's developer tools.
 - **Mac is the newer, less-proven platform.** The installer and panel have been run on a MacBook, but not every path (real radio drives, every browser, audio recording on the Mac, trackpad swiping, the widest views) has been verified in the field.

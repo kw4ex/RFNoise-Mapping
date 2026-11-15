@@ -897,7 +897,7 @@ function slRender(j){
     { const bar=q(".slbar i"); if(bar) bar.style.left=(f?posPct(f.smeter+cal):0)+"%"; }
     const lv=f?(f.smeter+cal):lastL;
     q(".slv").innerHTML=lv!=null?("<b>"+lv.toFixed(1)+" dB</b>"):"";
-    const msg=q(".slmsg"); if(filled&&!f&&!fb){ msg.style.display="flex"; const t=(sdNow&&!SL.manualStop)?sdMsg(i,liveI):slMsg(); if(msg._t!==t){ msg.innerHTML=t; msg._t=t; } } else msg.style.display="none";
+    const msg=q(".slmsg"); if(filled&&!f&&!fb){ msg.style.display="flex"; const t=(sdNow&&!SL.manualStop)?sdMsg(i,liveI):slMsg(); if(msg._t!==t){ msg.innerHTML="<span>"+t+"</span>"; msg._t=t; } } else msg.style.display="none";
     // level and last-reading cells in the readings table
     const lc=$("lvl"+i); if(lc){ const t=lv!=null?lv.toFixed(1):""; if(lc._t!==t){ lc._t=t; lc.innerHTML=lv!=null?('<b>'+t+'</b><div class="bar"><i style="left:'+posPct(lv)+'%"></i></div>'):'<span class="mut">&ndash;</span>'; } }
     // gain row
