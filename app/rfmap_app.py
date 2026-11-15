@@ -67,6 +67,7 @@ DEFAULT_CONFIG = {
     "use_sdrplay": True,             # the radios you have; each frequency slot picks one of them
     "use_hl2": False,
     "hl2_ip": "",                    # empty = search the network
+    "browser": "chrome",             # chrome = open the program in Google Chrome (if it is installed) | default = your normal browser
     "hl2_rate": 96000,               # samples per second per receiver: 48000, 96000, 192000 or 384000
     "hl2_gain_db": 15,               # Hermes Lite 2 low-noise-amplifier gain, -12 to +48
     "channels": [
@@ -111,6 +112,25 @@ def safe_name(name, folder, exts):
     if not name or not name.lower().endswith(exts) or not os.path.isfile(path):
         raise ValueError("File not found: " + name)
     return path
+
+
+def open_url(url):
+    """Open the control panel in Google Chrome when the settings say so (Safari holds sound back), else the normal browser."""
+    try:
+        if (APP.cfg.get("browser") or "chrome") == "chrome":
+            if C.IS_MAC:
+                if subprocess.run(["open", "-a", "Google Chrome", url], capture_output=True).returncode == 0:
+                    return
+            elif C.IS_WIN:
+                for base in (os.environ.get("ProgramFiles"), os.environ.get("ProgramFiles(x86)"), os.environ.get("LOCALAPPDATA")):
+                    if base:
+                        exe = os.path.join(base, "Google", "Chrome", "Application", "chrome.exe")
+                        if os.path.isfile(exe):
+                            subprocess.Popen([exe, url])
+                            return
+    except Exception:
+        pass
+    webbrowser.open(url)
 
 
 def open_path(path, reveal=False):
@@ -1198,7 +1218,7 @@ def main():
         if ping.get("app") == "rfmap":
             if True:
                 if not args.no_browser:
-                    webbrowser.open(f"http://localhost:{args.port}/")
+                    open_url(f"http://localhost:{args.port}/")
                 print("RF Noise Map is already running; opened it.")
                 return
     except Exception:
@@ -1216,7 +1236,7 @@ def main():
     print(f"RF Noise Map {C.VERSION} is running at {url}\nData folder: {APP.data}\nLeave this running; "
           "use the Quit button in the window (or close this) when finished.", flush=True)
     if not args.no_browser:
-        threading.Timer(0.6, lambda: webbrowser.open(url)).start()
+        threading.Timer(0.6, lambda: open_url(url)).start()
     try:
         srv.serve_forever()
     except KeyboardInterrupt:
