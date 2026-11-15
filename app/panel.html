@@ -504,7 +504,7 @@ async function findHl2(){
 function hl2GainReset(){ $("hl2g").value=15; gainChanged("hl2"); }
 
 /* ---------- slots: four live panadapters ---------- */
-const PAGE_VER="1.3.0c";        /* the version of this page: it must match the program version shown in the top bar */
+const PAGE_VER="1.3.0d";        /* the version of this page: it must match the program version shown in the top bar */
 const SL={logging:false,live:false,busy:false,starting:false,manualStop:false,lastTry:0,health:{},byCh:{},startErr:"",radio:"",lastSync:0,seen:{},last:{},paused:false,autoPaused:false};
 const SLH={0:[],1:[],2:[],3:[]};      // the last readings saved for each slot (for the readout shown when a slot's radio is busy mapping)
 const ONLY_SLICES=new URLSearchParams(location.search).get("view")==="slices";
@@ -983,7 +983,9 @@ function chEdited(){ clearTimeout(slTuneTimer); slTuneTimer=setTimeout(slPush,25
 /* ----- sound: any slot plays when its volume is above 0 and it is not muted ----- */
 const SLS={sound:{},actx:null,ch:{}};
 function slsCtx(){ if(!SLS.actx){ const AC=window.AudioContext||window.webkitAudioContext; SLS.actx=new AC(); } if(SLS.actx.state==="suspended") SLS.actx.resume(); return SLS.actx; }
-document.addEventListener("pointerdown",()=>{ if(SLS.actx&&SLS.actx.state==="suspended") SLS.actx.resume(); },true);
+function slsUnlock(){ const c=SLS.actx; if(!c||c.state==="running") return;           // Safari only starts sound inside a click or key press: resume and play a silent blip then
+  try{ const r=c.resume(); if(r&&r.catch) r.catch(()=>{}); const b=c.createBuffer(1,1,22050), s=c.createBufferSource(); s.buffer=b; s.connect(c.destination); s.start(0); }catch(e){} }
+for(const ev of ["pointerdown","mousedown","mouseup","click","touchstart","touchend","keydown"]) document.addEventListener(ev,slsUnlock,true);
 function slsChan(c){ let o=SLS.ch[c]; if(!o){ const ctx=slsCtx(), g=ctx.createGain(), pre=ctx.createGain(), an=ctx.createAnalyser(); an.fftSize=1024; an.smoothingTimeConstant=0.6; pre.connect(g); pre.connect(an); g.connect(ctx.destination); o=SLS.ch[c]={gain:g,pre:pre,an:an,after:0,aNext:0,timer:null,req:0,on:false}; } return o; }
 function slsGainSet(i){ const c=slotCh(i); if(c<0) return; const sd=isSdSlot(i), o=slsChan(sd?"pan":c), p=slp(i), f=slotEl(i)._f, shut=(!sd&&p.sq>-119&&f&&f.smeter<p.sq); o.gain.gain.value=(p.mute||shut)?0:(p.vol/100)*(sd?2.5:1.5); }
 async function slsPoll(c){
@@ -1009,7 +1011,7 @@ async function slsSync(){
     for(const c in want){ const i=want[c], o=slsChan(+c), st=SLS.sound[c]||{};
       if(!st.listen&&Date.now()-o.req>2500){ o.req=Date.now(); await api("/api/slices/listen",Object.assign({channel:+c,on:true},slsPrefs(i))); }
       o.on=true; if(!o.timer) slsPoll(+c); slsGainSet(i);
-      if(SLS.actx&&SLS.actx.state==="suspended"&&!SL.hintShown){ SL.hintShown=true; toast("Click anywhere on this page once to allow sound.",6000); } }
+      if(SLS.actx&&SLS.actx.state!=="running"&&Date.now()-(SL.hintT||0)>20000){ SL.hintT=Date.now(); toast("Your browser is holding the sound back. Click anywhere on this page once to turn it on.",9000); } }
     for(const c in SLS.sound){ if(SLS.sound[c].listen&&!(c in want)){ await api("/api/slices/listen",{channel:+c,on:false}); } }
     for(const c in SLS.ch){ if(c==="pan") continue; if(!(c in want)){ const o=SLS.ch[c]; o.on=false; clearTimeout(o.timer); o.timer=null; } }
   }catch(e){ }
