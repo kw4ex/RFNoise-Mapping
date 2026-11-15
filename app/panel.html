@@ -42,6 +42,8 @@ button.sm{font-size:13px;padding:4px 9px}
 .slbox .slbar{width:110px;display:inline-block;vertical-align:middle;margin:0 0 0 8px}
 .slbox.notlive .slview canvas{opacity:.55}
 .slbox .slhr{display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.slbox:not([data-rad="hl2"]) .hlonly{display:none !important}
+.slbox:not([data-rad="sdrplay"]) .sdonly{display:none !important}
 button.slLive.on{background:#1e8e3e;border-color:#1e8e3e;color:#fff}
 button.slLock.on{background:#d93025;border-color:#b3261e;color:#fff;font-weight:700}
 .slbox .slview{position:relative}
@@ -250,8 +252,21 @@ body.only-slices #staleBanner,body.only-slices #warnBanner,body.only-slices #blo
  <div id="slGrid" style="display:grid;grid-template-columns:1fr;gap:16px;margin-top:10px"></div>
 </section>
 
-<!-- ======================= PANADAPTER ======================= -->
-<section class="card" id="cPan">
+<!-- ======================= MARKERS / MEMORIES ======================= -->
+<section class="card" id="cMk">
+ <h2>Markers and memory frequencies</h2>
+ <p class="sub">These are shared by all four slots. A marker is a known frequency (CB channel, time station, calling frequency...) drawn on the pictures; click it to tune that slot. Click a memory to tune the slot you last touched. Each slot has its own <b>Save this frequency</b> button.</p>
+<div class="row" style="margin:6px 0 2px;align-items:center;gap:6px 16px" id="mkBar">
+   <label class="chk" style="font-weight:600"><input type="checkbox" id="mkOn" onchange="mkChanged()"> <span>Show known-frequency markers</span></label>
+   <span id="mkCats" class="mut"></span>
+   <span class="mut">Click a marker to tune and centre on it.</span>
+  </div>
+<div style="margin-top:8px"><b>Memory frequencies</b> <span class="mut">(click one to tune the slot you last touched; x deletes it)</span>
+ <div class="memrow" id="panMems"></div></div>
+</section>
+
+<!-- the old separate wide panadapter is now folded into the slots; kept hidden so shared code keeps working -->
+<section class="card" id="cPan" style="display:none">
  <h2>Panadapter: see and hear the band <span class="tag" id="panTag"></span></h2>
  <p class="sub">A live picture of a slice of the radio spectrum, like the display on a ham SDR. <b>Click a signal to listen to it.</b> Use it to find a quiet channel to measure, or to hunt for a noise source. The radio can do only one job at a time, so the full panadapter closes when you start logging. <b>While logging you can still watch one of your frequencies</b> (picture only, no sound), which is handy for spotting noise.</p>
  <div class="row">
@@ -287,11 +302,6 @@ body.only-slices #staleBanner,body.only-slices #warnBanner,body.only-slices #blo
    <canvas id="cvWf" class="pcan" width="1000" height="220" style="margin-top:2px"></canvas>
    <canvas id="cvOv" width="1000" height="432"></canvas>
   </div>
-  <div class="row" style="margin:6px 0 2px;align-items:center;gap:6px 16px" id="mkBar">
-   <label class="chk" style="font-weight:600"><input type="checkbox" id="mkOn" onchange="mkChanged()"> <span>Show known-frequency markers</span></label>
-   <span id="mkCats" class="mut"></span>
-   <span class="mut">Click a marker to tune and centre on it.</span>
-  </div>
   <div class="row" style="margin-top:6px">
    <div class="rxonly" style="flex:1 1 320px"><label>What you hear (audio, 0&ndash;7.8 kHz)</label><canvas id="cvAud" class="pcan" width="500" height="70"></canvas></div>
    <div style="flex:1 1 220px">
@@ -305,9 +315,6 @@ body.only-slices #staleBanner,body.only-slices #warnBanner,body.only-slices #blo
    <label class="chk rxonly"><input type="checkbox" id="panAuto" onchange="panGain()"> <span>Automatic gain (for listening only)</span></label>
   </div>
   <div class="mut"><b>Attenuation</b> reduces how strongly the radio amplifies, so strong signals do not overload it. The two boxes are the <b>same settings used for recording</b> (also under More settings in box 1), so what you see is what gets recorded. Raise the numbers if the picture fills with false signals or is crowded by strong stations; lower them to hear weak signals. <b>Automatic gain is never used while recording</b>; recording always uses these fixed numbers. If you change attenuation while logging, later dots are no longer directly comparable with earlier ones.</div>
-  <div class="rxonly" style="margin-top:10px"><b>Memory frequencies</b> <span class="mut">&ndash; click one to tune it, set its mode and centre the picture on it</span>
-   <div class="row" style="margin-top:4px;align-items:center"><input type="text" id="panMemName" placeholder="Name (optional)" style="width:190px" maxlength="30"> <button class="sm pri" onclick="panMemSave()">&#9733; Save the tuned frequency to memory</button></div>
-   <div class="memrow" id="panMems"></div></div>
   <div class="rxonly" style="margin-top:12px"><b>Record what you hear:</b> <button id="bRec" class="recbtn" onclick="recToggle()">&#9679; Record audio</button> <span id="recInfo" class="mut">Saved in the Audio recordings box below.</span></div>
   <div class="rxonly" style="margin-top:8px"><b>Use the tuned frequency for mapping:</b> <span class="mut">(replaces that slot in the list above)</span>
    <div class="row" style="margin-top:4px">
@@ -524,8 +531,7 @@ const rowEl=(cls,i)=>document.querySelectorAll("."+cls)[i];
 const slotEl=i=>$("slGrid").children[i];
 function rowFilled(i){ const m=rowEl("cm",i); return !!m && String(m.value).trim()!=="" && (rowEl("cr",i)||{}).value!=="off"; }
 function slotCh(i){ if(!rowFilled(i)) return -1; let n=0; for(let k=0;k<i;k++) if(rowFilled(k)) n++; return n; }   // number the radio uses for this slot
-function slRadioFor(i,f){ if(f&&f.radio) return f.radio; if($("practice").checked) return "practice";
-  const sel=(rowEl("cr",i)||{}).value||"auto"; if(sel!=="auto") return sel;
+function slRadioFor(i,f){ const sel=(rowEl("cr",i)||{}).value||"auto"; if(sel==="hl2"||sel==="sdrplay") return sel; if(f&&f.radio) return f.radio; if($("practice").checked) return "sdrplay";
   const hl=useHl2(), sd=useSdr(), mhz=+((rowEl("cm",i)||{}).value)||0;
   if(hl&&!sd) return "hl2"; if(sd&&!hl) return "sdrplay"; return mhz<=38?"hl2":"sdrplay"; }
 
@@ -548,13 +554,18 @@ function slotHTML(i){ return '<div class="slh"><span><b class="slt">Slot '+(i+1)
  '<label>Mode</label><select class="sm slsMode" title="Which side of the frequency is measured and listened to: LSB below it, USB above it, AM / SAM / NFM both sides"><option>AM</option><option>SAM</option><option>USB</option><option>LSB</option><option>NFM</option></select>'+
  '<label title="The signal power inside this many kHz is what gets logged and mapped (the yellow bar on the picture). It is not the listening filter.">Width</label><input type="number" step="any" class="slW" style="width:60px" title="The signal power inside this many kHz is what gets logged and mapped (the yellow bar on the picture). It is not the listening filter."><span class="mut">kHz</span>'+
  '</div>'+
+ '<div class="slrow sdonly"><span class="rn">Band view</span>'+
+ '<label>Centre</label><input type="number" step="any" class="slCen" style="width:104px" title="The middle of the picture, in MHz (it can differ from the tuned frequency)"><span class="mut">MHz</span>'+
+ '<button class="sm slCL" title="Slide the view left">&#9664;</button><button class="sm slCR" title="Slide the view right">&#9654;</button><button class="sm slCC" title="Put the tuned frequency in the middle of the picture">Centre on tuned</button>'+
+ '<label>Width of view</label><input type="range" class="slSpanS" min="0" max="5" step="1" style="width:130px"><b class="slSpanT"></b>'+
+ '<label class="chk" style="display:inline-flex;margin:0" title="When ticked, Jump to band sets the width so the whole band fits"><input type="checkbox" class="slWide"> <span>whole band on jump</span></label></div>'+
  '<div class="slrow"><span class="rn">View</span>'+
- '<label>Zoom</label><input type="range" class="slzoom" min="0" max="16" step="1" value="0" style="width:110px"><span class="mut slspan"></span>'+
+ '<span class="hlonly"><label>Zoom</label><input type="range" class="slzoom" min="0" max="16" step="1" value="0" style="width:110px"><span class="mut slspan"></span></span>'+
  '<button class="sm slAuto" title="Automatic scale keeps the noise floor and the strongest signal in view. To set the scale by hand, drag the dB numbers at the left of the picture up or down (the mouse wheel there stretches it).">Auto scale</button>'+
  '<span class="mut">Drag the dB numbers on the picture to move the scale.</span></div>'+
  '<div class="slrow slgain"><span class="rn">Gain</span>'+
  '<span class="gHl" style="display:none;align-items:center;gap:6px"><input type="range" class="gHlS" min="-12" max="48" step="1" style="width:170px" title="Hermes gain. Higher hears weaker signals but overloads sooner. One gain for the whole radio, so every Hermes slot moves together."><b class="gHlV"></b><span class="mut">dB (whole radio)</span></span>'+
- '<span class="gSd" style="display:none;align-items:center;gap:6px"><label>IF att.</label><input type="range" class="gIfS" min="20" max="59" step="1" style="width:110px"><b class="gIfV"></b><label>RF att.</label><input type="range" class="gRfS" min="0" max="27" step="1" style="width:90px"><b class="gRfV"></b></span>'+
+ '<span class="gSd" style="display:none;align-items:center;gap:6px"><label>IF att.</label><input type="range" class="gIfS" min="20" max="59" step="1" style="width:110px"><b class="gIfV"></b><label>RF att.</label><input type="range" class="gRfS" min="0" max="27" step="1" style="width:90px"><b class="gRfV"></b> <label class="chk" style="display:inline-flex;margin:0" title="Automatic gain, for listening only: it hides changes in the noise level, so switch it off when measuring"><input type="checkbox" class="gAuto"> <span>Auto gain (listening only)</span></label> <button class="sm gReset" title="Put IF attenuation back to 40 dB and RF attenuation to 0">Reset (IF 40, RF 0)</button></span>'+
  '<span class="gOv" style="display:none;color:#b3261e;font-weight:700">OVERLOAD - lower the gain</span></div>'+
  '<div class="slsnd slrow" style="display:none"><span class="rn">Listen</span>'+
  '<label>Volume</label><input type="range" class="slVol" min="0" max="100" step="1" style="width:100px" title="Raise the volume above 0 to hear this slot. Any number of slots can play together.">'+
@@ -562,8 +573,8 @@ function slotHTML(i){ return '<div class="slh"><span><b class="slt">Slot '+(i+1)
  '<label>Filter</label><select class="sm slsBw" title="Receive filter width: the green band on the picture">'+
  '<option value="">Auto</option><option value="match">= Width</option><option value="500">500 Hz</option><option value="1000">1.0 kHz</option><option value="1800">1.8 kHz</option><option value="2400">2.4 kHz</option>'+
  '<option value="2800">2.8 kHz</option><option value="3600">3.6 kHz</option><option value="6000">6 kHz</option><option value="8000">8 kHz</option><option value="12000">12 kHz</option></select>'+
- '<label>AGC</label><select class="sm slsAgc" title="Off keeps the background noise at its true level next to the signals. Slow, Medium and Fast level the volume.">'+
- '<option value="off">Off</option><option value="slow">Slow</option><option value="medium">Medium</option><option value="fast">Fast</option></select>'+
+ '<span class="hlonly"><label>AGC</label><select class="sm slsAgc" title="Off keeps the background noise at its true level next to the signals. Slow, Medium and Fast level the volume.">'+
+ '<option value="off">Off</option><option value="slow">Slow</option><option value="medium">Medium</option><option value="fast">Fast</option></select></span>'+
  '<label>Squelch</label><input type="range" class="slSq" min="-120" max="-30" step="1" style="width:90px" title="Silences the sound when the signal is weaker than this. Far left = off."><b class="slSqV mut">off</b>'+
  '<button class="sm recbtn slsRec"></button><span class="mut slsRecInfo"></span></div>'+
  '<canvas class="slaud slscope" style="display:none" title="What you hear: the sound spectrum, 0 to 6 kHz"></canvas>'+
@@ -586,7 +597,7 @@ function slotTune(i,p,delay){ const cm=rowEl("cm",i); if(!cm) return;
   if(p.bw!==undefined) rowEl("cb",i).value=p.bw;
   if(p.radio!==undefined) rowEl("cr",i).value=p.radio;
   if(p.mode!==undefined){ const cd=rowEl("cmd",i); if(cd) cd.value=p.mode; }
-  clearTimeout(slTuneTimer); slTuneTimer=setTimeout(slPush,delay||250); }
+  clearTimeout(slTuneTimer); slTuneTimer=setTimeout(slPush,delay||250); slPanSync(i,true); }
 let slTuneTimer=null, slUndo=null;
 function slotInit(i,d){ const q=s=>d.querySelector(s), p=slp(i);
   const fi=q(".slF"), wi=q(".slW"), ri=q(".slR"), st=q(".slStep"), ms=q(".slsMode"), cv=q(".slsp");
@@ -602,13 +613,28 @@ function slotInit(i,d){ const q=s=>d.querySelector(s), p=slp(i);
   q(".slLock").onclick=()=>{ p.lock=!p.lock; slpSave(); toast(p.lock?"&#128274; Slot "+(i+1)+" locked at "+(rowEl("cm",i).value||"?")+" MHz":"&#128275; Slot "+(i+1)+" unlocked",2500); };
   { const bd=q(".slBand"); bd.innerHTML='<option value="">Choose...</option>'+PAN_BANDS.map((b,k)=>`<option value="${k}">${b[0]}</option>`).join("");
     bd.onchange=()=>{ if(bd.value==="")return; const b=PAN_BANDS[+bd.value]; bd.value=""; const m=SLMODE[b[3]]||b[3];
-      slotTune(i,{mhz:String(b[2]),mode:m}); p.zoom=1; q(".slzoom").value="0"; slpSave(); }; }
-  { const sq=q(".slSq"); sq.value=String(p.sq===undefined?-120:p.sq); sq.oninput=()=>{ p.sq=+sq.value; q(".slSqV").textContent=p.sq<=-119?"off":p.sq+" dB"; slpSave(); }; sq.oninput(); }
+      if(d._rad==="sdrplay"){ if(p.lock){ slotTune(i,{mhz:"x"}); return; } p.pmode=b[3]; p.pbw=PAN_BW_DEF[b[3]]; p.pc=b[1]*1e6; p.prate=b[4];
+        if(q(".slWide").checked){ const need=(b[6]-b[5])*1e6/0.84; p.prate=PAN_SPANS.find(x=>x>=need)||PAN_SPANS[PAN_SPANS.length-1]; p.pc=(b[5]+b[6])/2*1e6;
+          if(Math.abs(b[2]*1e6-p.pc)>0.42*p.prate) p.pc=b[2]*1e6; if(need>PAN_SPANS[PAN_SPANS.length-1]) toast("The "+b[0]+" band is wider than the largest view (8 MHz), so you are seeing the middle part of it.",7000); }
+        slpSave(); d._wfclear=true; }
+      else { p.zoom=1; q(".slzoom").value="0"; slpSave(); }
+      slotTune(i,{mhz:String(b[2]),mode:m}); }; }
+  { q(".slWide").checked=localStorage.getItem("rfmapPanWide")==="1"; q(".slWide").onchange=()=>{ try{localStorage.setItem("rfmapPanWide",q(".slWide").checked?"1":"0");}catch(e){} };
+    const ce=q(".slCen"), shiftC=f=>{ const P=slPanParams(i); p.pc=Math.max(1e4,Math.round(P.center+f*P.rate)); slpSave(); slPanPost({center:p.pc}); };
+    ce.onchange=()=>{ const v=parseFloat(ce.value); if(v>0){ p.pc=Math.round(v*1e6); slpSave(); slPanPost({center:p.pc}); } };
+    q(".slCL").onclick=()=>shiftC(-0.25); q(".slCR").onclick=()=>shiftC(0.25);
+    q(".slCC").onclick=()=>{ p.pc=Math.round((parseFloat(rowEl("cm",i).value)||0)*1e6); slpSave(); slPanPost({center:p.pc}); };
+    const sp=q(".slSpanS"); sp.value=String(Math.max(0,PAN_SPANS.indexOf(p.prate||2000000)));
+    sp.oninput=()=>{ p.prate=PAN_SPANS[+sp.value]; q(".slSpanT").textContent=panSpanTxt(p.prate); slpSave(); d._wfclear=true; slPanPost({rate:p.prate}); }; }
+  { const ga=q(".gAuto"); ga.checked=!!p.autoGain; ga.onchange=()=>{ p.autoGain=ga.checked; slpSave(); q(".gIfS").disabled=q(".gRfS").disabled=ga.checked; slPanPost({auto_gain:ga.checked}); };
+    q(".gReset").onclick=()=>{ $("ifgr").value=40; $("rfgr").value=0; p.autoGain=false; ga.checked=false; slpSave(); q(".gIfS").disabled=q(".gRfS").disabled=false; gainSync(); slGainSoon(); slPanPost({auto_gain:false,if_gain:40,rf_state:0}); }; }
+  { const sq=q(".slSq"); sq.value=String(p.sq===undefined?-120:p.sq); sq.oninput=()=>{ p.sq=+sq.value; q(".slSqV").textContent=p.sq<=-119?"off":p.sq+" dB"; slpSave(); if(d._rad==="sdrplay") slPanPost({squelch:p.sq}); }; sq.oninput(); }
   q(".slMemSave").onclick=()=>slMemSave(i);
   d.addEventListener("pointerenter",()=>{ SL.focus=i; }); d.addEventListener("pointerdown",()=>{ SL.focus=i; },true);
-  ms.onchange=()=>{ slotTune(i,{mode:ms.value}); if(d._rad==="hl2") slsMode(i); };
+  ms.onchange=()=>{ if(d._rad==="sdrplay") slSetMode(i,ms.value); else { slotTune(i,{mode:SLMODE[ms.value]||ms.value}); if(d._rad==="hl2") slsMode(i); } };
   const bs=q(".slsBw"), ag=q(".slsAgc"); bs.value=p.bwsel||""; ag.value=p.agc||"medium";
-  bs.onchange=()=>{ p.bwsel=bs.value; slpSave(); slsMode(i); if(d._f) slDraw(i,d._f); };
+  d._bsHl=bs.innerHTML;
+  bs.onchange=()=>{ if(d._rad==="sdrplay"){ p.pbw=+bs.value; slpSave(); slPanPost({bw:p.pbw}); if(d._f) slDraw(i,d._f); return; } p.bwsel=bs.value; slpSave(); slsMode(i); if(d._f) slDraw(i,d._f); };
   ag.onchange=()=>{ p.agc=ag.value; slpSave(); slsMode(i); };
   const zs=q(".slzoom"); zs.value=String(slzPos(p.zoom));
   zs.oninput=()=>{ p.zoom=slzOf(zs.value); slpSave(); if(d._f){ q(".slspan").textContent=slzSpanTxt(d._f.rate,p.zoom); slDraw(i,d._f,true);} };
@@ -616,8 +642,8 @@ function slotInit(i,d){ const q=s=>d.querySelector(s), p=slp(i);
   // gain sliders (the Hermes has one gain for the whole radio; the SDRplay has two attenuators)
   const gh=q(".gHlS"), gi=q(".gIfS"), gr=q(".gRfS");
   gh.oninput=()=>{ $("hl2g").value=gh.value; q(".gHlV").textContent=(+gh.value>0?"+":"")+gh.value; slGainSoon(); };
-  gi.oninput=()=>{ $("ifgr").value=gi.value; q(".gIfV").textContent=gi.value; gainSync(); slGainSoon(); };
-  gr.oninput=()=>{ $("rfgr").value=gr.value; q(".gRfV").textContent=gr.value; gainSync(); slGainSoon(); };
+  gi.oninput=()=>{ $("ifgr").value=gi.value; q(".gIfV").textContent=gi.value; gainSync(); slGainSoon(); slPanPost({if_gain:+gi.value}); };
+  gr.oninput=()=>{ $("rfgr").value=gr.value; q(".gRfV").textContent=gr.value; gainSync(); slGainSoon(); slPanPost({rf_state:+gr.value}); };
   // sound
   const vo=q(".slVol"), mu=q(".slMute"); vo.value=String(p.vol||0);
   vo.oninput=()=>{ p.vol=+vo.value; slpSave(); slsCtx(); slsGainSet(i); slsSyncSoon(); };
@@ -632,28 +658,83 @@ function slotInit(i,d){ const q=s=>d.querySelector(s), p=slp(i);
   cv.onpointerdown=e=>{ if(e.button>0) return; const r=cv.getBoundingClientRect();
     if(inScale(e)){ const R=SLR[i]; if(!R) return; cv._sd={y0:e.clientY,lo:R.lo,hi:R.hi,h:r.height}; try{cv.setPointerCapture(e.pointerId);}catch(_){} return; }
     const m=cv._map; if(!m) return;
-    cv._drag={x0:e.clientX,f0:cur(),hzpp:m.span/r.width,moved:false,clickHz:m.w0+(e.clientX-r.left)/r.width*m.span};
+    cv._drag={x0:e.clientX,f0:cur(),hzpp:m.span/r.width,moved:false,clickHz:m.w0+(e.clientX-r.left)/r.width*m.span,c0:(d._f&&d._f.center)||0};
     try{cv.setPointerCapture(e.pointerId);}catch(_){} cv.style.cursor="grabbing"; };
   cv.onpointermove=e=>{ const s=cv._sd, g=cv._drag;
     if(s){ const span=s.hi-s.lo, dd=(e.clientY-s.y0)/(s.h*0.8)*span; p.auto=false; p.lo=s.lo+dd; p.hi=s.hi+dd; if(d._f) slDraw(i,d._f); return; }
     if(!g){ cv.style.cursor=inScale(e)?"ns-resize":(slMarkAt(cv,e)?"pointer":"grab"); return; }
     const dx=e.clientX-g.x0; if(Math.abs(dx)>4) g.moved=true;
+    if(g.moved&&d._rad==="sdrplay"){ p.pc=Math.max(1e4,Math.round((g.c0-dx*g.hzpp)/100)*100); slpSave(); slPanPost({center:p.pc}); return; }
     if(g.moved){ const nv=Math.max(0.001,Math.round((g.f0-dx*g.hzpp/1e6)*1e4)/1e4); fi.value=String(nv); slotTune(i,{mhz:String(nv)},90); } };
   cv.onpointerup=cv.onpointercancel=e=>{ if(cv._sd){ cv._sd=null; slpSave(); return; }
     const g=cv._drag; cv._drag=null; cv.style.cursor="grab";
-    if(g&&!g.moved){ const mk=slMarkAt(cv,e); if(mk){ slotTune(i,{mhz:String(+(mk[0]/1e6).toFixed(6)),mode:SLMODE[mk[3]]||mk[3]},90); return; }
+    if(g&&!g.moved){ const mk=slMarkAt(cv,e); if(mk){ slGoFreq(i,mk[0],mk[3]); return; }
       const nv=Math.max(0.001,Math.round(g.clickHz/1e6*1e4)/1e4); fi.value=String(nv); slotTune(i,{mhz:String(nv)},90); } };
 }
-function slLiveIdx(){ const ok=[0,1,2,3].filter(k=>rowFilled(k)&&(rowEl("cr",k)||{}).value==="sdrplay"&&!$("practice").checked);
+function isSdSlot(i){ return rowFilled(i)&&(rowEl("cr",i)||{}).value==="sdrplay"; }
+function slSetMode(i,m){ const p=slp(i); if(isSdSlot(i)){ p.pmode=m; p.pbw=PAN_BW_DEF[m]; slpSave(); } slotTune(i,{mode:SLMODE[m]||m}); }
+function slGoFreq(i,hz,mode,bw){ const p=slp(i);
+  if(p.lock){ slotTune(i,{mhz:"x"}); return; }
+  if(isSdSlot(i)){ p.pmode=mode; p.pbw=(PAN_BW[mode]||[]).includes(bw)?bw:PAN_BW_DEF[mode]; p.pc=Math.round(hz); slpSave(); }
+  slotTune(i,{mhz:String(+(hz/1e6).toFixed(6)),mode:SLMODE[mode]||mode}); }
+/* ----- the SDRplay live slot: the panadapter engine, with every feature, feeds this slot ----- */
+const SLP2={on:false,slot:-1,seq:-1,busy:false,lastTry:0,err:"",pend:null,pt:null,tok:0,force:false};
+function slPanParams(i){ const p=slp(i), tune=Math.round((parseFloat(rowEl("cm",i).value)||0)*1e6), mode=p.pmode||((rowEl("cmd",i)||{}).value)||"AM";
+  return {center:p.pc||tune,rate:p.prate||2000000,tune:tune,mode:mode,bw:p.pbw||PAN_BW_DEF[mode],squelch:p.sq===undefined?-120:p.sq,
+    auto_gain:!!p.autoGain,if_gain:Math.min(59,Math.max(20,+$("ifgr").value||40)),rf_state:Math.min(27,Math.max(0,+$("rfgr").value||0))}; }
+function slPanPost(o){ if(!SLP2.on) return; SLP2.pend=Object.assign(SLP2.pend||{},o); clearTimeout(SLP2.pt);
+  SLP2.pt=setTimeout(()=>{ const b=SLP2.pend; SLP2.pend=null; if(SLP2.on) api("/api/pan/set",b).catch(e=>toast("&#9888; "+esc(e.message),6000)); },60); }
+function slPanSync(i,typed){ if(!SLP2.on||SLP2.slot!==i||!isSdSlot(i)) return; const P=slPanParams(i), p=slp(i);
+  if(Math.abs(P.tune-P.center)>(typed?0.3:0.42)*P.rate){ p.pc=P.tune; P.center=P.tune; slpSave(); }
+  slPanPost(P); }
+async function slEngine(){
+  if(SLP2.busy||!formFilled) return;
+  const want=(SL.logging||SL.manualStop)?-1:slLiveIdx();
+  if(want<0){ if(SLP2.on){ SLP2.on=false; SLP2.tok++; if(!SL.logging) try{ await api0("/api/pan/stop",{}); }catch(e){} } return; }
+  if(SLP2.on&&SLP2.slot===want) return;
+  if(Date.now()-SLP2.lastTry<(SLP2.err?15000:1500)) return;
+  SLP2.lastTry=Date.now(); SLP2.busy=true;
+  try{
+    let already=false;
+    if(!SLP2.on&&!SLP2.force){ try{ const j=await api0("/api/pan/frame?after=-1"); already=!!j.running&&!j.viewonly; }catch(e){} }
+    if(!already){ await api0("/api/pan/start",slPanParams(want)); }
+    SLP2.force=false; SLP2.on=true; SLP2.slot=want; SLP2.err=""; slPanLoop();
+  }catch(e){ SLP2.err=e.message; SLP2.on=false; }
+  SLP2.busy=false; }
+async function slPanLoop(){ const tok=++SLP2.tok; SLP2.seq=-1;
+  while(tok===SLP2.tok&&SLP2.on){
+    if(document.hidden){ await new Promise(r=>setTimeout(r,500)); continue; }
+    try{ const j=await (await fetch("/api/pan/frame?after="+SLP2.seq,{cache:"no-store"})).json();
+      if(tok!==SLP2.tok) break;
+      if(j.viewonly){ SLP2.on=false; break; }
+      if(!j.running){ SLP2.on=false; SLP2.err=j.error||""; break; }
+      if(!j.same){ SLP2.seq=j.seq; slPanFrame(j); }
+    }catch(e){}
+    await new Promise(r=>setTimeout(r,45)); } }
+function slPanFrame(j){ const i=SLP2.slot; if(i<0||!isSdSlot(i)) return; const d=slotEl(i);
+  j.tune=(parseFloat(rowEl("cm",i).value)||0)*1e6; j.bw=(+rowEl("cb",i).value||5)*1e3; j.sdr=true; j.radio="sdrplay"; j._at=Date.now();
+  d._frozen=j; d._f=j; slDraw(i,j); }
+function slPanAudioSync(){ const i=SLP2.slot, p=i>=0?slp(i):null;
+  const want=SLP2.on&&p&&isSdSlot(i)&&slLiveIdx()===i&&!SL.logging&&p.vol>0&&!p.mute&&(!POPSLOT||POPSLOT===i+1)&&!popClaimed(i);
+  if(want){ const o=slsChan("pan"); o.on=true; if(!o.timer) slsPoll("pan"); slsGainSet(i); }
+  else if(SLS.ch["pan"]){ const o=SLS.ch["pan"]; o.on=false; clearTimeout(o.timer); o.timer=null; } }
+function slScopeSd(i,cv){ const F=slFit(cv); if(!F) return; const g=cv.getContext("2d"), W=F.W, H=F.H, sc=F.sc, f=slotEl(i)._f; g.fillStyle="#0b1620"; g.fillRect(0,0,W,H);
+  if(f&&f.aspec&&f.audio_rate&&f.sdr){ const ab=b64Bytes(f.aspec), nyq=f.audio_rate/2, mx=Math.min(7800,nyq), nb=Math.max(1,Math.floor(ab.length*mx/nyq)), p=slp(i), m=p.pmode||"AM", bw=p.pbw||PAN_BW_DEF[m];
+    let e0,e1; if(m==="USB"||m==="LSB"){e0=250;e1=250+bw;} else if(m==="CW"){e0=700-bw/2;e1=700+bw/2;} else {e0=0;e1=bw/2;}
+    g.fillStyle="rgba(255,255,255,.10)"; g.fillRect(Math.max(0,e0)/mx*W,0,(Math.min(e1,mx)-Math.max(0,e0))/mx*W,H);
+    g.fillStyle="#6fe29b"; for(let k=0;k<nb;k++){ const h=Math.max(0,Math.min(1,ab[k]/255))*(H-4*sc), x=k/nb*W; g.fillRect(x,H-h,Math.max(1,W/nb-0.5),h); }
+    g.fillStyle="#d6e4f5"; g.font="bold "+Math.round(11*sc)+"px sans-serif"; g.textAlign="left"; for(let kh=0;kh<=7;kh++) g.fillText(kh+"k",kh*1000/mx*W+2,H-2); }
+  else { g.fillStyle="#9fc0d8"; g.font=Math.round(12*sc)+"px sans-serif"; g.textAlign="left"; g.fillText("What you hear (sound spectrum) appears here when this slot is live.",8,H/2); } }
+function slLiveIdx(){ const ok=[0,1,2,3].filter(k=>rowFilled(k)&&(rowEl("cr",k)||{}).value==="sdrplay");
   return ok.includes(SL.liveSel)?SL.liveSel:(ok.length?ok[0]:-1); }
 async function slLive(i){ SL.liveSel=i; SL.liveBusy=true;
-  try{ await api("/api/config",{sdr_live:i}); if(!SL.logging) await api("/api/slices/set",{channels:readForm().channels}); toast("Slot "+(i+1)+" is now the live SDRplay slot. The other SDRplay slots refresh slowly.",5000); }
+  try{ await api("/api/config",{sdr_live:i}); SLP2.on=false; SLP2.tok++; SLP2.force=true; SLP2.lastTry=0; slEngine(); toast("Slot "+(i+1)+" is now the live SDRplay slot. The other SDRplay slots keep their last picture.",5000); }
   catch(e){ toast("&#9888; "+esc(e.message),6000); } SL.liveBusy=false; }
 /* memory frequencies are shared by every slot (and the wide panadapter below) */
 function slMemRender(){ if(!$("slGrid")||$("slGrid").children.length!==4) return;
   const h=PAN.mem.map((m,k)=>`<span class="mem"><button onclick="slMemGo(SL.focus>=0?SL.focus:0,${k})" title="Tune this slot to this memory"><b>${esc(fmtMHz(m.hz))}</b> ${m.mode==="NFM"?"FM":esc(m.mode)}${m.name?"<br><small>"+esc(m.name)+"</small>":""}</button></span>`).join("");
   for(let i=0;i<4;i++){ const e=slotEl(i).querySelector(".slmems"); if(e&&e._h!==h){ e._h=h; e.innerHTML=h.replace(/SL\.focus>=0\?SL\.focus:0/g,String(i)); } } }
-function slMemGo(i,k){ const m=PAN.mem[k]; if(!m) return; slotTune(i,{mhz:String(+(m.hz/1e6).toFixed(6)),mode:SLMODE[m.mode]||m.mode}); }
+function slMemGo(i,k){ const m=PAN.mem[k]; if(!m) return; slGoFreq(i,m.hz,m.mode,m.bw); }
 async function slMemSave(i){ const mhz=parseFloat(rowEl("cm",i).value); if(!(mhz>0)){ toast("Type a frequency in this slot first."); return; }
   if(PAN.mem.length>=40){ toast("The memory list is full (40). Delete one in the wide panadapter's list first."); return; }
   const d=slotEl(i), nm=d.querySelector(".slMemName"), md=(rowEl("cmd",i)||{}).value||"AM";
@@ -687,7 +768,7 @@ function slDraw(i,f,force){
   let bin=cv._sm; if(!bin||bin.length!==n){ bin=new Float32Array(n); for(let k=0;k<n;k++) bin[k]=raw.charCodeAt(k); cv._sm=bin; }
   else if(cv._seq!==f.seq){ for(let k=0;k<n;k++) bin[k]=bin[k]*0.45+raw.charCodeAt(k)*0.55; }
   cv._seq=f.seq;
-  const zoom=Math.max(1,+p.zoom||1), span=rate/zoom;
+  const zoom=f.sdr?1:Math.max(1,+p.zoom||1), span=rate/zoom;
   let w0=f.tune-span/2; w0=Math.min(Math.max(w0,f.center-rate/2), f.center+rate/2-span);
   const w1=w0+span, toX=hz=>((hz-w0)/span)*W;
   const b0=((w0-(f.center-rate/2))/rate)*n, bw=(span/rate)*n;
@@ -706,7 +787,7 @@ function slDraw(i,f,force){
   g.lineWidth=1; g.font=Math.round(11*sc)+"px sans-serif"; g.textAlign="right";
   for(let v=Math.ceil(R.lo/stp)*stp; v<R.hi; v+=stp){ const y=yOf(v); g.strokeStyle="#223445"; g.beginPath(); g.moveTo(0,y); g.lineTo(W,y); g.stroke(); }
   cv._map={w0:w0,span:span};
-  const mw=(+f.bw)||5000, mode=d.querySelector(".slsMode").value;
+  const mw=(+f.bw)||5000, mode0=d.querySelector(".slsMode").value, mode=SLMODE[mode0]||mode0;
   const x0=toX(f.tune+(mode==="LSB"?-mw:mode==="USB"?0:-mw/2)), x1=toX(f.tune+(mode==="LSB"?0:mode==="USB"?mw:mw/2)), pb=cv._pb;
   if(pb){ const p0=toX(f.tune+pb.lo), p1=toX(f.tune+pb.hi);
     g.fillStyle="rgba(80,220,120,.30)"; g.fillRect(Math.max(0,p0),0,Math.max(2,p1-p0),PH);
@@ -720,6 +801,7 @@ function slDraw(i,f,force){
     const db=m0+mm*mk; colDb[x]=db; const y=yOf(db); if(x===0)g.moveTo(x,y); else g.lineTo(x,y); }
   g.stroke();
   // known-frequency markers (CB channels, time stations, ham calling frequencies ...): click one to tune the slot to it
+  if(f.sdr){ g.fillStyle="rgba(120,120,120,.18)"; g.fillRect(0,0,W*0.06,PH); g.fillRect(W*0.94,0,W*0.06,PH); }      // the outer edges of an SDRplay picture are less accurate
   cv._mkh=[];
   if(PAN.mk&&PAN.mk.on){ const rowEnd=[-9,-9,-9], ys=[Math.round(34*sc),Math.round(52*sc),Math.round(70*sc)]; g.font="bold "+Math.round(12*sc)+"px sans-serif"; g.textAlign="left";
     for(const m of PAN_MARKS){ if(m[0]<w0||m[0]>w1||!PAN.mk.cats[m[2]]) continue;
@@ -754,6 +836,7 @@ function slDraw(i,f,force){
     if(tx>0 && tx<W && t1<used[1][0] && t0>used[0][1]){ g.fillStyle="#ffd24a"; g.textAlign="center"; g.fillText(tTxt,tx,ty); } }
   // the waterfall: one new line each time a new picture arrives, newest at the top
   const G=slFit(wf); if(G){ const w=wf.getContext("2d"), key=Math.round(w0)+"|"+Math.round(span);
+    if(d._wfclear){ wf._k=""; d._wfclear=false; }
     if(G.ch||wf._k!==key){ w.fillStyle="#000028"; w.fillRect(0,0,G.W,G.H); wf._k=key; wf._seq=-1; }
     if(wf._seq!==f.seq){ wf._seq=f.seq; const rh=Math.max(1,Math.round(G.dpr));
       w.drawImage(wf,0,0,G.W,G.H-rh,0,rh,G.W,G.H-rh);
@@ -773,9 +856,13 @@ function slMsg(){ if(SL.manualStop) return "Live view is stopped. Press <b>Start
 function slRender(j){
   if(!formFilled) return;
   const fr=j.frames||[]; SL.health=j.health||{}; SL.byCh={}; fr.forEach(f=>{SL.byCh[f.channel]=f;});
-  ensureSlots(); slMemRender(); const calEls=[...document.querySelectorAll(".cc")];
-  for(let i=0;i<4;i++){ const d=slotEl(i), p=slp(i), c=slotCh(i), f0=c>=0?SL.byCh[c]:null, q=s=>d.querySelector(s);
-    let f=f0; if(f0){ const s=SL.seen[c]; if(!s||s.seq!==f0.seq) SL.seen[c]={seq:f0.seq,at:Date.now()}; else if(Date.now()-s.at>2500) f=null; }   // a picture that stopped updating is not shown as live
+  ensureSlots(); slMemRender(); const calEls=[...document.querySelectorAll(".cc")], liveI=slLiveIdx();
+  for(let i=0;i<4;i++){ const d=slotEl(i), p=slp(i), c=slotCh(i), q=s=>d.querySelector(s);
+    const sdNow=c>=0&&(rowEl("cr",i)||{}).value==="sdrplay"&&!SL.logging;
+    const f0=sdNow?(d._frozen||null):(c>=0?SL.byCh[c]:null);
+    let f=f0;
+    if(sdNow){ if(liveI===i&&!(f0&&Date.now()-f0._at<2500)) f=null; }       // the live slot's picture must be fresh; the others keep their last picture
+    else if(f0){ const s=SL.seen[c]; if(!s||s.seq!==f0.seq) SL.seen[c]={seq:f0.seq,at:Date.now()}; else if(Date.now()-s.at>2500) f=null; }   // a picture that stopped updating is not shown as live
     const filled=c>=0; d.classList.toggle("empty",!filled);
     const mapping=SL.logging&&!SL.paused&&!SL.autoPaused, fb=filled&&!f&&mapping&&SL.live; d.classList.toggle("fb",fb);
     const lastL=(SL.logging&&SL.last&&SL.last[c])?SL.last[c].level:null;
@@ -788,16 +875,29 @@ function slRender(j){
     { const st=q(".slStep"), bs=q(".slsBw"), ag=q(".slsAgc"); if(document.activeElement!==st&&st.value!==p.step) st.value=p.step||"1";
       if(document.activeElement!==bs&&bs.value!==(p.bwsel||"")) bs.value=p.bwsel||""; if(document.activeElement!==ag&&ag.value!==(p.agc||"medium")) ag.value=p.agc||"medium"; }
     const rad=filled?slRadioFor(i,f):""; d._rad=rad;
+    { const sd0=rad==="sdrplay", bs=q(".slsBw"), cmdv=(rowEl("cmd",i)||{}).value||"AM"; d.dataset.rad=rad||"";
+      if(sd0){ if(!p.pmode||(SLMODE[p.pmode]||p.pmode)!==cmdv) p.pmode=cmdv; }
+      const wk=rad+"|"+(sd0?p.pmode:"");
+      if(d._optKey!==wk){ d._optKey=wk; const mo=sd0?["AM","SAM","USB","LSB","CW","NFM","WFM"]:["AM","SAM","USB","LSB","NFM"];
+        ms.innerHTML=mo.map(m=>`<option value="${m}">${MODE_LBL[m]||m}</option>`).join("");
+        if(sd0){ const l=PAN_BW[p.pmode]; if(!l.includes(p.pbw)) p.pbw=PAN_BW_DEF[p.pmode]; bs.innerHTML=l.map(b=>`<option value="${b}">${b>=1000?(b/1000)+" kHz":b+" Hz"}</option>`).join(""); }
+        else if(d._bsHl) bs.innerHTML=d._bsHl; }
+      if(document.activeElement!==ms) ms.value=sd0?p.pmode:cmdv;
+      if(sd0&&document.activeElement!==bs) bs.value=String(p.pbw||PAN_BW_DEF[p.pmode]);
+      if(sd0){ const P=slPanParams(i), ce=q(".slCen"), sp=q(".slSpanS"), ix=PAN_SPANS.indexOf(P.rate), ga=q(".gAuto");
+        if(document.activeElement!==ce) ce.value=fmtMHz(f&&f.sdr?f.center:P.center);
+        if(document.activeElement!==sp&&+sp.value!==ix) sp.value=String(ix<0?3:ix); q(".slSpanT").textContent=panSpanTxt(P.rate);
+        if(document.activeElement!==ga) ga.checked=!!p.autoGain; q(".gIfS").disabled=q(".gRfS").disabled=!!p.autoGain; } }
     const cal=+((calEls[i]||{}).value||0);
-    const isSd=filled&&rad==="sdrplay"&&!$("practice").checked, liveI=slLiveIdx(), isLive=isSd&&liveI===i;
-    q(".slf").textContent=filled?((+cm.value).toFixed(4)+" MHz"+(rad==="hl2"?" (Hermes)":rad==="sdrplay"?" (SDRplay)":"")+(isSd&&!isLive&&!SL.logging?" - slow refresh, press Live":"")):"- off. Pick a radio on the right (or type a frequency) to use this slot.";
+    const isSd=filled&&rad==="sdrplay", isLive=isSd&&liveI===i;
+    q(".slf").textContent=filled?((+cm.value).toFixed(4)+" MHz"+(rad==="hl2"?" (Hermes)":rad==="sdrplay"?" (SDRplay)":"")+(isSd&&!isLive&&!SL.logging?" - not live, picture frozen. Press Live":"")):"- off. Pick a radio on the right (or type a frequency) to use this slot.";
     const lb=q(".slLive"); lb.style.display=isSd?"inline-block":"none"; lb.classList.toggle("on",isLive); lb.textContent=isLive?"\u25cf Live":"Live";
     d.classList.toggle("notlive",isSd&&!isLive&&!SL.logging);
     { const lk=q(".slLock"); lk.classList.toggle("on",!!p.lock); lk.innerHTML=p.lock?"&#128274; Locked":"&#128275; Lock"; }
     { const bar=q(".slbar i"); if(bar) bar.style.left=(f?posPct(f.smeter+cal):0)+"%"; }
     const lv=f?(f.smeter+cal):lastL;
     q(".slv").innerHTML=lv!=null?("<b>"+lv.toFixed(1)+" dB</b>"):"";
-    const msg=q(".slmsg"); if(filled&&!f&&!fb){ msg.style.display="flex"; const t=slMsg(); if(msg._t!==t){ msg.innerHTML=t; msg._t=t; } } else msg.style.display="none";
+    const msg=q(".slmsg"); if(filled&&!f&&!fb){ msg.style.display="flex"; const t=(sdNow&&!SL.manualStop)?sdMsg(i,liveI):slMsg(); if(msg._t!==t){ msg.innerHTML=t; msg._t=t; } } else msg.style.display="none";
     // level and last-reading cells in the readings table
     const lc=$("lvl"+i); if(lc){ const t=lv!=null?lv.toFixed(1):""; if(lc._t!==t){ lc._t=t; lc.innerHTML=lv!=null?('<b>'+t+'</b><div class="bar"><i style="left:'+posPct(lv)+'%"></i></div>'):'<span class="mut">&ndash;</span>'; } }
     // gain row
@@ -808,14 +908,15 @@ function slRender(j){
     if(sd){ if(document.activeElement!==gi){ gi.value=$("ifgr").value||40; q(".gIfV").textContent=gi.value; } if(document.activeElement!==gr){ gr.value=$("rfgr").value||0; q(".gRfV").textContent=gr.value; } }
     q(".gOv").style.display=(hl&&SL.health.overload)?"inline":"none";
     // sound row (Hermes slots only)
-    const snd=q(".slsnd"); snd.style.display=hl?"flex":"none";
-    if(hl){ const st=(SLS.sound||{})[String(c)]||{}; const vo=q(".slVol"); if(document.activeElement!==vo&&+vo.value!==p.vol) vo.value=String(p.vol);
+    const snd=q(".slsnd"); snd.style.display=(hl||sd)?"flex":"none";
+    if(hl||sd){ const st=hl?((SLS.sound||{})[String(c)]||{}):{}; const vo=q(".slVol"); if(document.activeElement!==vo&&+vo.value!==p.vol) vo.value=String(p.vol);
       const mu=q(".slMute"); mu.textContent=p.mute?"Muted":"Mute"; mu.classList.toggle("on",!!p.mute);
-      const on=!!st.rec_file, rb=q(".slsRec"); rb.textContent=on?"■ Stop recording":"● Record";
-      q(".slsRecInfo").textContent=on?(st.rec_file+"  "+Math.floor((st.rec_s||0)/60)+":"+String(Math.floor((st.rec_s||0)%60)).padStart(2,"0")):"";
-      q(".slsp")._pb=slPassband(ms.value,p.bwsel,(+wi.value||5)*1000); }
+      const on=hl?!!st.rec_file:!!REC.on, rb=q(".slsRec"); rb.textContent=on?"■ Stop recording":"● Record";
+      q(".slsRecInfo").textContent=on?(hl?(st.rec_file+"  "+Math.floor((st.rec_s||0)/60)+":"+String(Math.floor((st.rec_s||0)%60)).padStart(2,"0")):("Recording... "+recFmt((Date.now()-REC.t0)/1000))):(sd?"Saved in the Audio recordings box below.":"");
+      if(hl) q(".slsp")._pb=slPassband(ms.value,p.bwsel,(+wi.value||5)*1000);
+      else { const m=p.pmode||"AM", b=p.pbw||PAN_BW_DEF[m]; q(".slsp")._pb=m==="USB"?{lo:250,hi:250+b}:m==="LSB"?{lo:-250-b,hi:-250}:{lo:-b/2,hi:b/2}; } }
     else q(".slsp")._pb=null;
-    { const scp=q(".slscope"); scp.style.display=hl?"block":"none"; if(hl){ if(SLS.ch[c]) slsGainSet(i); slScope(i,scp,c); } }
+    { const scp=q(".slscope"); scp.style.display=(hl||sd)?"block":"none"; if(hl){ if(SLS.ch[c]) slsGainSet(i); slScope(i,scp,c); } else if(sd) slScopeSd(i,scp); }
     const au=q(".slAuto"); au.classList.toggle("on",!!p.auto); au.textContent=p.auto?"Auto scale: on":"Auto scale";
     if(fb) slFallback(i);
     if(f){ d._f=f; q(".slspan").textContent=slzSpanTxt(f.rate,p.zoom); const zs=q(".slzoom"); if(document.activeElement!==zs&&+zs.value!==slzPos(p.zoom)) zs.value=String(slzPos(p.zoom)); slDraw(i,f); } else d._f=null; }
@@ -826,7 +927,11 @@ function slRender(j){
   if(h.lost_packets>50) msg.push("The network is dropping packets ("+h.lost_packets+" lost). Use a direct cable, or a lower detail setting.");
   w.style.display=msg.length?"block":"none"; w.innerHTML=msg.join("<br>");
   if(Date.now()-SL.lastSync>700){ SL.lastSync=Date.now(); slsSync(); }
+  slEngine(); slPanAudioSync();
 }
+function sdMsg(i,liveI){ if(liveI!==i) return "This slot is not live. Press its <b>Live</b> button to see it again.";
+  if(SLP2.err) return "The radio is not available: "+esc(SLP2.err)+"<br><span style='font-size:12px'>Trying again every 15 seconds.</span>";
+  return "Starting the radio... (a few seconds)"; }
 function slScope(i,cv,c){ const F=slFit(cv); if(!F) return; const g=cv.getContext("2d"), W=F.W, H=F.H, sc=F.sc; g.fillStyle="#0b1620"; g.fillRect(0,0,W,H);
   const o=SLS.ch[c], vol=slp(i).vol>0&&!slp(i).mute;
   if(o&&o.an&&o.on&&vol){ const n=o.an.frequencyBinCount, a=new Uint8Array(n); o.an.getByteFrequencyData(a); const hzb=SLS.actx.sampleRate/o.an.fftSize, nb=Math.min(n,Math.floor(6000/hzb));
@@ -875,10 +980,10 @@ const SLS={sound:{},actx:null,ch:{}};
 function slsCtx(){ if(!SLS.actx){ const AC=window.AudioContext||window.webkitAudioContext; SLS.actx=new AC(); } if(SLS.actx.state==="suspended") SLS.actx.resume(); return SLS.actx; }
 document.addEventListener("pointerdown",()=>{ if(SLS.actx&&SLS.actx.state==="suspended") SLS.actx.resume(); },true);
 function slsChan(c){ let o=SLS.ch[c]; if(!o){ const ctx=slsCtx(), g=ctx.createGain(), pre=ctx.createGain(), an=ctx.createAnalyser(); an.fftSize=1024; an.smoothingTimeConstant=0.6; pre.connect(g); pre.connect(an); g.connect(ctx.destination); o=SLS.ch[c]={gain:g,pre:pre,an:an,after:0,aNext:0,timer:null,req:0,on:false}; } return o; }
-function slsGainSet(i){ const c=slotCh(i); if(c<0) return; const o=slsChan(c), p=slp(i), f=slotEl(i)._f, shut=(p.sq>-119&&f&&f.smeter<p.sq); o.gain.gain.value=(p.mute||shut)?0:(p.vol/100)*1.5; }
+function slsGainSet(i){ const c=slotCh(i); if(c<0) return; const sd=isSdSlot(i), o=slsChan(sd?"pan":c), p=slp(i), f=slotEl(i)._f, shut=(!sd&&p.sq>-119&&f&&f.smeter<p.sq); o.gain.gain.value=(p.mute||shut)?0:(p.vol/100)*(sd?2.5:1.5); }
 async function slsPoll(c){
   const o=SLS.ch[c]; if(!o||!o.on){ if(o) o.timer=null; return; }
-  try{ const r=await fetch("/api/slices/audio?ch="+c+"&after="+o.after,{cache:"no-store"});
+  try{ const r=await fetch(c==="pan"?("/api/pan/audio?after="+o.after):("/api/slices/audio?ch="+c+"&after="+o.after),{cache:"no-store"});
     const seq=+r.headers.get("X-Seq"), rate=+r.headers.get("X-Rate")||12000, buf=await r.arrayBuffer();
     if(seq<o.after) o.aNext=0;
     if(buf.byteLength>=2 && SLS.actx){ const i16=new Int16Array(buf), f=new Float32Array(i16.length); for(let k=0;k<i16.length;k++) f[k]=i16[k]/32768;
@@ -901,11 +1006,15 @@ async function slsSync(){
       o.on=true; if(!o.timer) slsPoll(+c); slsGainSet(i);
       if(SLS.actx&&SLS.actx.state==="suspended"&&!SL.hintShown){ SL.hintShown=true; toast("Click anywhere on this page once to allow sound.",6000); } }
     for(const c in SLS.sound){ if(SLS.sound[c].listen&&!(c in want)){ await api("/api/slices/listen",{channel:+c,on:false}); } }
-    for(const c in SLS.ch){ if(!(c in want)){ const o=SLS.ch[c]; o.on=false; clearTimeout(o.timer); o.timer=null; } }
+    for(const c in SLS.ch){ if(c==="pan") continue; if(!(c in want)){ const o=SLS.ch[c]; o.on=false; clearTimeout(o.timer); o.timer=null; } }
   }catch(e){ }
   SL.syncBusy=false; }
 async function slsMode(i){ try{ const c=slotCh(i); if(c>=0&&(SLS.sound[String(c)]||{}).listen||(c>=0&&(SLS.sound[String(c)]||{}).rec_file)) await api("/api/slices/sound_mode",Object.assign({channel:c},slsPrefs(i))); }catch(e){ toast("&#9888; "+esc(e.message),6000);} }
-async function slsRec(i){ const c=slotCh(i); if(c<0) return; const on=!((SLS.sound[String(c)]||{}).rec_file);
+async function slsRec(i){ const c=slotCh(i); if(c<0) return;
+  if(isSdSlot(i)){ if(SL.logging){ toast("Sound cannot be recorded while logging (the SDRplay is busy measuring).",6000); return; }
+    try{ if(REC.on){ const j=await api("/api/rec/stop",{}); REC.on=false; recList(); toast("Recording saved"+(j.result?" ("+recFmt(j.result.seconds)+"). Find it in the Audio recordings box.":"."),6000); }
+         else { await api("/api/rec/start",{}); REC.on=true; REC.t0=Date.now(); toast("Recording what you hear from this slot. Press Stop recording when done.",5000); } }
+    catch(e){ toast("&#9888; "+esc(e.message),7000); } return; } const on=!((SLS.sound[String(c)]||{}).rec_file);
   try{ const r=await api("/api/slices/rec",Object.assign({channel:c,on:on},slsPrefs(i)));
     if(on) toast("Recording slot "+(i+1)+" to a WAV file. It keeps recording while you drive; press Stop recording to finish.",6000);
     else { toast(r.file?("Recording saved: "+esc(r.file)+" (in the Audio recordings box below)"):"Recording stopped.",8000); recList(); }
@@ -921,9 +1030,9 @@ async function slPoll(){
     slSyncCfg(j);
     SL.logging=!!j.logging; SL.live=!!(j.logging||j.running); SL.radio=j.radio||"";
     SLS.sound=j.sound||{};
-    $("bSlStart").style.display=(SL.manualStop&&!j.logging)?"inline-block":"none"; $("bSlStop").style.display=(!SL.manualStop&&!j.logging&&j.running)?"inline-block":"none";
+    $("bSlStart").style.display=(SL.manualStop&&!j.logging)?"inline-block":"none"; $("bSlStop").style.display=(!SL.manualStop&&!j.logging&&(j.running||SLP2.on))?"inline-block":"none";
     $("slTag").textContent=j.logging?"logging":(j.running?"live":"");
-    $("slStatus").textContent=j.error?("Stopped: "+j.error):(j.logging?(SL.paused?"Logging, paused by you.":(SL.autoPaused?"Logging, paused (stopped).":"Mapping: live from the logger.")):(j.running&&j.radio?("Radio: "+j.radio):""));
+    $("slStatus").textContent=j.error?("Stopped: "+j.error):(j.logging?(SL.paused?"Logging, paused by you.":(SL.autoPaused?"Logging, paused (stopped).":"Mapping: live from the logger.")):(j.running&&j.radio?("Radio: "+j.radio+(SLP2.on?" + SDRplay (live slot "+(SLP2.slot+1)+")":"")):(SLP2.on?"Radio: SDRplay (live slot "+(SLP2.slot+1)+")":"")));
     if(!j.logging) for(const k in SLH) SLH[k]=[];
     slRender(j); slAuto(j);
   }catch(e){} SL.busy=false;
@@ -936,7 +1045,7 @@ function slSyncCfg(j){ const c=j&&j.cfg; if(!c||slTuneTimer||slUndo||SL.pushing|
   if(c.sdr_live!==undefined&&!SL.liveBusy) SL.liveSel=+c.sdr_live;
   const g=(id,v)=>{ const el=$(id); if(el&&!mine(el)&&!slGainT&&String(el.value)!==String(v)) el.value=v; };
   g("hl2g",c.hl2_gain_db); g("ifgr",c.if_gain_db); g("rfgr",c.rf_gain_state); gainSync(); }
-function slWanted(){ if(!formFilled) return false; if(!$("practice").checked&&!useSdr()&&!useHl2()) return false; return [0,1,2,3].some(rowFilled); }
+function slWanted(){ if(!formFilled) return false; if(!$("practice").checked&&!useSdr()&&!useHl2()) return false; return [0,1,2,3].some(k=>rowFilled(k)&&rowEl("cr",k).value!=="sdrplay"); }
 async function slAuto(j){
   if(j.logging||j.running||SL.manualStop||SL.starting||(typeof PAN!=="undefined"&&(PAN.on||PAN.viewOnly))||!slWanted()) return;
   if(Date.now()-SL.lastTry<15000) return;
@@ -944,9 +1053,9 @@ async function slAuto(j){
   try{ await api0("/api/config",readForm()); await api0("/api/slices/start",{}); SL.startErr=""; }
   catch(e){ SL.startErr=e.message; }
   SL.starting=false; }
-async function slRestart(){ if(SL.logging) return; try{ await api0("/api/slices/stop",{}); }catch(e){} SL.lastTry=0; SL.startErr=""; }
+async function slRestart(){ if(SL.logging) return; try{ await api0("/api/slices/stop",{}); SLP2.on=false; SLP2.tok++; SLP2.force=true; SLP2.lastTry=0; await api0("/api/pan/stop",{}); }catch(e){} SL.lastTry=0; SL.startErr=""; }
 async function slStart(){ SL.manualStop=false; try{localStorage.removeItem("rfmapManualStop");}catch(e){} SL.lastTry=0; await guard(async()=>{ await api("/api/config",readForm()); SL.starting=true; try{ await api("/api/slices/start",{}); SL.startErr=""; }finally{ SL.starting=false; } }); slPoll(); }
-async function slStop(){ SL.manualStop=true; try{localStorage.setItem("rfmapManualStop","1");}catch(e){} await guard(()=>api("/api/slices/stop",{})); slPoll(); }
+async function slStop(){ SL.manualStop=true; try{localStorage.setItem("rfmapManualStop","1");}catch(e){} await guard(async()=>{ await api("/api/slices/stop",{}); SLP2.on=false; SLP2.tok++; await api("/api/pan/stop",{}); }); slPoll(); }
 // ask for a new picture about 15 times a second while the slots are live (twice a second when waiting)
 (function slLoop(){ setTimeout(async()=>{ await slPoll(); slLoop(); }, SL.live?60:500); })();
 
@@ -1377,7 +1486,7 @@ const PAN_MEM_DEFAULT=[
 PAN.mem=PAN_MEM_DEFAULT.slice();
 function panMemLoad(cfg){ PAN.mem=(cfg&&Array.isArray(cfg.pan_mem))?cfg.pan_mem:PAN_MEM_DEFAULT.slice(); panMemRender(); }
 function panMemRender(){
-  $("panMems").innerHTML=PAN.mem.map((m,i)=>`<span class="mem"><button onclick="panMemGo(${i})" title="Tune and centre on this memory"><b>${esc(fmtMHz(m.hz))}</b> ${m.mode==="NFM"?"FM":esc(m.mode)}${m.name?"<br><small>"+esc(m.name)+"</small>":""}</button><button class="memx" onclick="panMemDel(${i})" title="Delete this memory">&times;</button></span>`).join("")||'<span class="mut">No memories yet. Tune a frequency, then press the Save button.</span>';
+  $("panMems").innerHTML=PAN.mem.map((m,i)=>`<span class="mem"><button onclick="slMemGo(SL.focus>=0?SL.focus:0,${i})" title="Tune the slot you last touched to this memory"><b>${esc(fmtMHz(m.hz))}</b> ${m.mode==="NFM"?"FM":esc(m.mode)}${m.name?"<br><small>"+esc(m.name)+"</small>":""}</button><button class="memx" onclick="panMemDel(${i})" title="Delete this memory">&times;</button></span>`).join("")||'<span class="mut">No memories yet. Tune a frequency, then press the Save button.</span>';
   if(typeof slMemRender==="function") slMemRender();
 }
 async function panMemStore(){ await guard(()=>api("/api/config",{pan_mem:PAN.mem})); }

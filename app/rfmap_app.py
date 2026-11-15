@@ -245,7 +245,7 @@ class App:
     def resolve_radio(self, mhz, want, practice=False):
         """Which radio measures this frequency slot. want = auto | hl2 | sdrplay (the slot's choice)."""
         if practice:
-            return "sdrplay"                       # practice mode simulates everything anyway
+            return want if want in ("hl2", "sdrplay") else "sdrplay"      # practice mode simulates everything anyway
         use_s = bool(self.cfg.get("use_sdrplay", True))
         use_h = bool(self.cfg.get("use_hl2", False))
         if not use_s and not use_h:
@@ -279,14 +279,12 @@ class App:
                 "if_gain_db": c.get("if_gain_db", 40), "rf_gain_state": c.get("rf_gain_state", 0),
                 "sdr_live": c.get("sdr_live", -1)}
 
-    def clean_channels(self, chans, practice=None):
+    def clean_channels(self, chans, practice=None, for_slices=False):
         """Checks the frequency slots and works out each slot's radio. Returns the list the logger uses."""
         if practice is None:
             practice = bool(self.cfg.get("practice"))
         out = []
-        live_want = int(self.cfg.get("sdr_live", -1))
-        raw_idx = []
-        for n, ch in enumerate(chans[:4]):
+        for ch in chans[:4]:
             if str(ch.get("mhz", "")).strip() == "" or str(ch.get("radio")) == "off":
                 continue                                   # empty, or switched off with the slot's Radio chooser
             mhz = float(ch["mhz"])
@@ -296,12 +294,10 @@ class App:
                         "cal_db": float(ch.get("cal_db") or 0),
                         "mode": (str(ch.get("mode") or "AM").upper() if str(ch.get("mode") or "AM").upper() in ("AM", "SAM", "USB", "LSB", "NFM") else "AM"),
                         "radio": self.resolve_radio(mhz, str(ch.get("radio") or "auto"), practice)})
-            raw_idx.append(n)
-        # one SDRplay slot is "live" (kept on its frequency); the others are refreshed more slowly
-        sdr = [k for k, c2 in enumerate(out) if c2["radio"] == "sdrplay"]
-        if sdr:
-            pick = next((k for k in sdr if raw_idx[k] == live_want), sdr[0])
-            out[pick]["live"] = True
+        if for_slices:            # the live-view engine (the panadapter) owns the SDRplay; the slices preview only serves the other radios
+            for c2 in out:
+                if c2["radio"] == "sdrplay":
+                    c2["skip"] = True
         if not out:
             raise ValueError("Enter at least one frequency.")
         return out
@@ -814,7 +810,6 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/pan/start":
             if APP.running():
                 raise ValueError("Stop logging first. The radio can only do one job at a time.")
-            SLICES.stop()
             if not APP.cfg.get("use_sdrplay", True) and not APP.cfg.get("practice"):
                 raise ValueError("The listening panadapter uses the SDRplay radio, which is not ticked in 'Your radios'. "
                                  "Use the Slots above to watch your frequencies (or Thetis / SDR Console to listen).")
@@ -885,20 +880,19 @@ class Handler(BaseHTTPRequestHandler):
                 raise ValueError("Logging is running, so the slices are already shown below from the logger.")
             if SLICES.running and not b.get("force"):          # another browser tab already started it
                 return {"ok": True, "radio": SLICES.name}
-            PAN.stop()
             c = APP.cfg
-            SLICES.start(bool(c.get("practice")), APP.clean_channels(b.get("channels") or c["channels"]),
+            SLICES.start(bool(c.get("practice")), APP.clean_channels(b.get("channels") or c["channels"], for_slices=True),
                          c.get("hl2_ip", ""), int(c.get("hl2_rate", 96000)),
                          {"if_gain_db": int(c["if_gain_db"]), "rf_gain_state": int(c["rf_gain_state"]),
                           "hl2_gain_db": int(c.get("hl2_gain_db", 15))})
             return {"ok": True, "radio": SLICES.name}
         if path == "/api/slices/set":
             if SLICES.running and b.get("channels"):
-                chans = APP.clean_channels(b["channels"])
+                chans = APP.clean_channels(b["channels"], for_slices=True)
                 opened = getattr(getattr(SLICES, "sdr", None), "radios", None)      # radios opened at Start
                 if opened and not APP.cfg.get("practice"):
                     for ch in chans:
-                        if ch["radio"] not in opened:             # needs a radio that is not open yet: restart the view
+                        if ch["radio"] not in opened and not ch.get("skip"):             # needs a radio that is not open yet: restart the view
                             c = APP.cfg
                             SLICES.start(False, chans, c.get("hl2_ip", ""), int(c.get("hl2_rate", 96000)),
                                          {"if_gain_db": int(c["if_gain_db"]), "rf_gain_state": int(c["rf_gain_state"]),
@@ -940,7 +934,7 @@ class Handler(BaseHTTPRequestHandler):
             SLICES.stop()
             return {"ok": True}
         if path == "/api/pan/stop":
-            PAN.stop(); SLICES.stop()
+            PAN.stop()
             return {"ok": True}
         if path == "/api/start":
             APP.update_cfg(b)

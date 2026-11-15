@@ -100,20 +100,17 @@ class SlicePreview:
                 with self.lock:
                     cfg = dict(self.cfg)
                 chans = [c for c in cfg["channels"][:RL.MAX_CHANNELS]]
-                if getattr(sdr, "multi", False):
-                    for k, (_lv, _t, fr) in enumerate(sdr.measure_all(chans, cfg)):
+                act = [(k, c) for k, c in enumerate(chans) if not c.get("skip")]      # skipped = on the SDRplay, which the live-view engine uses
+                if not act:
+                    time.sleep(0.2)
+                elif getattr(sdr, "multi", False):
+                    res = sdr.measure_all([c for _, c in act], cfg)
+                    for (k, c), (_lv, _t, fr) in zip(act, res):
                         if fr:
-                            RL.publish_spectrum(fr[0], fr[1], fr[2], chans[k]["mhz"] * 1e6,
-                                                chans[k]["bw_khz"] * 1e3, fr[3], k, chans[k].get("radio", ""))
+                            RL.publish_spectrum(fr[0], fr[1], fr[2], c["mhz"] * 1e6, c["bw_khz"] * 1e3, fr[3], k, c.get("radio", ""))
                     time.sleep(0.03)
                 else:
-                    # one tuner: the "live" slot is measured every pass, the others only now and then
-                    npass = getattr(self, "_npass", 0) + 1
-                    self._npass = npass
-                    anylive = any(c.get("live") for c in chans)
-                    for k, ch in enumerate(chans):
-                        if anylive and not ch.get("live") and npass % 8 != 1:
-                            continue
+                    for k, ch in act:
                         lv = sdr.measure(ch["mhz"] * 1e6, ch["bw_khz"] * 1e3, 0.0, 0.0, cfg)
                         fr = sdr.last_frame()
                         if fr:

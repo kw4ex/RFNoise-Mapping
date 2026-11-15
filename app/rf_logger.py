@@ -702,7 +702,7 @@ class MultiRadio:
 
     def __init__(self, settings, hl2_ip="", hl2_rate=96000, hl2_port=1024):
         chans = [c for c in settings.get("channels", []) if str(c.get("mhz", "")).strip() != ""]
-        names = [str(c.get("radio") or "sdrplay") for c in chans]
+        names = [str(c.get("radio") or "sdrplay") for c in chans if not c.get("skip")]
         self.radios = {}
         try:
             if "hl2" in names:
@@ -739,7 +739,7 @@ class MultiRadio:
         sp = self.radios.get("sdrplay")
         if sp is not None:
             for i, c in enumerate(chans):
-                if (c.get("radio") or "sdrplay") == "hl2":
+                if (c.get("radio") or "sdrplay") == "hl2" or c.get("skip"):
                     continue
                 lv = sp.measure(c["mhz"] * 1e6 + band_shift_hz(c), c["bw_khz"] * 1e3, self.pos[0], self.pos[1], settings)
                 fr = sp.last_frame()
