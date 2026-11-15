@@ -504,7 +504,7 @@ async function findHl2(){
 function hl2GainReset(){ $("hl2g").value=15; gainChanged("hl2"); }
 
 /* ---------- slots: four live panadapters ---------- */
-const PAGE_VER="1.3.0d";        /* the version of this page: it must match the program version shown in the top bar */
+const PAGE_VER="1.3.0e";        /* the version of this page: it must match the program version shown in the top bar */
 const SL={logging:false,live:false,busy:false,starting:false,manualStop:false,lastTry:0,health:{},byCh:{},startErr:"",radio:"",lastSync:0,seen:{},last:{},paused:false,autoPaused:false};
 const SLH={0:[],1:[],2:[],3:[]};      // the last readings saved for each slot (for the readout shown when a slot's radio is busy mapping)
 const ONLY_SLICES=new URLSearchParams(location.search).get("view")==="slices";
@@ -648,7 +648,7 @@ function slotInit(i,d){ const q=s=>d.querySelector(s), p=slp(i);
   // sound
   const vo=q(".slVol"), mu=q(".slMute"); vo.value=String(p.vol||0);
   vo.oninput=()=>{ p.vol=+vo.value; slpSave(); slsCtx(); slsGainSet(i); slsSyncSoon(); };
-  mu.onclick=()=>{ p.mute=!p.mute; slpSave(); slsCtx(); slsGainSet(i); slsSyncSoon(); };
+  mu.onclick=()=>{ p.mute=!p.mute; mu.textContent=p.mute?"Muted":"Mute"; mu.classList.toggle("on",!!p.mute); slsGainSet(i); slpSave(); slsCtx(); slsSyncSoon(); };      /* the button and the sound react at once; the saving comes after */
   q(".slsRec").onclick=()=>slsRec(i);
   // the picture: wheel = step, click = tune to that spot, drag = grab the band and slide it; the dB numbers at the left move the scale
   cv.style.touchAction="none";
