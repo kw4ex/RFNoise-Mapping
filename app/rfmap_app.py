@@ -188,6 +188,7 @@ class App:
             self.cfg["token"] = secrets.token_urlsafe(12)
         self.save_cfg()
         self.lock = threading.Lock()
+        self.starting = False                  # True while the logger is being started: nothing else may open the radios then
         self.proc = None
         self.logger_port = LOGGER_PORT
         self.logger_log = os.path.join(self.settings_dir, "logger.log")
@@ -305,7 +306,17 @@ class App:
     def start(self):
         if self.running():
             raise ValueError("Already logging.")
+        self.starting = True
+        try:
+            self._start()
+        finally:
+            self.starting = False
+
+    def _start(self):
+        had_view = SLICES.running or PAN.running
         PAN.stop(); SLICES.stop()                          # the radio can only do one job: close the panadapter first
+        if had_view:
+            time.sleep(1.2)                                # give the radio a moment to settle: a streaming Hermes ignores other programs
         c = self.cfg
         spec = self.gps_spec()
         chans = self.clean_channels(c["channels"])
@@ -336,7 +347,7 @@ class App:
         self.proc = subprocess.Popen(cmd, stdout=log, stderr=subprocess.STDOUT, cwd=HERE, **kw)
         # wait for it to come up (or die with a message)
         t0 = time.time()
-        while time.time() - t0 < 12:
+        while time.time() - t0 < 22:
             if self.proc.poll() is not None:
                 raise ValueError(self.log_tail() or "The logger stopped right away.")
             st = self.logger_status()
@@ -808,7 +819,7 @@ class Handler(BaseHTTPRequestHandler):
             APP.update_cfg(b)
             return {"ok": True}
         if path == "/api/pan/start":
-            if APP.running():
+            if APP.running() or APP.starting:
                 raise ValueError("Stop logging first. The radio can only do one job at a time.")
             if not APP.cfg.get("use_sdrplay", True) and not APP.cfg.get("practice"):
                 raise ValueError("The listening panadapter uses the SDRplay radio, which is not ticked in 'Your radios'. "
@@ -876,8 +887,8 @@ class Handler(BaseHTTPRequestHandler):
                 APP.update_cfg({"hl2_ip": found[0]["ip"]})
             return {"ok": True, "found": found}
         if path == "/api/slices/start":
-            if APP.running():
-                raise ValueError("Logging is running, so the slices are already shown below from the logger.")
+            if APP.running() or APP.starting:
+                raise ValueError("Logging is running or starting, so the slots are shown from the logger.")
             if SLICES.running and not b.get("force"):          # another browser tab already started it
                 return {"ok": True, "radio": SLICES.name}
             c = APP.cfg

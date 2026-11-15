@@ -583,7 +583,11 @@ class HermesLite2:
     def __init__(self, settings, ip="", rate=96000, port=1024):
         import hl2
         self.hl2 = hl2
-        found = hl2.discover(ip or None, timeout=3.0, port=port)
+        found = []
+        for _try in range(3):                      # a Hermes that was just released can take a few seconds to answer again
+            found = hl2.discover(ip or None, timeout=3.0, port=port)
+            if found:
+                break
         if not found:
             L.error("no Hermes Lite 2 found (ip=%r)" % ip)
             raise RuntimeError("No Hermes Lite 2 answered. Check the network cable and the radio's power, that nothing "

@@ -1127,8 +1127,10 @@ async function freeDevices(){
 async function startLog(){
   if(!$("practice").checked && await checkBlockers()){ toast("&#9888; Close the programs in the yellow box first (press 'Close them for me').",9000); return; }
   $("startErr").style.display="none";
+  SL.starting=true; SL.lastTry=Date.now();                  // keep the live view from reopening the radio while the logger starts
   try{ await api("/api/start",readForm()); toast("Logging started."); await refreshLive(); }
   catch(e){ $("startErr").textContent=e.message; $("startErr").style.display="block"; }
+  SL.starting=false; SL.lastTry=Date.now();
 }
 async function stopLog(){
   stoppedByUser=true;
