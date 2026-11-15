@@ -63,39 +63,104 @@ def parse_discovery(data, addr):
             "board": board, "is_hl2": board == 0x06, "nrx": nrx, "busy": data[2] == 3}
 
 
+def _interfaces():
+    """(name, address, broadcast) for every network port that has an address (Mac and Linux; empty on Windows)."""
+    out = []
+    try:
+        import subprocess, sys
+        if sys.platform == "win32":
+            return out
+        txt = subprocess.run(["/sbin/ifconfig" if sys.platform == "darwin" else "ifconfig", "-a"],
+                             capture_output=True, text=True, timeout=4).stdout
+    except Exception:
+        return out
+    name = None
+    for line in txt.splitlines():
+        if line and not line[0].isspace() and ":" in line:
+            name = line.split(":")[0].strip()
+        elif name and line.strip().startswith("inet ") and not line.strip().startswith("inet6"):
+            p = line.split()
+            try:
+                ip = p[1].replace("addr:", "")
+            except IndexError:
+                continue
+            if ip.startswith("127."):
+                continue
+            bc = p[p.index("broadcast") + 1] if "broadcast" in p and p.index("broadcast") + 1 < len(p) else None
+            out.append((name, ip, bc))
+    return out
+
+
+def _bound_socket(ifname):
+    """A UDP socket that sends out of one chosen network port (a Mac with Wi-Fi AND a USB network
+    adapter would otherwise send every broadcast out of Wi-Fi)."""
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+    try:
+        import sys
+        if sys.platform == "darwin":
+            s.setsockopt(socket.IPPROTO_IP, 25, socket.if_nametoindex(ifname))      # IP_BOUND_IF
+        elif sys.platform.startswith("linux"):
+            s.setsockopt(socket.SOL_SOCKET, 25, ifname.encode() + b"\0")             # SO_BINDTODEVICE
+    except (OSError, AttributeError):
+        pass
+    s.settimeout(0.05)
+    return s
+
+
 def discover(ip=None, timeout=2.0, port=PORT):
     """Look for HPSDR radios. With ip given, ask just that address (works even where broadcasts are blocked).
     Returns a list of dicts: ip, mac, gateware, board, is_hl2, nrx, busy."""
+    import select
     pkt = bytes([0xEF, 0xFE, 0x02]) + bytes(60)
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     found = {}
+    socks = []                                     # (socket, [addresses to ask])
     try:
-        s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-        s.settimeout(0.2)
-        targets = [ip] if ip else _local_broadcasts()
+        if ip:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+            socks.append((s, [ip]))
+        else:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+            socks.append((s, _local_broadcasts()))
+            for name, _ip, bc in _interfaces():     # and once out of EACH network port
+                try:
+                    t = ["255.255.255.255", "169.254.255.255"] + ([bc] if bc else [])
+                    socks.append((_bound_socket(name), list(dict.fromkeys(t))))
+                except OSError:
+                    pass
         t_end = time.time() + timeout
         last_send = 0.0
         while time.time() < t_end:
             if time.time() - last_send > 0.5:          # ask again a few times, in case a packet was lost
-                for t in targets:
-                    try:
-                        s.sendto(pkt, (t, port))
-                    except OSError:
-                        pass
+                for s, targets in socks:
+                    for t in targets:
+                        try:
+                            s.sendto(pkt, (t, port))
+                        except OSError:
+                            pass
                 last_send = time.time()
             try:
-                data, addr = s.recvfrom(2048)
-            except socket.timeout:
-                continue
-            except OSError:
+                ready, _, _ = select.select([x[0] for x in socks], [], [], 0.2)
+            except (OSError, ValueError):
                 break
-            d = parse_discovery(data, addr)
-            if d:
-                found[d["ip"]] = d
-                if ip:
-                    break
+            for s in ready:
+                try:
+                    data, addr = s.recvfrom(2048)
+                except OSError:
+                    continue
+                d = parse_discovery(data, addr)
+                if d:
+                    found[d["ip"]] = d
+            if ip and found:
+                break
     finally:
-        s.close()
+        for s, _t in socks:
+            try:
+                s.close()
+            except OSError:
+                pass
     return list(found.values())
 
 
