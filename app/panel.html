@@ -1042,7 +1042,8 @@ function slSyncCfg(j){ const c=j&&j.cfg; if(!c||slTuneTimer||slUndo||SL.pushing|
   const ae=document.activeElement, mine=el=>el===ae;
   (c.channels||[]).slice(0,4).forEach((ch,i)=>{ const m=rowEl("cm",i); if(!m) return;
     const set=(el,v)=>{ if(el&&!mine(el)&&String(el.value)!==String(v)) el.value=v; };
-    set(m,ch.mhz===undefined?"":ch.mhz); set(rowEl("cb",i),ch.bw_khz); set(rowEl("cc",i),ch.cal_db); set(rowEl("cr",i),radNorm(ch)); set(rowEl("cmd",i),(ch.mode||"AM").toUpperCase()); });
+    set(m,ch.mhz===undefined?"":ch.mhz); set(rowEl("cb",i),ch.bw_khz); set(rowEl("cc",i),ch.cal_db); set(rowEl("cr",i),radNorm(ch));
+    const pm=slp(i).pmode, sdm=(rowEl("cr",i).value==="sdrplay"&&pm)?(SLMODE[pm]||pm):""; set(rowEl("cmd",i),sdm||(ch.mode||"AM").toUpperCase()); });      /* an SDRplay slot keeps the mode picked here: a late reply from the server must not turn it back */
   if(c.sdr_live!==undefined&&!SL.liveBusy) SL.liveSel=+c.sdr_live;
   const g=(id,v)=>{ const el=$(id); if(el&&!mine(el)&&!slGainT&&String(el.value)!==String(v)) el.value=v; };
   g("hl2g",c.hl2_gain_db); g("ifgr",c.if_gain_db); g("rfgr",c.rf_gain_state); gainSync(); }
