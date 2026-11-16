@@ -15,6 +15,7 @@ One or two software-defined radios (an **SDRplay RSP1**, a **Hermes Lite 2**, or
 - Reads up to **4 frequencies** you choose (for example 3.8 MHz, 7.1 MHz, 14.2 MHz, 50.1 MHz).
 - Logs a reading about every **10 feet** while you drive, with the position from your GPS.
 - Draws a **Leaflet street map**. Each dot is a reading: **blue = weak, red = strong**. Pick which frequency to look at.
+- **RTL-SDR dongles (new in 1.4.0, untested on real dongles):** up to four low-price USB dongles (for example the RTL-SDR Blog V3). Any dongle can serve any of the four slots, and dongles read at the same time. Find my dongles, a gain slider per dongle, and automatic direct sampling for HF on the V3. See the guide.
 - **Hermes gain help:** an optional **Auto gain (listening only)** that backs off on overload, **Gain per band** that remembers your gain for each band, and a **Hermes picture** speed (Smooth / Normal / Light) you can change while the program runs.
 - Has a **practice mode** with pretend radio and GPS, so you can try everything at home.
 - Every frequency slot is a full **panadapter**: a live spectrum and waterfall of the band with a built-in receiver (AM, SAM, USB, LSB, CW, narrow and broadcast FM) so you can see and hear signals and pick frequencies to measure. (New, untested on the road.)
@@ -67,7 +68,7 @@ For the real radio you also need **SDRplay API** and **PothosSDR** from their ow
 
 **Hermes Lite 2 on a Mac (network changes):** plug the radio into a USB-to-Ethernet adapter and leave **Wi-Fi on**. Wait about 30 seconds until **System Settings > Network** shows the adapter with a green dot and a self-assigned address starting **169.254** (normal; keep *Configure IPv4: Using DHCP*, do not type an address). Allow **Local Network** access if macOS asks. Since 1.3.0b the program searches for the radio out of every network port, so nothing else needs changing. The program opens in **Google Chrome** (Safari holds the sound back); the *Open the program in* setting changes that. Full steps are in the guide and in [mac/README_Mac.txt](mac/README_Mac.txt).
 
-1. On the Releases page, click **RFNoise_Mac_v1.3.0.zip** under Assets. Double-click it in Downloads to unzip. Keep the `mac` and `app` folders together.
+1. On the Releases page, click **RFNoise_Mac_v1.4.0.zip** under Assets. Double-click it in Downloads to unzip. Keep the `mac` and `app` folders together.
 2. Open the `mac` folder, right-click **Install_RFNoise.command**, choose **Open**, then **Open** again.
 3. Follow the steps in the window. See [mac/README_Mac.txt](mac/README_Mac.txt).
 

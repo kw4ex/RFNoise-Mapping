@@ -56,6 +56,13 @@ HERMES LITE 2 ON A MAC (NETWORK SETUP)
        type the radio's address in the box.
   Only one program at a time can use the radio: close Thetis / SDR Console first.
 
+RTL-SDR DONGLES (NEW IN 1.4.0, NOT YET TRIED ON REAL DONGLES)
+  Up to four USB dongles (for example the RTL-SDR Blog V3), any dongle in any slot.
+  In Terminal run:  brew install soapysdr soapyrtlsdr   (no driver swap on a Mac).
+  In the program tick "RTL-SDR dongles" under Your radios and press "Find my
+  dongles". Give each dongle its own serial number first, one dongle plugged in at
+  a time:  rtl_eeprom -s 00000001   then unplug and replug. Use a powered USB hub.
+
 BROWSER: the program opens in Google Chrome (Safari holds the sound back until the
   page gets a click). To use your normal browser choose it under "Open the program
   in" in the radio settings.

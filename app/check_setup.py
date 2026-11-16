@@ -94,6 +94,22 @@ def run_checks(gps_spec=None, listen_seconds=5):
                     "(not through a weak hub)? SDRplay API installed from sdrplay.com and the computer "
                     "restarted afterward? On Windows, is the 'SDRplay API Service' running?")
 
+    # RTL-SDR dongles (up to four; version 1.4.0, not yet tried on real dongles)
+    if bool(cfg.get("use_rtl")):
+        try:
+            import rf_logger as RL
+            dl, dnote = RL.rtl_list()
+        except Exception as e:
+            dl, dnote = [], "Looking for dongles failed: %s" % e
+        if dl:
+            for k, d in enumerate(dl[:4]):
+                add("RTL-SDR %d" % (k + 1), "ok", "Found: %s (serial %s). Pick it as 'RTL-SDR %d' in a slot's Radio chooser." % (d["label"], d["serial"] or "none", k + 1))
+            sers = [d["serial"] for d in dl]
+            if len(sers) != len(set(sers)) or "" in sers:
+                add("RTL-SDR serials", "info", "Two or more dongles have the same serial number, so the slots may swap after you unplug and replug them. The guide shows how to give each dongle its own number (a one-minute job).")
+        else:
+            add("RTL-SDR", "fix", (dnote + " " if dnote else "") + "No RTL-SDR dongle was found. Plug it in directly or through a powered hub. Windows: the one-time Zadig driver step in the guide. Mac: install the drivers with Homebrew (see the guide).")
+
     # USB GPS ports
     try:
         import serial  # noqa

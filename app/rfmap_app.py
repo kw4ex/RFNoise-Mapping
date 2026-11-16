@@ -42,6 +42,7 @@ import make_map
 from panadapter import PAN, REC, REC_RATE, REC_HEADER
 from slices import SLICES
 import hl2
+RTL_IDS = C.RTL_IDS
 
 DEFAULT_PORT = 8780
 LOGGER_PORT = 8765
@@ -66,6 +67,8 @@ DEFAULT_CONFIG = {
     "rf_gain_state": 0,
     "use_sdrplay": True,             # the radios you have; each frequency slot picks one of them
     "use_hl2": False,
+    "use_rtl": False,                # RTL-SDR dongles (up to 4, untested on real dongles in 1.4.0)
+    "rtl_gain_db": {},               # tuner gain per dongle, 0 to 49 dB, e.g. {"rtl1": 30}
     "hl2_ip": "",                    # empty = search the network
     "browser": "chrome",             # chrome = open the program in Google Chrome (if it is installed) | default = your normal browser
     "hl2_speed": "normal",           # how often the Hermes slot pictures refresh: smooth | normal | light
@@ -267,12 +270,18 @@ class App:
     def resolve_radio(self, mhz, want, practice=False):
         """Which radio measures this frequency slot. want = auto | hl2 | sdrplay (the slot's choice)."""
         if practice:
-            return want if want in ("hl2", "sdrplay") else "sdrplay"      # practice mode simulates everything anyway
+            return want if want in ("hl2", "sdrplay") + RTL_IDS else "sdrplay"      # practice mode simulates everything anyway
         use_s = bool(self.cfg.get("use_sdrplay", True))
         use_h = bool(self.cfg.get("use_hl2", False))
-        if not use_s and not use_h:
+        use_r = bool(self.cfg.get("use_rtl", False))
+        if not use_s and not use_h and not use_r:
             raise ValueError("Tick at least one radio in 'Your radios' (or tick Practice mode).")
-        w = want if want in ("hl2", "sdrplay") else "auto"
+        w = want if want in ("hl2", "sdrplay") + RTL_IDS else "auto"
+        if w in RTL_IDS:
+            if not use_r:
+                raise ValueError(f"The {mhz:g} MHz slot is set to RTL-SDR {w[-1]}, but RTL-SDR dongles are not "
+                                 "ticked in 'Your radios'. Tick them, or set the slot's Radio to Auto.")
+            return w
         if w == "hl2":
             if not use_h:
                 raise ValueError(f"The {mhz:g} MHz slot is set to the Hermes Lite 2, but that radio is not "
@@ -292,12 +301,14 @@ class App:
             return "hl2"
         if use_s:
             return "sdrplay"
+        if use_r:
+            return "rtl1"
         raise ValueError(f"{mhz:g} MHz needs the SDRplay radio (the Hermes Lite 2 stops at about "
                          f"{self.HL2_MAX_MHZ:g} MHz), but only the Hermes Lite 2 is ticked in 'Your radios'.")
 
     def slot_cfg(self):
         c = self.cfg
-        return {"channels": c.get("channels", []), "hl2_gain_db": c.get("hl2_gain_db", 15),
+        return {"channels": c.get("channels", []), "hl2_gain_db": c.get("hl2_gain_db", 15), "rtl_gain_db": c.get("rtl_gain_db", {}), "use_rtl": c.get("use_rtl", False),
                 "if_gain_db": c.get("if_gain_db", 40), "rf_gain_state": c.get("rf_gain_state", 0),
                 "sdr_live": c.get("sdr_live", -1), "hl2_speed": c.get("hl2_speed", "normal")}
 
@@ -357,7 +368,7 @@ class App:
                        "interval_s": min(max(0.5, float(c.get("interval_s", 5))), 3600.0),
                        "auto_pause": bool(c.get("auto_pause")), "auto_pause_s": min(max(3.0, float(c.get("auto_pause_s", 10))), 600.0),
                        "if_gain_db": int(c["if_gain_db"]), "rf_gain_state": int(c["rf_gain_state"]),
-                       "hl2_gain_db": int(c.get("hl2_gain_db", 15))}, f)
+                       "hl2_gain_db": int(c.get("hl2_gain_db", 15)), "rtl_gain_db": dict(c.get("rtl_gain_db") or {})}, f)
         self.logger_port = free_port(LOGGER_PORT)
         cmd = [python_exe(), "-u", os.path.join(HERE, "rf_logger.py"),
                "--gps", spec, "--sdr", "sim" if c["practice"] else "multi",
@@ -869,6 +880,13 @@ class Handler(BaseHTTPRequestHandler):
             h = int(min(max(int(b.get("hl2_gain_db", cf.get("hl2_gain_db", 15))), -12), 48))
             APP.update_cfg({"if_gain_db": a, "rf_gain_state": r, "hl2_gain_db": h})
             sent = {k: v for k, v in (("if_gain_db", a), ("rf_gain_state", r), ("hl2_gain_db", h)) if k in b}
+            if isinstance(b.get("rtl_gain_db"), dict):           # RTL-SDR dongles: one tuner gain each
+                rg = dict(cf.get("rtl_gain_db") or {})
+                for k2, v2 in b["rtl_gain_db"].items():
+                    if k2 in RTL_IDS:
+                        rg[k2] = int(min(max(int(v2), 0), 49))
+                APP.update_cfg({"rtl_gain_db": rg})
+                sent["rtl_gain_db"] = rg
             if APP.running():
                 APP.logger_call("/set", sent or {"if_gain_db": a, "rf_gain_state": r, "hl2_gain_db": h}, timeout=3)
             elif SLICES.running:
@@ -928,8 +946,16 @@ class Handler(BaseHTTPRequestHandler):
             SLICES.start(bool(c.get("practice")), APP.clean_channels(b.get("channels") or c["channels"], for_slices=True),
                          c.get("hl2_ip", ""), int(c.get("hl2_rate", 96000)),
                          {"if_gain_db": int(c["if_gain_db"]), "rf_gain_state": int(c["rf_gain_state"]),
-                          "hl2_gain_db": int(c.get("hl2_gain_db", 15)), "view_speed": c.get("hl2_speed", "normal")})
+                          "hl2_gain_db": int(c.get("hl2_gain_db", 15)), "view_speed": c.get("hl2_speed", "normal"),
+                          "rtl_gain_db": dict(c.get("rtl_gain_db") or {})})
             return {"ok": True, "radio": SLICES.name}
+        if path == "/api/rtl/list":                   # which RTL-SDR dongles are plugged in (the Radio chooser's RTL-SDR 1..4 follow this order)
+            if APP.cfg.get("practice"):
+                return {"ok": True, "dongles": [{"serial": "SIM0000%d" % k, "label": "Pretend RTL-SDR %d" % k} for k in (1, 2, 3, 4)], "note": "Practice mode: four pretend dongles.", "dup": False}
+            import rf_logger as RL
+            lst, note = RL.rtl_list()
+            ser = [d["serial"] for d in lst]
+            return {"ok": True, "dongles": lst, "note": note, "dup": len(ser) != len(set(ser)) or "" in ser}
         if path == "/api/slices/speed":               # runtime choice: how often the Hermes pictures refresh
             v = b.get("speed") if b.get("speed") in ("smooth", "normal", "light") else "normal"
             APP.update_cfg({"hl2_speed": v})
@@ -945,7 +971,8 @@ class Handler(BaseHTTPRequestHandler):
                             c = APP.cfg
                             SLICES.start(False, chans, c.get("hl2_ip", ""), int(c.get("hl2_rate", 96000)),
                                          {"if_gain_db": int(c["if_gain_db"]), "rf_gain_state": int(c["rf_gain_state"]),
-                                          "hl2_gain_db": int(c.get("hl2_gain_db", 15)), "view_speed": c.get("hl2_speed", "normal")})
+                                          "hl2_gain_db": int(c.get("hl2_gain_db", 15)), "view_speed": c.get("hl2_speed", "normal"),
+                                          "rtl_gain_db": dict(c.get("rtl_gain_db") or {})})
                             return {"ok": True, "restarted": True}
                 SLICES.set(channels=chans)
             return {"ok": True}
@@ -999,7 +1026,7 @@ class Handler(BaseHTTPRequestHandler):
                 if missing and not APP.cfg.get("practice"):
                     raise ValueError("That change needs the %s, which was not in use when this drive started. "
                                      "Stop logging, then start again." %
-                                     ("Hermes Lite 2" if missing[0] == "hl2" else "SDRplay"))
+                                     ("Hermes Lite 2" if missing[0] == "hl2" else ("RTL-SDR %s" % missing[0][-1]) if missing[0] in RTL_IDS else "SDRplay"))
                 APP.logger_call("/set", {"channels": chans, "spacing_ft": float(APP.cfg["spacing_ft"]),
                                          "sample_mode": APP.cfg.get("sample_mode", "distance"),
                                          "interval_s": float(APP.cfg.get("interval_s", 5))}, timeout=3)

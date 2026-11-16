@@ -30,7 +30,8 @@ class SlicePreview:
         self.stop()
         gain = gain or {}
         settings = {"channels": channels, "if_gain_db": gain.get("if_gain_db", 40),
-                    "rf_gain_state": gain.get("rf_gain_state", 0), "hl2_gain_db": gain.get("hl2_gain_db", 15), "view_speed": gain.get("view_speed", "normal")}
+                    "rf_gain_state": gain.get("rf_gain_state", 0), "hl2_gain_db": gain.get("hl2_gain_db", 15), "view_speed": gain.get("view_speed", "normal"),
+                    "rtl_gain_db": gain.get("rtl_gain_db") or {}}
         try:
             if practice:
                 sdr = RL.SimSdr()

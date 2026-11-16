@@ -10,7 +10,7 @@ import re
 import sys
 
 APP_NAME = "RF Noise Map"
-VERSION = "1.3.0h"
+VERSION = "1.4.0"
 IS_MAC = sys.platform == "darwin"
 IS_WIN = sys.platform.startswith("win")
 
@@ -204,3 +204,5 @@ def find_soapy():
                 first += (f" The radio library there is made for Python {m.group(1)}.{m.group(2)}, "
                           f"but this program runs on Python {sys.version_info[0]}.{sys.version_info[1]}.")
     return None, ("SoapySDR is not installed or does not match this Python. " + first).strip()
+
+RTL_IDS = ("rtl1", "rtl2", "rtl3", "rtl4")      # the places an RTL-SDR dongle can take in a slot's Radio chooser

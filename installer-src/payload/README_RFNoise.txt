@@ -1,4 +1,4 @@
-RF NOISE MAP  v1.3.0  TESTING VERSION   (Windows 10 / 11)
+RF NOISE MAP  v1.4.0  TESTING VERSION   (Windows 10 / 11)
 Design and testing: KW4EX
 =====================================================================
 
@@ -86,6 +86,16 @@ PART 2 - THE RADIO (needed only for real measuring)
   recording. "Hermes picture" (Smooth / Normal / Light) sets the picture speed.
   On a Mac the radio goes into a USB-to-Ethernet adapter with Wi-Fi left on: see
   mac/README_Mac.txt.
+
+  RTL-SDR DONGLES (USB, up to four; new in 1.4.0, NOT YET TRIED on real dongles)
+  - for example the RTL-SDR Blog V3. Any dongle can serve any slot. They need
+  PothosSDR (below; it contains the RTL-SDR driver) and, on Windows, a one-time
+  Zadig driver step per dongle. If you have no SDRplay, answer yes to the SDRplay
+  question in the installer (it sets up PothosSDR and Python 3.9) and skip the
+  SDRplay driver page. Mac: brew install soapysdr soapyrtlsdr. Then tick
+  "RTL-SDR dongles" under Your radios and press "Find my dongles". Give each
+  dongle its own serial with:  rtl_eeprom -s 00000001   (one dongle plugged in at
+  a time). Use a powered USB hub. Full steps are in the guide.
 
   SDRPLAY (USB) - needs these two free pieces of software:
    1. SDRplay driver:  https://www.sdrplay.com/softwarehome/

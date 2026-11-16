@@ -158,12 +158,17 @@ body.only-slices #staleBanner,body.only-slices #warnBanner,body.only-slices #blo
   <div class="row" style="align-items:flex-start;gap:22px;margin-top:4px">
    <label class="chk"><input type="checkbox" id="useSdr" onchange="radioChanged()"> <span><b>SDRplay RSP1</b> (USB cable)<br><span class="mut">One receiver: its frequencies take turns. Covers VHF, airband and the FM band too.</span></span></label>
    <label class="chk"><input type="checkbox" id="useHl2" onchange="radioChanged()"> <span><b>Hermes Lite 2</b> (network cable)<br><span class="mut">Several receivers at once: its frequencies are all read at the same instant. HF only (about 0.1&ndash;38&nbsp;MHz).</span></span></label>
+   <label class="chk"><input type="checkbox" id="useRtl" onchange="radioChanged()"> <span><b>RTL-SDR dongles</b> (USB, up to four) <span class="mut">&mdash; new, not yet tried on real dongles</span><br><span class="mut">Low price. Each dongle is one receiver and works on its own, so several dongles read at the same time. Pick <b>RTL-SDR 1</b> to <b>4</b> in any slot's Radio chooser.</span></span></label>
   </div>
   <div id="hl2Box" class="row" style="margin-top:8px;display:none;align-items:flex-end">
    <div><label>Radio's address</label><br><input type="text" id="hl2ip" size="16" placeholder="(leave empty to search)" onchange="radioChanged()"></div>
    <div><button class="sm" id="btnFindHl2" onclick="findHl2()">Find my radio</button></div>
    <div><label>Detail per frequency</label><br><select id="hl2rate" onchange="radioChanged()"><option value="48000">48 kHz</option><option value="96000" selected>96 kHz (recommended)</option><option value="192000">192 kHz</option><option value="384000">384 kHz</option></select></div>
    <div class="mut" id="hl2Msg" style="flex:1 1 260px"></div>
+  </div>
+  <div id="rtlBox" class="row" style="margin-top:8px;display:none;align-items:flex-end">
+   <div><button class="sm" id="btnFindRtl" onclick="findRtl()">Find my dongles</button></div>
+   <div class="mut" id="rtlMsg" style="flex:1 1 320px">Plug the dongles in (a powered USB hub is best for more than one), then press the button. <b>RTL-SDR 1</b> is the first dongle in the list, <b>2</b> the second, and so on. Dongles are listed by serial number so they stay in the same order.</div>
   </div>
   <div id="hl2Help" class="mut" style="display:none;margin-top:4px">Plug the radio's network cable into this computer (or the adapter), switch the radio on, wait about 20 seconds, then press <b>Find my radio</b>. If it is not found, type its address (a number like 192.168.1.50 or 169.254.x.x) in the box. Close Thetis, SDR Console or any other program that uses the radio first.</div>
   <div class="row" style="margin-top:8px;align-items:center"><label>Open the program in</label> <select id="brSel" onchange="guard(async()=>{ await api('/api/config',{browser:this.value}); toast('Saved. The next time the program starts it opens in '+(this.value==='chrome'?'Google Chrome.':'your normal browser.'),5000); })"><option value="chrome">Google Chrome (best for sound)</option><option value="default">My normal browser</option></select></div>
@@ -468,7 +473,7 @@ function toast(html,ms=6000){const t=$("toast");t.innerHTML=html;t.style.display
 async function guard(fn){try{return await fn();}catch(e){toast("&#9888; "+esc(e.message),9000);}}
 
 /* ---------- form <-> config ---------- */
-function radNorm(c){ const r=c.radio||"auto"; if(String(c.mhz===undefined?"":c.mhz).trim()==="") return "off"; if(r==="hl2"||r==="sdrplay"||r==="off") return r;
+function radNorm(c){ const r=c.radio||"auto"; if(String(c.mhz===undefined?"":c.mhz).trim()==="") return "off"; if(r==="hl2"||r==="sdrplay"||r==="off"||/^rtl[1-4]$/.test(r)) return r;
   return ((+c.mhz>38)||!($("useHl2")&&$("useHl2").checked))?"sdrplay":"hl2"; }
 function chRow(c,i){const r=radNorm(c), md=(c.mode||"AM").toUpperCase();
  const opt=(v,t)=>`<option value="${v}" ${r===v?"selected":""}>${t}</option>`;
@@ -476,22 +481,35 @@ function chRow(c,i){const r=radNorm(c), md=(c.mode||"AM").toUpperCase();
  <td><input type="number" step="any" class="cb" value="${esc(c.bw_khz)}" onchange="chEdited()"></td>
  <td><select class="cmd" onchange="chEdited()" title="Sets which side of the frequency is measured: below for LSB, above for USB, both sides for AM / SAM / NFM. Also the listening mode.">${["AM","SAM","USB","LSB","NFM"].map(m=>`<option ${m===md?"selected":""}>${m}</option>`).join("")}</select></td>
  <td><input type="number" step="any" class="cc" value="${esc(c.cal_db)}" onchange="chEdited()"></td>
- <td class="radcol"><select class="cr" onchange="chEdited()">${opt("off","Off (skip)")}${opt("hl2","Hermes")}${opt("sdrplay","SDRplay")}</select></td>
+ <td class="radcol"><select class="cr" onchange="chEdited()">${opt("off","Off (skip)")}${opt("hl2","Hermes")}${opt("sdrplay","SDRplay")}${(($("useRtl")&&$("useRtl").checked)||/^rtl/.test(r))?[1,2,3,4].map(k=>opt("rtl"+k,"RTL-SDR "+k)).join(""):""}</select></td>
  <td class="lvlcell" id="lvl${i}" style="min-width:120px"><span class="mut">&ndash;</span></td>
  <td id="lt${i}" class="mut" style="min-width:84px">&ndash;</td></tr>`;}
 function useSdr(){ return $("useSdr").checked; }
 function useHl2(){ return $("useHl2").checked; }
-function showRadioFields(){ const hl=useHl2(), sd=useSdr();
+function useRtl(){ return $("useRtl").checked; }
+const RTL_RE=/^rtl[1-4]$/;
+function showRadioFields(){ const hl=useHl2(), sd=useSdr(); $("rtlBox").style.display=useRtl()?"flex":"none";
   $("hl2Box").style.display=hl?"flex":"none"; $("hl2Help").style.display=hl?"block":"none";
   $("hl2Gain").style.display=hl?"flex":"none"; $("sdrGain").style.display=sd?"flex":"none";
   // the per-slot Radio column only matters when both radios are ticked
   document.querySelectorAll(".radcol").forEach(e=>{e.style.display="";});
+  document.querySelectorAll(".cr").forEach(sel=>{ const has=!!sel.querySelector('option[value="rtl1"]');      // RTL-SDR 1..4 appear in each slot's Radio chooser while the box is ticked
+    if(useRtl()&&!has){ [1,2,3,4].forEach(k=>{ const o=document.createElement("option"); o.value="rtl"+k; o.textContent="RTL-SDR "+k; sel.appendChild(o); }); }
+    else if(!useRtl()&&has&&!RTL_RE.test(sel.value)){ sel.querySelectorAll('option[value^="rtl"]').forEach(o=>o.remove()); } });
 }
 function radioChanged(){ showRadioFields();
-  if(!useSdr()&&!useHl2()) toast("&#9888; No radio is ticked. Tick at least one (or use Practice mode).",7000);
+  if(!useSdr()&&!useHl2()&&!useRtl()) toast("&#9888; No radio is ticked. Tick at least one (or use Practice mode).",7000);
   else if(useHl2()&&!useSdr()){ const hi=[...document.querySelectorAll(".cm")].map(x=>+x.value).filter(v=>v>38);
     if(hi.length) toast("&#9888; "+hi[0]+" MHz is above what the Hermes Lite 2 can receive (about 38 MHz). Change that frequency, or tick the SDRplay too.",9000); }
-  guard(async()=>{ await api("/api/config",{use_sdrplay:useSdr(),use_hl2:useHl2(),hl2_ip:$("hl2ip").value.trim(),hl2_rate:+$("hl2rate").value}); await slRestart(); }); }
+  guard(async()=>{ await api("/api/config",{use_sdrplay:useSdr(),use_hl2:useHl2(),use_rtl:useRtl(),hl2_ip:$("hl2ip").value.trim(),hl2_rate:+$("hl2rate").value}); await slRestart(); }); }
+async function findRtl(){
+  const b=$("btnFindRtl"); b.disabled=true; const old=b.textContent; b.textContent="Looking for dongles... (a few seconds)"; $("rtlMsg").textContent="";
+  try{
+    const r=await api("/api/rtl/list",{});
+    if(r.dongles&&r.dongles.length){ $("rtlMsg").innerHTML="&#10003; Found "+r.dongles.length+" dongle"+(r.dongles.length>1?"s":"")+": "+r.dongles.map((d,k)=>"<b>RTL-SDR "+(k+1)+"</b> = "+esc(d.label)+(d.serial?" (serial "+esc(d.serial)+")":"")).join("; ")+"."+(r.dup?" <b>Some dongles share a serial number</b>, so slots may swap after a replug: the guide shows the one-minute fix.":"")+(r.note?" "+esc(r.note):""); }
+    else $("rtlMsg").innerHTML="&#9888; No dongle found. "+esc(r.note||"")+" Plug it in, check the driver step in the guide (Windows: Zadig; Mac: Homebrew), then press the button again.";
+  }catch(e){ $("rtlMsg").innerHTML="&#9888; "+esc(e.message); }
+  b.disabled=false; b.textContent=old; }
 async function findHl2(){
   const b=$("btnFindHl2"); b.disabled=true; const old=b.textContent; b.textContent="Searching the network... (about 3 s)"; $("hl2Msg").textContent="";
   try{
@@ -506,7 +524,7 @@ async function findHl2(){
 function hl2GainReset(){ $("hl2g").value=15; gainChanged("hl2"); }
 
 /* ---------- slots: four live panadapters ---------- */
-const PAGE_VER="1.3.0h";        /* the version of this page: it must match the program version shown in the top bar */
+const PAGE_VER="1.4.0";        /* the version of this page: it must match the program version shown in the top bar */
 const SL={logging:false,live:false,busy:false,starting:false,manualStop:false,lastTry:0,health:{},byCh:{},startErr:"",radio:"",lastSync:0,seen:{},last:{},paused:false,autoPaused:false};
 const SLH={0:[],1:[],2:[],3:[]};      // the last readings saved for each slot (for the readout shown when a slot's radio is busy mapping)
 const ONLY_SLICES=new URLSearchParams(location.search).get("view")==="slices";
@@ -534,7 +552,7 @@ const rowEl=(cls,i)=>document.querySelectorAll("."+cls)[i];
 const slotEl=i=>$("slGrid").children[i];
 function rowFilled(i){ const m=rowEl("cm",i); return !!m && String(m.value).trim()!=="" && (rowEl("cr",i)||{}).value!=="off"; }
 function slotCh(i){ if(!rowFilled(i)) return -1; let n=0; for(let k=0;k<i;k++) if(rowFilled(k)) n++; return n; }   // number the radio uses for this slot
-function slRadioFor(i,f){ const sel=(rowEl("cr",i)||{}).value||"auto"; if(sel==="hl2"||sel==="sdrplay") return sel; if(f&&f.radio) return f.radio; if($("practice").checked) return "sdrplay";
+function slRadioFor(i,f){ const sel=(rowEl("cr",i)||{}).value||"auto"; if(sel==="hl2"||sel==="sdrplay"||RTL_RE.test(sel)) return sel; if(f&&f.radio) return f.radio; if($("practice").checked) return "sdrplay";
   const hl=useHl2(), sd=useSdr(), mhz=+((rowEl("cm",i)||{}).value)||0;
   if(hl&&!sd) return "hl2"; if(sd&&!hl) return "sdrplay"; return mhz<=38?"hl2":"sdrplay"; }
 
@@ -569,6 +587,7 @@ function slotHTML(i){ return '<div class="slh"><span><b class="slt">Slot '+(i+1)
  '<div class="slrow slgain"><span class="rn">Gain</span>'+
  '<span class="gHl" style="display:none;align-items:center;gap:6px"><input type="range" class="gHlS" min="-12" max="48" step="1" style="width:170px" title="Hermes gain. Higher hears weaker signals but overloads sooner. One gain for the whole radio, so every Hermes slot moves together."><b class="gHlV"></b><span class="mut">dB (whole radio)</span> <label class="chk" style="display:inline-flex;margin:0" title="The program keeps the gain as high as it can without overloading: it lowers the gain when a strong signal overloads the radio and slowly raises it again. For listening and looking only: it hides changes in the noise level, so it stops while recording."><input type="checkbox" class="gHlAuto"> <span>Auto gain (listening only)</span></label> <label class="chk" style="display:inline-flex;margin:0" title="Remembers the gain you set for each band and puts it back when the first Hermes slot moves to that band. You can still change it any time: the newest setting is the one remembered. Not used while recording."><input type="checkbox" class="gHlBand"> <span>Gain per band</span></label> <span class="mut gBandN"></span></span>'+
  '<span class="gSd" style="display:none;align-items:center;gap:6px"><label>IF att.</label><input type="range" class="gIfS" min="20" max="59" step="1" style="width:110px"><b class="gIfV"></b><label>RF att.</label><input type="range" class="gRfS" min="0" max="27" step="1" style="width:90px"><b class="gRfV"></b> <label class="chk" style="display:inline-flex;margin:0" title="Automatic gain, for listening only: it hides changes in the noise level, so switch it off when measuring"><input type="checkbox" class="gAuto"> <span>Auto gain (listening only)</span></label> <button class="sm gReset" title="Put IF attenuation back to 40 dB and RF attenuation to 0">Reset (IF 40, RF 0)</button></span>'+
+ '<span class="gRtl" style="display:none;align-items:center;gap:6px"><input type="range" class="gRtlS" min="0" max="49" step="1" style="width:170px" title="Tuner gain of this dongle. Higher hears weaker signals but overloads sooner. Each dongle has its own gain."><b class="gRtlV"></b><span class="mut">dB (this dongle)</span></span>'+
  '<span class="gOv" style="display:none;color:#b3261e;font-weight:700">OVERLOAD - lower the gain</span></div>'+
  '<div class="slsnd slrow" style="display:none"><span class="rn">Listen</span>'+
  '<label>Volume</label><input type="range" class="slVol" min="0" max="100" step="1" style="width:100px" title="Raise the volume above 0 to hear this slot. Any number of slots can play together.">'+
@@ -644,6 +663,7 @@ function slotInit(i,d){ const q=s=>d.querySelector(s), p=slp(i);
   q(".slAuto").onclick=()=>{ p.auto=!p.auto; if(!p.auto){ const r=SLR[i]; if(r){ p.lo=r.lo; p.hi=r.hi; } } slpSave(); if(d._f) slDraw(i,d._f); };
   // gain sliders (the Hermes has one gain for the whole radio; the SDRplay has two attenuators)
   const gh=q(".gHlS"), gi=q(".gIfS"), gr=q(".gRfS");
+  { const gt=q(".gRtlS"); gt.oninput=()=>{ const id=d._rad; if(!RTL_RE.test(id)) return; SL.rtlGain=SL.rtlGain||{}; SL.rtlGain[id]=+gt.value; q(".gRtlV").textContent=gt.value; clearTimeout(SL.rtlT); SL.rtlT=setTimeout(()=>guard(()=>api("/api/gain",{rtl_gain_db:{[id]:+gt.value}})),350); }; }
   { const hb=q(".gHlBand"); hb.onchange=()=>{ SL.hlBand=hb.checked; try{localStorage.setItem("rfmapHlBand",hb.checked?"1":"0");}catch(e){} if(hb.checked){ SL.hlBandKey=null; hlBandStore(); } toast(hb.checked?"Gain per band is on. The Hermes remembers the gain you set for each band.":"Gain per band is off."); }; }
   { const ha=q(".gHlAuto"); ha.onchange=()=>{ SL.hlAuto=ha.checked; try{localStorage.setItem("rfmapHlAuto",ha.checked?"1":"0");}catch(e){} SL.hlLast=Date.now(); SL.hlAT=0; toast(ha.checked?"Auto gain is on for the Hermes. It lowers the gain if a strong signal overloads the radio and slowly raises it again. It stops while recording.":"Auto gain is off. The gain stays where you set it."); }; }
   gh.oninput=()=>{ $("hl2g").value=gh.value; hlBandStore(); q(".gHlV").textContent=(+gh.value>0?"+":"")+gh.value; slGainSoon("hl2"); };
@@ -914,7 +934,7 @@ function slRender(j){
         if(document.activeElement!==ga) ga.checked=!!p.autoGain; q(".gIfS").disabled=q(".gRfS").disabled=!!p.autoGain; } }
     const cal=+((calEls[i]||{}).value||0);
     const isSd=filled&&rad==="sdrplay", isLive=isSd&&liveI===i;
-    q(".slf").textContent=filled?((+cm.value).toFixed(4)+" MHz"+(rad==="hl2"?" (Hermes)":rad==="sdrplay"?" (SDRplay)":"")+(isSd&&!isLive&&!SL.logging?" - not live, picture frozen. Press Live":"")):"- off. Pick a radio on the right (or type a frequency) to use this slot.";
+    q(".slf").textContent=filled?((+cm.value).toFixed(4)+" MHz"+(rad==="hl2"?" (Hermes)":rad==="sdrplay"?" (SDRplay)":RTL_RE.test(rad)?" (RTL-SDR "+rad.slice(3)+")":"")+(isSd&&!isLive&&!SL.logging?" - not live, picture frozen. Press Live":"")):"- off. Pick a radio on the right (or type a frequency) to use this slot.";
     const lb=q(".slLive"); lb.style.display=isSd?"inline-block":"none"; lb.classList.toggle("on",isLive); lb.textContent=isLive?"\u25cf Live":"Live";
     d.classList.toggle("notlive",isSd&&!isLive&&!SL.logging);
     { const lk=q(".slLock"); lk.classList.toggle("on",!!p.lock); lk.innerHTML=p.lock?"&#128274; Locked":"&#128275; Lock"; }
@@ -925,8 +945,9 @@ function slRender(j){
     // level and last-reading cells in the readings table
     const lc=$("lvl"+i); if(lc){ const t=lv!=null?lv.toFixed(1):""; if(lc._t!==t){ lc._t=t; lc.innerHTML=lv!=null?('<b>'+t+'</b><div class="bar"><i style="left:'+posPct(lv)+'%"></i></div>'):'<span class="mut">&ndash;</span>'; } }
     // gain row
-    const hl=rad==="hl2", sd=rad==="sdrplay"; q(".slgain").style.display=(hl||sd)?"flex":"none";
-    q(".gHl").style.display=hl?"inline-flex":"none"; q(".gSd").style.display=sd?"inline-flex":"none";
+    const hl=rad==="hl2", sd=rad==="sdrplay", rt=RTL_RE.test(rad); q(".slgain").style.display=(hl||sd||rt)?"flex":"none";
+    q(".gHl").style.display=hl?"inline-flex":"none"; q(".gSd").style.display=sd?"inline-flex":"none"; q(".gRtl").style.display=rt?"inline-flex":"none";
+    if(rt){ const gt=q(".gRtlS"); if(document.activeElement!==gt){ const v=((SL.rtlGain||{})[rad]); gt.value=(v===undefined?30:v); q(".gRtlV").textContent=gt.value; } }
     const gh=q(".gHlS"), gi=q(".gIfS"), gr=q(".gRfS");
     if(hl&&document.activeElement!==gh){ gh.value=$("hl2g").value||15; q(".gHlV").textContent=(+gh.value>0?"+":"")+gh.value; }
     if(sd){ if(document.activeElement!==gi){ gi.value=$("ifgr").value||40; q(".gIfV").textContent=gi.value; } if(document.activeElement!==gr){ gr.value=$("rfgr").value||0; q(".gRfV").textContent=gr.value; } }
@@ -1070,11 +1091,12 @@ function slSyncCfg(j){ const c=j&&j.cfg; if(!c||slTuneTimer||slUndo||SL.pushing|
     const set=(el,v)=>{ if(el&&!mine(el)&&String(el.value)!==String(v)) el.value=v; };
     set(m,ch.mhz===undefined?"":ch.mhz); set(rowEl("cb",i),ch.bw_khz); set(rowEl("cc",i),ch.cal_db); set(rowEl("cr",i),radNorm(ch));
     const pm=slp(i).pmode, sdm=(rowEl("cr",i).value==="sdrplay"&&pm)?(SLMODE[pm]||pm):""; set(rowEl("cmd",i),sdm||(ch.mode||"AM").toUpperCase()); });      /* an SDRplay slot keeps the mode picked here: a late reply from the server must not turn it back */
+  if(c.rtl_gain_db&&!SL.rtlT) SL.rtlGain=Object.assign({},c.rtl_gain_db);
   if(c.sdr_live!==undefined&&!SL.liveBusy) SL.liveSel=+c.sdr_live;
   if(c.hl2_speed&&c.hl2_speed!==SL.speed&&document.activeElement!==$("viewSpd")){ SL.speed=c.hl2_speed; $("viewSpd").value=c.hl2_speed; }
   const g=(id,v)=>{ const el=$(id); if(el&&!mine(el)&&!slGainT&&String(el.value)!==String(v)) el.value=v; };
   g("hl2g",c.hl2_gain_db); g("ifgr",c.if_gain_db); g("rfgr",c.rf_gain_state); gainSync(); }
-function slWanted(){ if(!formFilled) return false; if(!$("practice").checked&&!useSdr()&&!useHl2()) return false; return [0,1,2,3].some(k=>rowFilled(k)&&rowEl("cr",k).value!=="sdrplay"); }
+function slWanted(){ if(!formFilled) return false; if(!$("practice").checked&&!useSdr()&&!useHl2()&&!useRtl()) return false; return [0,1,2,3].some(k=>rowFilled(k)&&rowEl("cr",k).value!=="sdrplay"); }
 async function slAuto(j){
   if(j.logging||j.running||SL.manualStop||SL.starting||(typeof PAN!=="undefined"&&(PAN.on||PAN.viewOnly))||!slWanted()) return;
   if(Date.now()-SL.lastTry<15000) return;
@@ -1096,7 +1118,7 @@ function fillForm(cfg){
   (document.querySelector(`input[name=gpsm][value=${cfg.gps_mode}]`)||document.querySelector("input[name=gpsm][value=usb]")).checked=true;
   $("gHost").value=cfg.gps_host; $("gPort").value=cfg.gps_port; $("gBaud").value=cfg.gps_baud;
   $("autoMap").checked=!!cfg.auto_map; $("apOn").checked=!!cfg.auto_pause; $("apSec").value=cfg.auto_pause_s||10; $("spacing").value=cfg.spacing_ft; $("interval").value=cfg.interval_s||5; (document.querySelector(`input[name=smode][value=${cfg.sample_mode==="time"?"time":"distance"}]`)).checked=true; spacingNote(); $("ifgr").value=cfg.if_gain_db; $("rfgr").value=cfg.rf_gain_state; gainSync();
-  $("useSdr").checked=(cfg.use_sdrplay!==false); $("useHl2").checked=!!cfg.use_hl2; $("hl2ip").value=cfg.hl2_ip||""; $("brSel").value=(cfg.browser==="default"?"default":"chrome"); $("hl2rate").value=String(cfg.hl2_rate||96000); $("hl2g").value=(cfg.hl2_gain_db===undefined?15:cfg.hl2_gain_db);
+  $("useSdr").checked=(cfg.use_sdrplay!==false); $("useHl2").checked=!!cfg.use_hl2; $("useRtl").checked=!!cfg.use_rtl; SL.rtlGain=Object.assign({},cfg.rtl_gain_db||{}); $("hl2ip").value=cfg.hl2_ip||""; $("brSel").value=(cfg.browser==="default"?"default":"chrome"); $("hl2rate").value=String(cfg.hl2_rate||96000); $("hl2g").value=(cfg.hl2_gain_db===undefined?15:cfg.hl2_gain_db);
   let h="<tr><th>Slot</th><th title='Type a frequency here and its slot panel below changes at once'>MHz</th><th title='The signal power inside this width is what is logged and mapped'>Measure width (kHz)</th><th title='LSB measures below the frequency, USB above, the others both sides'>Mode</th><th>Calibration (dB)</th><th class=radcol title='Which radio measures this slot. Auto: the Hermes Lite 2 takes what it can hear; the SDRplay takes the rest.'>Radio</th><th>Level now (dB)</th><th title='The time of the last reading saved to the drive. While you are not logging it shows that the slot is live.'>Last reading</th></tr>";
   for(let i=0;i<4;i++) h+=chRow(cfg.channels[i]||{mhz:"",bw_khz:5,cal_db:0},i);
   $("chTable").innerHTML=h; showRadioFields(); $("phoneAccess").checked=!!cfg.phone_access; panMemLoad(cfg);
@@ -1107,7 +1129,7 @@ function readForm(){
     gps_mode:(document.querySelector("input[name=gpsm]:checked")||{value:"usb"}).value, gps_host:$("gHost").value.trim(),
     gps_port:+$("gPort").value||11123, gps_serial:$("gSerial").value, gps_baud:+$("gBaud").value,
     auto_map:$("autoMap").checked, auto_pause:$("apOn").checked, auto_pause_s:Math.min(600,Math.max(3,+$("apSec").value||10)), spacing_ft:+$("spacing").value||10, sample_mode:smode(), interval_s:+$("interval").value||5, if_gain_db:+$("ifgr").value||40, rf_gain_state:+$("rfgr").value||0,
-    use_sdrplay:useSdr(), use_hl2:useHl2(), hl2_ip:$("hl2ip").value.trim(), hl2_rate:+$("hl2rate").value||96000, hl2_gain_db:Math.round(+$("hl2g").value||0),
+    use_sdrplay:useSdr(), use_hl2:useHl2(), use_rtl:useRtl(), hl2_ip:$("hl2ip").value.trim(), hl2_rate:+$("hl2rate").value||96000, hl2_gain_db:Math.round(+$("hl2g").value||0),
     channels:m.map((x,i)=>({mhz:x.value, bw_khz:b[i].value||5, cal_db:c[i].value||0, radio:(rr[i]||{value:"auto"}).value, mode:(md[i]||{value:"AM"}).value}))};
 }
 function showGpsFields(){

@@ -69,6 +69,7 @@ DEFAULT_SETTINGS = {
     "if_gain_db": 40,         # SDRplay "IF gain reduction" (higher = less gain)
     "rf_gain_state": 0,       # SDRplay "RF gain reduction" (0 = most gain)
     "hl2_gain_db": 15,        # Hermes Lite 2 low-noise-amplifier gain, -12 to +48 dB
+    "rtl_gain_db": {},        # RTL-SDR dongle tuner gain per dongle, 0 to 49 dB (default 30), for example {"rtl1": 30}
     "pan_channel": -1,        # which frequency (0-3) to show as a live spectrum; -1 = none
 }
 MAX_CHANNELS = 4
@@ -430,18 +431,11 @@ class SoapySdr:
         from SoapySDR import SOAPY_SDR_RX, SOAPY_SDR_CF32
         self.S = SoapySDR
         self.RX, self.CF32 = SOAPY_SDR_RX, SOAPY_SDR_CF32
-        devs = SoapySDR.Device.enumerate("driver=sdrplay")
-        if not devs:
-            L.error("no SDRplay found by SoapySDR (radio unplugged, SDRplay API service not running, or another program is using it)")
-            sys.exit("\nERROR: no SDRplay found. Is it plugged in, and is the SDRplay "
-                     "API service installed and running? (see README step 2)\n")
-        self.dev = SoapySDR.Device(devs[0])
-        _d = dict(devs[0])
-        self.name = "SDRplay " + str(_d.get("label", _d.get("serial", "")))
+        self._open_device(SoapySDR)
         d = self.dev
         d.setSampleRate(self.RX, 0, self.SAMPLE_RATE)
         try:
-            d.setBandwidth(self.RX, 0, 1_536_000)
+            d.setBandwidth(self.RX, 0, self.BANDWIDTH)
         except Exception:
             pass
         # Turn the automatic gain OFF so readings are comparable along the route
@@ -457,6 +451,21 @@ class SoapySdr:
         self._levels, self._prev_level, self._prev_freq = {}, None, None
         self.window = np.hanning(self.FFT_N).astype(np.float32)
         self.win_pow = float(np.sum(self.window ** 2))
+
+    BANDWIDTH = 1_536_000
+
+    def _open_device(self, SoapySDR):
+        devs = SoapySDR.Device.enumerate("driver=sdrplay")
+        if not devs:
+            L.error("no SDRplay found by SoapySDR (radio unplugged, SDRplay API service not running, or another program is using it)")
+            sys.exit("\nERROR: no SDRplay found. Is it plugged in, and is the SDRplay "
+                     "API service installed and running? (see README step 2)\n")
+        self.dev = SoapySDR.Device(devs[0])
+        _d = dict(devs[0])
+        self.name = "SDRplay " + str(_d.get("label", _d.get("serial", "")))
+
+    def _tune(self, lo, freq_hz):
+        self.dev.setFrequency(self.RX, 0, lo)
 
     def apply_gain(self, settings):
         key = (settings["if_gain_db"], settings["rf_gain_state"])
@@ -526,7 +535,7 @@ class SoapySdr:
         self.apply_gain(settings)
         offset = min(self.OFFSET_HZ, max(freq_hz - 1_000, 0))
         lo = freq_hz - offset
-        self.dev.setFrequency(self.RX, 0, lo)
+        self._tune(lo, freq_hz)
         # The radio keeps streaming while we wait between dots, so its queue can still hold samples
         # taken on the PREVIOUS frequency. Empty that queue, then throw away a short stretch of fresh
         # samples (the retune glitch) before measuring.
@@ -570,6 +579,85 @@ class SoapySdr:
             self.dev.closeStream(self.stream)
         except Exception:
             pass
+
+
+RTL_IDS = C.RTL_IDS
+RTL_DIRECT_BELOW_HZ = 24_000_000                # an RTL-SDR Blog V3 hears HF only through "direct sampling"
+
+
+def is_rtl(name):
+    return str(name or "") in RTL_IDS
+
+
+def rtl_list():
+    """The RTL-SDR dongles SoapySDR can see, in a steady order (sorted by serial number, then by
+    position as found), as a list of dicts: serial, label. Returns (list, note)."""
+    SoapySDR, note = C.find_soapy()
+    if SoapySDR is None:
+        return [], "The radio library (SoapySDR) is not available. " + str(note)
+    try:
+        devs = [dict(d) for d in SoapySDR.Device.enumerate("driver=rtlsdr")]
+    except Exception as e:
+        return [], "Looking for RTL-SDR dongles failed: %s" % e
+    out = []
+    for k, d in enumerate(devs):
+        out.append({"serial": str(d.get("serial", "")), "label": str(d.get("label", "RTL-SDR")), "pos": k})
+    out.sort(key=lambda d: (d["serial"], d["pos"]))
+    return out, ""
+
+
+class RtlSdr(SoapySdr):
+    """An RTL-SDR dongle (for example the RTL-SDR Blog V3) through SoapySDR. One dongle = one receiver, so
+    its slots take turns, exactly like the SDRplay; but each dongle runs on its own, so several dongles
+    read at the same time. NOT YET TRIED ON REAL DONGLES (version 1.4.0)."""
+
+    SAMPLE_RATE = 2_048_000
+    BANDWIDTH = 1_800_000
+    OFFSET_HZ = 200_000
+
+    def __init__(self, settings, slot_id="rtl1"):
+        self.slot_id = slot_id
+        self.index = RTL_IDS.index(slot_id)
+        self._direct = None
+        SoapySdr.__init__(self, settings)
+
+    def _open_device(self, SoapySDR):
+        devs, note = rtl_list()
+        if not devs:
+            L.error("no RTL-SDR dongle found by SoapySDR: " + note)
+            raise RuntimeError("No RTL-SDR dongle was found. Is it plugged in, and are its drivers installed "
+                               "(Windows: the Zadig step in the guide)? " + note)
+        if self.index >= len(devs):
+            raise RuntimeError("Radio chooser says RTL-SDR %d, but only %d dongle%s found." %
+                               (self.index + 1, len(devs), "" if len(devs) == 1 else "s are"))
+        pick = devs[self.index]
+        unique = bool(pick["serial"]) and sum(1 for d in devs if d["serial"] == pick["serial"]) == 1
+        # a unique serial number keeps the same dongle in the same slot after a replug; shared serials fall back to position
+        args = {"driver": "rtlsdr", "serial": pick["serial"]} if unique else {"driver": "rtlsdr", "rtl": str(pick["pos"])}
+        self.dev = SoapySDR.Device(args)
+        self.name = "RTL-SDR %d (%s)" % (self.index + 1, pick["serial"] or pick["label"])
+
+    def apply_gain(self, settings):
+        g = settings.get("rtl_gain_db") or {}
+        v = g.get(self.slot_id, 30) if isinstance(g, dict) else 30
+        key = ("rtl", v)
+        if key == getattr(self, "_gain_key", None):
+            return
+        try:
+            self.dev.setGain(self.RX, 0, float(v))             # the tuner gain, 0 to about 49 dB; the dongle's own automatic gain stays OFF
+        except Exception:
+            pass
+        self._gain_key = key
+
+    def _tune(self, lo, freq_hz):
+        want = 2 if freq_hz < RTL_DIRECT_BELOW_HZ else 0       # HF: the dongle's Q-branch direct sampling (V3 and similar)
+        if want != self._direct:
+            try:
+                self.dev.writeSetting("direct_samp", str(want))
+            except Exception:
+                pass
+            self._direct = want
+        self.dev.setFrequency(self.RX, 0, lo)
 
 
 KNOWN_HL2 = None          # (ip, receivers) when the control panel hands over a radio it already found
@@ -727,6 +815,9 @@ class MultiRadio:
                 self.radios["hl2"] = HermesLite2(hset, hl2_ip, hl2_rate, hl2_port)
             if "sdrplay" in names:
                 self.radios["sdrplay"] = SoapySdr(settings)
+            for rid in RTL_IDS:
+                if rid in names:
+                    self.radios[rid] = RtlSdr(settings, rid)
         except BaseException:
             self.close()                      # one radio opened but the other failed: let the first go again
             raise
@@ -752,16 +843,36 @@ class MultiRadio:
                     out[i] = res[k]
                     if res[k][2]:
                         self.frames[i] = res[k][2]
-        sp = self.radios.get("sdrplay")
-        if sp is not None:
-            for i, c in enumerate(chans):
-                if (c.get("radio") or "sdrplay") == "hl2" or c.get("skip"):
-                    continue
-                lv = sp.measure(c["mhz"] * 1e6 + band_shift_hz(c), c["bw_khz"] * 1e3, self.pos[0], self.pos[1], settings)
-                fr = sp.last_frame()
+        # every other radio (the SDRplay and each RTL-SDR dongle) has one receiver, so its own slots take turns;
+        # different radios run side by side, each in its own thread, so dongles read at the same time
+        groups = {}
+        for i, c in enumerate(chans):
+            rn = c.get("radio") or "sdrplay"
+            if rn == "hl2" or c.get("skip") or rn not in self.radios:
+                continue
+            groups.setdefault(rn, []).append(i)
+
+        def run_group(rn, idxs):
+            r = self.radios[rn]
+            for i in idxs:
+                c = chans[i]
+                try:
+                    lv = r.measure(c["mhz"] * 1e6 + band_shift_hz(c), c["bw_khz"] * 1e3, self.pos[0], self.pos[1], settings)
+                    fr = r.last_frame()
+                except Exception:
+                    lv, fr = float("nan"), None
                 out[i] = (lv, time.time(), fr)
                 if fr:
                     self.frames[i] = fr
+        if len(groups) <= 1:
+            for rn, idxs in groups.items():
+                run_group(rn, idxs)
+        else:
+            ths = [threading.Thread(target=run_group, args=(rn, idxs), daemon=True) for rn, idxs in groups.items()]
+            for t in ths:
+                t.start()
+            for t in ths:
+                t.join(timeout=10)
         for i in range(len(chans)):
             if out[i] is None:
                 out[i] = (float("nan"), time.time(), None)
@@ -977,7 +1088,7 @@ def make_handler(settings, state, stop_event, sdr=None):
                                           "bw_khz": max(0.5, float(c.get("bw_khz", 5))),
                                           "cal_db": float(c.get("cal_db", 0)),
                                           "mode": str(c.get("mode") or "AM").upper() if str(c.get("mode") or "AM").upper() in ("AM", "SAM", "USB", "LSB", "NFM") else "AM",
-                                          "radio": c.get("radio") if c.get("radio") in ("hl2", "sdrplay") else "sdrplay"})
+                                          "radio": c.get("radio") if c.get("radio") in ("hl2", "sdrplay") + RTL_IDS else "sdrplay"})
                         if not chans:
                             raise ValueError("need at least one frequency")
                         upd["channels"] = chans
@@ -997,6 +1108,8 @@ def make_handler(settings, state, stop_event, sdr=None):
                         upd["rf_gain_state"] = int(min(max(int(req["rf_gain_state"]), 0), 27))
                     if "hl2_gain_db" in req:
                         upd["hl2_gain_db"] = int(min(max(int(req["hl2_gain_db"]), -12), 48))
+                    if isinstance(req.get("rtl_gain_db"), dict):
+                        upd["rtl_gain_db"] = {k: int(min(max(int(v), 0), 49)) for k, v in req["rtl_gain_db"].items() if k in RTL_IDS}
                     if upd:
                         settings.update(upd)
                 self._send(200, "{}")
