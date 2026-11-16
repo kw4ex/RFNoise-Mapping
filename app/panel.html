@@ -206,7 +206,7 @@ body.only-slices #staleBanner,body.only-slices #warnBanner,body.only-slices #blo
    <div class="mut">10&nbsp;ft is a good start. Smaller gives more detail (slow streets, walking); larger suits highways and gives smaller files. <b>You can change it while driving</b>: it applies from the next dot. If you drive faster than the radio can keep up, dots end up farther apart than this setting.</div>
    <details><summary>More settings</summary>
     <div class="row" id="hl2Gain" style="display:none">
-      <div><label>Radio gain (dB, &minus;12 to +48)</label><br><input type="number" id="hl2g" min="-12" max="48" onchange="gainChanged('hl2')"></div>
+      <div><label>Radio gain (dB, &minus;12 to +48)</label><br><input type="number" id="hl2g" min="-12" max="48" onchange="hlBandStore();gainChanged('hl2')"></div>
       <div><br><button class="sm" onclick="hl2GainReset()">Reset to default (+15)</button></div>
       <div class="mut" style="flex:1 1 300px">Higher gain hears weaker signals but overloads sooner. <b>This setting is for the Hermes Lite 2 only</b> and does not touch the SDRplay. If a slot shows <b>OVERLOAD</b>, lower it (each Hermes slot has a Gain slider). Recording always uses this fixed number (never automatic gain). Pick a value before a drive and leave it alone so dots can be compared.</div>
     </div>
@@ -506,7 +506,7 @@ async function findHl2(){
 function hl2GainReset(){ $("hl2g").value=15; gainChanged("hl2"); }
 
 /* ---------- slots: four live panadapters ---------- */
-const PAGE_VER="1.3.0g";        /* the version of this page: it must match the program version shown in the top bar */
+const PAGE_VER="1.3.0h";        /* the version of this page: it must match the program version shown in the top bar */
 const SL={logging:false,live:false,busy:false,starting:false,manualStop:false,lastTry:0,health:{},byCh:{},startErr:"",radio:"",lastSync:0,seen:{},last:{},paused:false,autoPaused:false};
 const SLH={0:[],1:[],2:[],3:[]};      // the last readings saved for each slot (for the readout shown when a slot's radio is busy mapping)
 const ONLY_SLICES=new URLSearchParams(location.search).get("view")==="slices";
@@ -567,7 +567,7 @@ function slotHTML(i){ return '<div class="slh"><span><b class="slt">Slot '+(i+1)
  '<button class="sm slAuto" title="Automatic scale keeps the noise floor and the strongest signal in view. To set the scale by hand, drag the dB numbers at the left of the picture up or down (the mouse wheel there stretches it).">Auto scale</button>'+
  '<span class="mut">Drag the dB numbers on the picture to move the scale.</span></div>'+
  '<div class="slrow slgain"><span class="rn">Gain</span>'+
- '<span class="gHl" style="display:none;align-items:center;gap:6px"><input type="range" class="gHlS" min="-12" max="48" step="1" style="width:170px" title="Hermes gain. Higher hears weaker signals but overloads sooner. One gain for the whole radio, so every Hermes slot moves together."><b class="gHlV"></b><span class="mut">dB (whole radio)</span></span>'+
+ '<span class="gHl" style="display:none;align-items:center;gap:6px"><input type="range" class="gHlS" min="-12" max="48" step="1" style="width:170px" title="Hermes gain. Higher hears weaker signals but overloads sooner. One gain for the whole radio, so every Hermes slot moves together."><b class="gHlV"></b><span class="mut">dB (whole radio)</span> <label class="chk" style="display:inline-flex;margin:0" title="The program keeps the gain as high as it can without overloading: it lowers the gain when a strong signal overloads the radio and slowly raises it again. For listening and looking only: it hides changes in the noise level, so it stops while recording."><input type="checkbox" class="gHlAuto"> <span>Auto gain (listening only)</span></label> <label class="chk" style="display:inline-flex;margin:0" title="Remembers the gain you set for each band and puts it back when the first Hermes slot moves to that band. You can still change it any time: the newest setting is the one remembered. Not used while recording."><input type="checkbox" class="gHlBand"> <span>Gain per band</span></label> <span class="mut gBandN"></span></span>'+
  '<span class="gSd" style="display:none;align-items:center;gap:6px"><label>IF att.</label><input type="range" class="gIfS" min="20" max="59" step="1" style="width:110px"><b class="gIfV"></b><label>RF att.</label><input type="range" class="gRfS" min="0" max="27" step="1" style="width:90px"><b class="gRfV"></b> <label class="chk" style="display:inline-flex;margin:0" title="Automatic gain, for listening only: it hides changes in the noise level, so switch it off when measuring"><input type="checkbox" class="gAuto"> <span>Auto gain (listening only)</span></label> <button class="sm gReset" title="Put IF attenuation back to 40 dB and RF attenuation to 0">Reset (IF 40, RF 0)</button></span>'+
  '<span class="gOv" style="display:none;color:#b3261e;font-weight:700">OVERLOAD - lower the gain</span></div>'+
  '<div class="slsnd slrow" style="display:none"><span class="rn">Listen</span>'+
@@ -644,7 +644,9 @@ function slotInit(i,d){ const q=s=>d.querySelector(s), p=slp(i);
   q(".slAuto").onclick=()=>{ p.auto=!p.auto; if(!p.auto){ const r=SLR[i]; if(r){ p.lo=r.lo; p.hi=r.hi; } } slpSave(); if(d._f) slDraw(i,d._f); };
   // gain sliders (the Hermes has one gain for the whole radio; the SDRplay has two attenuators)
   const gh=q(".gHlS"), gi=q(".gIfS"), gr=q(".gRfS");
-  gh.oninput=()=>{ $("hl2g").value=gh.value; q(".gHlV").textContent=(+gh.value>0?"+":"")+gh.value; slGainSoon("hl2"); };
+  { const hb=q(".gHlBand"); hb.onchange=()=>{ SL.hlBand=hb.checked; try{localStorage.setItem("rfmapHlBand",hb.checked?"1":"0");}catch(e){} if(hb.checked){ SL.hlBandKey=null; hlBandStore(); } toast(hb.checked?"Gain per band is on. The Hermes remembers the gain you set for each band.":"Gain per band is off."); }; }
+  { const ha=q(".gHlAuto"); ha.onchange=()=>{ SL.hlAuto=ha.checked; try{localStorage.setItem("rfmapHlAuto",ha.checked?"1":"0");}catch(e){} SL.hlLast=Date.now(); SL.hlAT=0; toast(ha.checked?"Auto gain is on for the Hermes. It lowers the gain if a strong signal overloads the radio and slowly raises it again. It stops while recording.":"Auto gain is off. The gain stays where you set it."); }; }
+  gh.oninput=()=>{ $("hl2g").value=gh.value; hlBandStore(); q(".gHlV").textContent=(+gh.value>0?"+":"")+gh.value; slGainSoon("hl2"); };
   gi.oninput=()=>{ $("ifgr").value=gi.value; q(".gIfV").textContent=gi.value; gainSync(); slGainSoon("sdr"); slPanPost({if_gain:+gi.value}); };
   gr.oninput=()=>{ $("rfgr").value=gr.value; q(".gRfV").textContent=gr.value; gainSync(); slGainSoon("sdr"); slPanPost({rf_state:+gr.value}); };
   // sound
@@ -755,6 +757,20 @@ const SCW=54;                 // width (px) of the dB-number strip at the left o
 const SLR={};                 // the dB range now shown, per slot
 let slGainT=null;
 let slGainW=null;
+/* Hermes auto gain (listening only): -3 dB at once when the radio reports overload, +1 dB after 30 quiet seconds, never above +36 */
+const HL_AUTO_MAX=36;
+/* Gain per band: the Hermes has one gain for the whole radio, so the band of the first Hermes slot decides. The gain you set is remembered for that band and put back when the slot returns to it. */
+const HL_BANDS=[["160 m",1.8,2.0],["80 m",3.5,4.0],["60 m",5.3,5.5],["40 m",7.0,7.3],["30 m",10.1,10.15],["20 m",14.0,14.35],["17 m",18.068,18.168],["15 m",21.0,21.45],["12 m",24.89,24.99],["10 m",28.0,29.7],["6 m",50,54]];
+function hlBandOf(m){ for(const b of HL_BANDS) if(m>=b[1]-0.05&&m<=b[2]+0.05) return b[0]; return m>0?("near "+Math.floor(m)+" MHz"):""; }
+function hlBandMap(){ try{ return JSON.parse(localStorage.getItem("rfmapBandGain")||"{}")||{}; }catch(e){ return {}; } }
+function hlBandNow(){ for(let k=0;k<4;k++) if(rowFilled(k)&&(rowEl("cr",k)||{}).value==="hl2"){ const m=+((rowEl("cm",k)||{}).value)||0; return hlBandOf(m); } return ""; }
+function hlBandStore(){ if(!SL.hlBand||SL.logging) return; const k=hlBandNow(); if(!k) return; const m=hlBandMap(); m[k]=Math.round(+$("hl2g").value||0); try{ localStorage.setItem("rfmapBandGain",JSON.stringify(m)); }catch(e){} SL.hlBandKey=k; SL.hlBandName=k; }
+function hlBandStep(){ if(!SL.hlBand||SL.logging) return; const k=hlBandNow(); SL.hlBandName=k; if(!k||k===SL.hlBandKey) return; SL.hlBandKey=k; const g=hlBandMap()[k];
+  if(g!==undefined&&g!==Math.round(+$("hl2g").value||0)){ $("hl2g").value=g; slGainSoon("hl2"); toast("Gain set to "+(g>0?"+":"")+g+" dB for "+k+" (the gain you used there last time). Move the slider to change it.",5000); } }
+try{ SL.hlAuto=(localStorage.getItem("rfmapHlAuto")==="1"); SL.hlBand=(localStorage.getItem("rfmapHlBand")!=="0"); }catch(e){ SL.hlBand=true; }
+function hlAutoStep(h){ if(!SL.hlAuto||SL.logging||typeof h.overload!=="boolean") return; const now=Date.now(); let g=Math.round(+$("hl2g").value||0);
+  if(h.overload){ SL.hlLast=now; if(now-(SL.hlAT||0)>3000&&g>-12){ g=Math.max(-12,g-3); SL.hlAT=now; $("hl2g").value=g; slGainSoon("hl2"); } }
+  else if(now-(SL.hlLast||0)>30000&&now-(SL.hlAT||0)>30000&&g<HL_AUTO_MAX){ g++; SL.hlAT=now; $("hl2g").value=g; slGainSoon("hl2"); } }
 function slGainSoon(w){ slGainW=(slGainW&&slGainW!==w)?"both":w; clearTimeout(slGainT); slGainT=setTimeout(()=>{ const x=slGainW==="both"?undefined:slGainW; slGainW=null; guard(()=>gainChanged(x)); },350); }
 
 /* ----- drawing ----- */
@@ -862,6 +878,7 @@ function slMsg(){ if(SL.manualStop) return "Live view is stopped. Press <b>Start
   return "Waiting for the radio..."; }
 function slRender(j){
   if(!formFilled) return;
+  hlAutoStep(j.health||{}); hlBandStep();
   const fr=j.frames||[]; SL.health=j.health||{}; SL.byCh={}; fr.forEach(f=>{SL.byCh[f.channel]=f;});
   ensureSlots(); slMemRender(); const calEls=[...document.querySelectorAll(".cc")], liveI=slLiveIdx();
   for(let i=0;i<4;i++){ const d=slotEl(i), p=slp(i), c=slotCh(i), q=s=>d.querySelector(s);
@@ -914,6 +931,7 @@ function slRender(j){
     if(hl&&document.activeElement!==gh){ gh.value=$("hl2g").value||15; q(".gHlV").textContent=(+gh.value>0?"+":"")+gh.value; }
     if(sd){ if(document.activeElement!==gi){ gi.value=$("ifgr").value||40; q(".gIfV").textContent=gi.value; } if(document.activeElement!==gr){ gr.value=$("rfgr").value||0; q(".gRfV").textContent=gr.value; } }
     q(".gOv").style.display=(hl&&SL.health.overload)?"inline":"none";
+    if(hl){ const hb=q(".gHlBand"); if(hb.checked!==!!SL.hlBand) hb.checked=!!SL.hlBand; hb.disabled=!!SL.logging; q(".gBandN").textContent=SL.hlBand&&SL.hlBandName?("band: "+SL.hlBandName):""; const ha=q(".gHlAuto"); if(ha.checked!==!!SL.hlAuto) ha.checked=!!SL.hlAuto; ha.disabled=!!SL.logging; }
     // sound row (Hermes slots only)
     const snd=q(".slsnd"); snd.style.display=(hl||sd)?"flex":"none";
     if(hl||sd){ const st=hl?((SLS.sound||{})[String(c)]||{}):{}; const vo=q(".slVol"); if(document.activeElement!==vo&&+vo.value!==p.vol) vo.value=String(p.vol);
