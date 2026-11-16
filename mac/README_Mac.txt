@@ -35,6 +35,31 @@ WHAT THE INSTALLER MENU OFFERS (you can run it as often as you like)
      offers a zip file to send for help.
   3) Uninstall.
 
+HERMES LITE 2 ON A MAC (NETWORK SETUP)
+  The Mac needs no driver for the Hermes Lite 2, but it needs a network port:
+    1. Plug a USB-to-Ethernet adapter (or a dock with an Ethernet socket) into the
+       Mac. Plug the radio's network cable into it, then power the radio.
+    2. LEAVE WI-FI ON. The Mac may have Wi-Fi and the adapter connected at once.
+       Since version 1.3.0b the program searches for the radio out of every
+       network port, so the order of the connections does not matter.
+    3. Wait about 30 seconds. Open System Settings > Network. The adapter is
+       listed with a green dot. With the radio connected directly (no router) the
+       Mac gives itself an address starting 169.254. That is normal: keep
+       "Configure IPv4: Using DHCP" and do NOT type an address by hand.
+    4. If macOS asks to allow "devices on your local network", press Allow. If
+       you refused: System Settings > Privacy & Security > Local Network, switch
+       the program (or Terminal / Python) on.
+    5. If the Mac firewall is on (System Settings > Network > Firewall), allow
+       incoming connections for the program or Python.
+    6. In the program tick Hermes Lite 2 and press "Find my radio". It names the
+       port where it found the radio. If not, wait 30 seconds and try again, or
+       type the radio's address in the box.
+  Only one program at a time can use the radio: close Thetis / SDR Console first.
+
+BROWSER: the program opens in Google Chrome (Safari holds the sound back until the
+  page gets a click). To use your normal browser choose it under "Open the program
+  in" in the radio settings.
+
 IF SOMETHING GOES WRONG
   * The installer keeps a log of every run in  ~/RF Noise Map/Logs  (the newest
     copy is also  ~/RF Noise Map/install_log.txt). When a step fails it says what

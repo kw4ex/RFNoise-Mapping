@@ -81,6 +81,11 @@ PART 2 - THE RADIO (needed only for real measuring)
   cable and 12 V power, wait 20 seconds, close Thetis / SDR Console, then
   press "Find my radio" on the control panel. HL2_Test.bat tests it.
   It covers HF only (about 0.1 to 38 MHz).
+  Gain: start at +15 dB; many antennas need +20 to +30 dB. The gain row has
+  "Auto gain (listening only)" and "Gain per band" tick boxes; both stop while
+  recording. "Hermes picture" (Smooth / Normal / Light) sets the picture speed.
+  On a Mac the radio goes into a USB-to-Ethernet adapter with Wi-Fi left on: see
+  mac/README_Mac.txt.
 
   SDRPLAY (USB) - needs these two free pieces of software:
    1. SDRplay driver:  https://www.sdrplay.com/softwarehome/
