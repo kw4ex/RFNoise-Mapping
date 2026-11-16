@@ -2,9 +2,11 @@
 
 Find power-line and other radio noise by driving a route.
 
-One or two software-defined radios (an **SDRplay RSP1**, a **Hermes Lite 2**, or both together) and a **GPS** log the signal level on up to four frequencies about every 10 feet. The program then draws a **street map of colored dots, blue (weak) to red (strong)**, so you can see where the noise is loudest and drive straight to it. Live panadapters, one per frequency, let you see and hear the noise as you drive.
+Up to four software-defined radios (an **SDRplay RSP1**, a **Hermes Lite 2**, and low-price **RTL-SDR dongles**, in any mix) and a **GPS** log the signal level on up to four frequencies about every 10 feet. The program then draws a **street map of colored dots, blue (weak) to red (strong)**, so you can see where the noise is loudest and drive straight to it. Live panadapters, one per frequency, let you see and hear the noise as you drive.
 
-> **Status: early testing.** Tested with simulated hardware, and on one Windows 11 PC with a real RSP1 and a USB GPS. The **Hermes Lite 2 support has only been tested against a simulated radio so far**, and a real drive has **not** been done yet. The Mac version is experimental. Please report what you find.
+> **Latest version: 1.4.0 (testing version).** Tested with simulated hardware, and on a Windows 11 PC and a Mac with a real SDRplay RSP1, a real Hermes Lite 2 and a GPS. A long real drive with every radio has **not** been done yet, and the new **RTL-SDR dongle support has only been tried with simulated dongles**. The Mac version is experimental. Please report what you find.
+>
+> **What is new in 1.4.0:** up to four radios at once, any radio in any of the four slots (new: RTL-SDR dongles). Since 1.3.0: Hermes Lite 2 auto gain and gain per band, a Hermes picture-speed choice, a Mac network setup for the Hermes (USB Ethernet adapter, Wi-Fi left on), Chrome opens by default for sound, and many fixes. See [the release notes](docs/release-notes/v1.4.0.md).
 
 ![Control panel: route, radios, frequencies](docs/images/panel.png)
 
@@ -41,7 +43,7 @@ One or two software-defined radios (an **SDRplay RSP1**, a **Hermes Lite 2**, or
 
 ## How it works
 
-1. The **radio** (SDRplay RSP1, Hermes Lite 2, or both, as you choose for each frequency) measures signal strength on each of your frequencies.
+1. The **radio** (SDRplay RSP1, Hermes Lite 2, RTL-SDR dongles, or a mix, as you choose for each frequency) measures signal strength on each of your frequencies.
 2. The **GPS** (a USB puck, or an iPhone running the GPS2IP app) says where you are.
 3. The **logger** pairs each reading with a position and saves a CSV file in your drive folder.
 4. The **map maker** turns the CSV into a map (HTML file) you open in any web browser. Zoom in on the red spots.
@@ -54,7 +56,7 @@ You do **not** need a GitHub account.
 
 ### Windows (main version, Windows 10 and 11)
 
-1. Go to the [**Releases** page](../../releases/latest).
+1. Go to the [**Releases** page](../../releases) and open the newest version at the top of the list (**v1.4.0**; its *Pre-release* label only means it is still being tested).
 2. Under **Assets**, click **Install_RFNoise_Windows.bat**. Your browser saves it, normally in **Downloads**. (If it warns that the file may be harmful, choose **Keep**.)
 3. Double-click it. If Windows says "Windows protected your PC", click **More info**, then **Run anyway**.
 4. Answer the short questions. It finds (or installs) the right Python, installs the helpers, finds your GPS, and puts icons on your Desktop. Suggested folder: `C:\RadioScripts`.
@@ -64,7 +66,7 @@ You do **not** need a GitHub account.
 
 For the real radio you also need **SDRplay API** and **PothosSDR** from their own websites; the installer explains it. Practice mode needs neither.
 
-### Mac (experimental, untested)
+### Mac (experimental)
 
 **Hermes Lite 2 on a Mac (network changes):** plug the radio into a USB-to-Ethernet adapter and leave **Wi-Fi on**. Wait about 30 seconds until **System Settings > Network** shows the adapter with a green dot and a self-assigned address starting **169.254** (normal; keep *Configure IPv4: Using DHCP*, do not type an address). Allow **Local Network** access if macOS asks. Since 1.3.0b the program searches for the radio out of every network port, so nothing else needs changing. The program opens in **Google Chrome** (Safari holds the sound back); the *Open the program in* setting changes that. Full steps are in the guide and in [mac/README_Mac.txt](mac/README_Mac.txt).
 
