@@ -160,6 +160,7 @@ def make_bundle():
     with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
         z.writestr("system_info.txt", system_info())
         names = glob.glob(os.path.join(ld, "program_errors.log*")) + glob.glob(os.path.join(ld, "install_log*.txt"))
+        names += glob.glob(os.path.join(data, "Reports", "*.txt"))
         names += [os.path.join(data, "install_log.txt"), os.path.join(data, "full_test_report.txt"),
                   os.path.join(data, "Settings", "logger.log"), os.path.join(data, "Settings", "app.log")]
         seen = set()

@@ -1,4 +1,4 @@
-RF NOISE MAP  v1.4.0  TESTING VERSION   (Windows 10 / 11)
+RF NOISE MAP  v1.4.0i  TESTING VERSION   (Windows 10 / 11)
 Design and testing: KW4EX
 =====================================================================
 
@@ -11,25 +11,36 @@ WHAT IT IS
 
   Everything is in ONE folder. The installer makes it for you:
 
-     C:\RadioScripts\RFNoise          (you can choose another place)
+     C:\RadioScripts\RFNoise_Mapping    (you can choose another place)
         Start_RFNoise.bat             starts the program (and opens the panel)
         Stop_RFNoise.bat              closes it
-        Open_Panel.bat                opens the panel of the running program
         Uninstall_RFNoise.bat         removes the program (you choose what happens to your data)
-        Make_Support_File.bat         packs the logs into ONE zip to send for help
-        Open_Logs.bat                 opens the Logs folder
         README_RFNoise.txt            this file
         RFNoise_Help.html             the full guide (also inside the program)
         RFNoise_User_Guide.pdf        the same guide, to print
-        install_log.txt               a copy of what the installer said (newest one)
+        LICENSE.txt                   the licence (MIT): free to use, no warranty
+        Tools\                        test and helper files:
+            Test_Everything.bat       checks the radio, the GPS and a pretend drive
+            Find_GPS.bat              finds a USB GPS puck
+            HL2_Test.bat              tests a Hermes Lite 2
+            Switch_Test.bat           tests switching between frequencies
+            Make_Support_File.bat     packs the logs into ONE zip to send for help
+            Open_Logs.bat             opens the Logs folder
+            Open_Panel.bat            opens the panel of the running program
+        Reports\                      what the tests write, and install_log.txt (the newest install)
         app\                          the program files (do not edit)
+        app_previous\                 the version before the last upgrade
         Drives\                       one .csv file per recorded drive
         Maps\                         finished maps (.html, open in any browser)
         Exports\                      Google Earth .kml files and email .zip files
-        Backups\                      zip backups
+        Backups\                      zip backups (and old_files: leftovers moved out of the way)
         Settings\                     your remembered choices and the logger log
         Recordings\                   audio recordings made in the panadapter
         Logs\                         install logs (newest 10 kept) and program_errors.log
+
+  Before version 1.4.0i the folder was called RFNoise. If the installer finds
+  that one it offers to RENAME it (nothing is copied or deleted) and moves the
+  loose test files and old backup copies into Reports and Backups\old_files.
 
 ---------------------------------------------------------------------
 PART 1 - INSTALL
@@ -40,7 +51,7 @@ PART 1 - INSTALL
       Run anyway.
    2. Answer the short questions. Press Enter to accept the answer shown in
       [brackets]. It asks for the folder (suggested: C:\RadioScripts), makes
-      the RFNoise subfolder, finds Python (and offers to install it), installs
+      the RFNoise_Mapping subfolder, finds Python (and offers to install it), installs
       numpy and pyserial, copies the program, offers the shortcuts (Desktop,
       Start menu, sign-in) and runs a quick self-test with practice data.
       It first does a quick check of your PC (Windows version, free disk space,
@@ -50,9 +61,9 @@ PART 1 - INSTALL
       shortcut if you chose one).
 
   BY HAND
-   1. Make the folder C:\RadioScripts\RFNoise and copy all the files into it.
+   1. Make the folder C:\RadioScripts\RFNoise_Mapping and copy all the files into it.
    2. Open Command Prompt and type:   py -m pip install --user numpy pyserial
-   3. Make an empty file named  rfnoise_install.flag  in the RFNoise folder
+   3. Make an empty file named  rfnoise_install.flag  in the RFNoise_Mapping folder
       (this tells the program to keep your data next to it).
    4. Double-click Start_RFNoise.bat.
 
@@ -79,7 +90,7 @@ PART 2 - THE RADIO (needed only for real measuring)
 
   HERMES LITE 2 (network cable) - NOTHING TO INSTALL. Plug in its network
   cable and 12 V power, wait 20 seconds, close Thetis / SDR Console, then
-  press "Find my radio" on the control panel. HL2_Test.bat tests it.
+  press "Find my radio" on the control panel. Tools\HL2_Test.bat tests it.
   It covers HF only (about 0.1 to 38 MHz).
   Gain: start at +15 dB; many antennas need +20 to +30 dB. The gain row has
   "Auto gain (listening only)" and "Gain per band" tick boxes; both stop while
@@ -108,8 +119,8 @@ PART 2 - THE RADIO (needed only for real measuring)
   install PothosSDR AFTER this program, run Install_RFNoise_Windows.bat again.
   Close other SDR programs (SDRuno, SDRconnect, SDR Console, HDSDR) first: only
   one program can use the radio at a time. RF Noise Map offers to close them.
-  AUTOMATIC TESTS:  Test_Everything.bat checks the radio, the GPS and a pretend
-  drive in about a minute.  Find_GPS.bat finds a USB GPS puck and its speed.
+  AUTOMATIC TESTS:  Tools\Test_Everything.bat checks the radio, the GPS and a pretend
+  drive in about a minute.  Tools\Find_GPS.bat finds a USB GPS puck and its speed.
 
 ---------------------------------------------------------------------
 PART 3 - USING IT (short version; the full guide has pictures)
@@ -128,12 +139,12 @@ PART 4 - PROBLEMS
 ---------------------------------------------------------------------
   THE LOGS (kept for you, nothing is sent anywhere)
    - Install log: the installer writes one every time. They are kept in the
-     Logs folder (newest 10) and a copy of the newest is install_log.txt.
+     Logs folder (newest 10) and a copy of the newest is Reports\install_log.txt.
      Also at %LOCALAPPDATA%\RFNoiseMap\Logs  (survives even a failed install).
    - Program error log: Logs\program_errors.log records every problem the
      program meets while running (the panel, the logger, the panadapter).
    - In the panel: Tools > "Show recent problems" shows the last entries.
-   - To ask for help: double-click Make_Support_File.bat (or Tools > "Make a
+   - To ask for help: double-click Tools\Make_Support_File.bat (or Tools > "Make a
      support file" in the panel). It makes ONE zip file in your user folder.
      Attach it to your message to Claude. Your GPS key and passwords are left out.
 
@@ -148,7 +159,7 @@ PART 4 - PROBLEMS
 
   COMMON ANSWERS
    - Windows says "Windows protected your PC": More info > Run anyway.
-   - Panel will not open: double-click Open_Panel.bat, or go to
+   - Panel will not open: double-click Tools\Open_Panel.bat, or go to
      http://localhost:8780/ in your browser.
    - "DLL load failed": install https://aka.ms/vs/17/release/vc_redist.x64.exe
    - Radio not found: close SDRuno/SDRconnect/SDR Console/HDSDR, replug the
@@ -169,3 +180,12 @@ PART 5 - UNINSTALL
    It also removes the shortcuts, the Start menu folder and the Apps entry.
    It does NOT remove Python, numpy, pyserial, the SDRplay driver or PothosSDR.
    A record of the uninstall is kept at %LOCALAPPDATA%\RFNoiseMap\Logs.
+
+---------------------------------------------------------------------
+PART 6 - LICENCE AND NO WARRANTY
+---------------------------------------------------------------------
+   RF Noise Map is shared as is, with NO WARRANTY. Use it at your own risk.
+   Always drive safely: let a passenger run the computer, or set it up while
+   parked. It is free to use under the MIT licence (see LICENSE.txt).
+   Design and testing: KW4EX. It is not made or approved by SDRplay,
+   Apache Labs, Thetis or any other radio or software maker named in it.

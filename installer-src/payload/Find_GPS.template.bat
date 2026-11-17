@@ -9,7 +9,7 @@ REM  speed so RF Noise Map is already set up for it.
 REM
 set "PYCMD=@@PYCMD@@"
 REM
-cd /d "%~dp0"
-%PYCMD% -u "%~dp0app\gps_detect.py" --save %*
+cd /d "%~dp0.."
+%PYCMD% -u "%~dp0..\app\gps_detect.py" --save %*
 echo.
 pause

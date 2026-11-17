@@ -12,7 +12,7 @@ HOW THE PROGRAM FLOWS
   Start   -> launches rf_logger.py as a separate program that writes the CSV
   Make map-> calls make_map.build_map() and shows the finished HTML map
 
-Your data lives next to the program (Windows install: C:\\RadioScripts\\RFNoise) or, on a Mac,
+Your data lives next to the program (Windows install: C:\\RadioScripts\\RFNoise_Mapping) or, on a Mac,
 in the "RF Noise Map" folder in your home folder (Mac) - in the folders {Drives, Maps, Exports, Backups, Settings}
 """
 import argparse

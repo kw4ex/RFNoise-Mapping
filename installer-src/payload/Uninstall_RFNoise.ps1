@@ -44,11 +44,11 @@ try {
     Say '==========================================================' 'Cyan'
     if (-not (Test-Path -LiteralPath (Join-Path $Dir 'app')) -and -not (Test-Path -LiteralPath (Join-Path $Dir 'rfnoise_install.flag'))) {
         Say "This does not look like an RF Noise Map folder: $Dir" 'Yellow'
-        Say 'Nothing was changed. Run Uninstall_RFNoise.bat from inside the RFNoise folder.'
+        Say 'Nothing was changed. Run Uninstall_RFNoise.bat from inside the RFNoise_Mapping folder.'
         return
     }
     Say "Folder: $Dir"
-    $progItems = @('app', 'app_previous')
+    $progItems = @('app', 'app_previous', 'Tools', 'Reports')
     $dataItems = @('Drives', 'Maps', 'Exports', 'Backups', 'Settings', 'Recordings')
     $logsItem = 'Logs'
 
@@ -150,9 +150,12 @@ try {
     }
     foreach ($i in $progItems) { Remove-Safe (Join-Path $Dir $i) }
     foreach ($f in @('Start_RFNoise.bat', 'Stop_RFNoise.bat', 'Open_Panel.bat', 'Test_Everything.bat', 'Find_GPS.bat', 'Make_Support_File.bat',
-                     'Open_Logs.bat', 'Switch_Test.bat', 'switch_test_report.txt', 'HL2_Test.bat', 'hl2_test_report.txt', 'README_RFNoise.txt', 'RFNoise_Help.html', 'RFNoise_User_Guide.pdf', 'install_log.txt',
-                     'full_test_report.txt', 'rfnoise_install.flag')) { Remove-Safe (Join-Path $Dir $f) }
-    foreach ($f in @(Get-ChildItem -LiteralPath $Dir -Filter 'Start_RFNoise.bat.*.bak' -ErrorAction SilentlyContinue)) { Remove-Safe $f.FullName }
+                     'Open_Logs.bat', 'Switch_Test.bat', 'switch_test_report.txt', 'HL2_Test.bat', 'hl2_test_report.txt', 'README_RFNoise.txt', 'RFNoise_Help.html', 'RFNoise_User_Guide.pdf', 'LICENSE.txt', 'install_log.txt',
+                     'full_test_report.txt', 'gps_check.txt', 'gps_speed.txt', 'diag_radio.txt', 'diag_radio_console.txt', 'Check_GPS.bat', 'Diagnose_Radio.bat', 'GPS_Speed_Test.bat',
+                     'Uninstall_RFNoise.ps1', 'rfnoise_install.flag')) { Remove-Safe (Join-Path $Dir $f) }
+    foreach ($f in @(Get-ChildItem -LiteralPath $Dir -Filter '*.bak' -ErrorAction SilentlyContinue)) { Remove-Safe $f.FullName }
+    # Backups\old_files holds files the installer moved out of the way: it goes with the program
+    Remove-Safe (Join-Path $Dir 'Backups\old_files')
     if (-not $keepData) {
         foreach ($i in ($dataItems + @($logsItem))) { Remove-Safe (Join-Path $Dir $i) }
         Say 'Your data was deleted.' 'Green'

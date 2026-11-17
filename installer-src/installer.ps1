@@ -206,7 +206,8 @@ function Save-Log {
             $ld = Join-Path $script:Dir2 'Logs'
             New-Item -ItemType Directory -Force -Path $ld | Out-Null
             Copy-Item -LiteralPath $script:LogFile -Destination (Join-Path $ld ('install_log_' + $script:Stamp0 + '.txt')) -Force
-            Copy-Item -LiteralPath $script:LogFile -Destination (Join-Path $script:Dir2 'install_log.txt') -Force
+            New-Item -ItemType Directory -Force -Path (Join-Path $script:Dir2 'Reports') | Out-Null
+            Copy-Item -LiteralPath $script:LogFile -Destination (Join-Path (Join-Path $script:Dir2 'Reports') 'install_log.txt') -Force
             foreach ($old in @(Get-ChildItem -LiteralPath $ld -Filter 'install_log_*.txt' | Sort-Object Name -Descending | Select-Object -Skip 10)) { Remove-Item -LiteralPath $old.FullName -Force -ErrorAction SilentlyContinue }
         }
         foreach ($old in @(Get-ChildItem -LiteralPath (Split-Path $script:LogFile) -Filter 'install_log_*.txt' | Sort-Object Name -Descending | Select-Object -Skip 10)) { Remove-Item -LiteralPath $old.FullName -Force -ErrorAction SilentlyContinue }
@@ -224,7 +225,7 @@ function Make-SupportZip {
         [IO.File]::WriteAllLines((Join-Path $st 'system_info.txt'), $info)
         if (Test-Path -LiteralPath $script:LogFile) { Copy-Item -LiteralPath $script:LogFile -Destination $st -Force }
         if ($script:Dir2 -and (Test-Path -LiteralPath (Join-Path $script:Dir2 'Logs'))) { Copy-Item -LiteralPath (Join-Path $script:Dir2 'Logs') -Destination (Join-Path $st 'Logs') -Recurse -Force }
-        if ($script:Dir2 -and (Test-Path -LiteralPath (Join-Path $script:Dir2 'full_test_report.txt'))) { Copy-Item -LiteralPath (Join-Path $script:Dir2 'full_test_report.txt') -Destination $st -Force }
+        if ($script:Dir2 -and (Test-Path -LiteralPath (Join-Path $script:Dir2 'Reports'))) { Copy-Item -LiteralPath (Join-Path $script:Dir2 'Reports') -Destination (Join-Path $st 'Reports') -Recurse -Force }
         Add-Type -AssemblyName System.IO.Compression.FileSystem
         [IO.Compression.ZipFile]::CreateFromDirectory($st, $dest)
         Remove-Item -LiteralPath $st -Recurse -Force -ErrorAction SilentlyContinue
@@ -272,6 +273,25 @@ function Write-UninstallEntry($dir, $ver, $launcher) {
         Set-ItemProperty -Path $k -Name EstimatedSize -Value $sz -Type DWord
         Say 'Added to Windows "Apps & features" (so Windows Settings can uninstall it too).' 'Green'
     } catch { Say "Could not add the Windows program-list entry (not important): $($_.Exception.Message)" 'Yellow' }
+}
+function Move-LooseFiles($dir) {
+    # Earlier versions left test reports, backup copies and old helper files loose in the main folder.
+    # Reports go to Reports; old helper files and .bak copies go to Backups\old_files. Nothing is deleted.
+    $n = 0
+    $rep = Join-Path $dir 'Reports'; $old = Join-Path $dir 'Backups\old_files'
+    foreach ($f in @(Get-ChildItem -LiteralPath $dir -File -Force -ErrorAction SilentlyContinue)) {
+        $nm = $f.Name; $to = $null
+        if ($nm -match '^(full_test_report|hl2_test_report|switch_test_report|gps_check|gps_speed|diag_radio|diag_radio_console|install_log)\.txt$') { $to = $rep }
+        elseif ($nm -match '\.bak$' -or $nm -match '^(Check_GPS|Diagnose_Radio|GPS_Speed_Test|Open_Panel|Test_Everything|Find_GPS|Make_Support_File|Open_Logs|Switch_Test|HL2_Test)\.bat$' -or $nm -eq 'Uninstall_RFNoise.ps1') { $to = $old }
+        if (-not $to) { continue }
+        try {
+            New-Item -ItemType Directory -Force -Path $to | Out-Null
+            $dest = Join-Path $to $nm
+            if (Test-Path -LiteralPath $dest) { $dest = Join-Path $to ($f.BaseName + '_' + $script:Stamp0 + $f.Extension) }
+            Move-Item -LiteralPath $f.FullName -Destination $dest -Force -ErrorAction Stop; $n++
+        } catch { }
+    }
+    return $n
 }
 function Get-ExistingInstall {
     if (-not $script:IsWin) { return $env:RFNOISE_TEST_EXISTING }
@@ -331,13 +351,14 @@ if ($existing -and -not $script:Test) {
     if ($pick -eq '2') {
         $script:Dir2 = $existing
         $ft = Join-Path $existing 'app\full_test.py'
+        New-Item -ItemType Directory -Force -Path (Join-Path $existing 'Reports') | Out-Null
         $sb = Join-Path $existing 'Start_RFNoise.bat'
         if ((Test-Path -LiteralPath $ft) -and (Test-Path -LiteralPath $sb)) {
             $m = [regex]::Match([IO.File]::ReadAllText($sb), '(?m)^set "PYCMD=(.*)"')
             if ($m.Success) {
                 $script:PyCmd = $m.Groups[1].Value
                 Say 'Running the full test (radio, GPS, pretend drive). Nothing is changed...'
-                $o = Invoke-Py @($ft, '--report', (Join-Path $existing 'full_test_report.txt'))
+                $o = Invoke-Py @($ft, '--report', (Join-Path (Join-Path $existing 'Reports') 'full_test_report.txt'))
                 foreach ($l in ($o -split "`r?`n" | Where-Object { $_.Trim() })) { Say ('  ' + $l) }
                 Explain-Problem $o $true | Out-Null
             }
@@ -363,7 +384,7 @@ $pk = Join-Path $tmp 'files'
 [IO.Compression.ZipFile]::ExtractToDirectory($zip, $pk)
 $newApp = Join-Path (Join-Path $pk 'app') 'rfmap_app.py'
 $newCommon = Join-Path (Join-Path $pk 'app') 'rfmap_common.py'
-$newVer = ([regex]::Match([IO.File]::ReadAllText($newCommon), '(?m)^VERSION = "([\d.]+)"')).Groups[1].Value
+$newVer = ([regex]::Match([IO.File]::ReadAllText($newCommon), '(?m)^VERSION = "([\w.]+)"')).Groups[1].Value
 Say ("This installer contains RF Noise Map version $newVer.") 'Gray'
 
 # ---- 0. Which radios? --------------------------------------------------------
@@ -450,14 +471,14 @@ if (-not $haveNumpy) {
 
 # ---- 2. Where to install ------------------------------------------------------
 Head 'Step 2 of 7: Install folder'
-$SUB = 'RFNoise'
+$SUB = 'RFNoise_Mapping'; $OLDSUB = 'RFNoise'      # the folder was called RFNoise before 1.4.0i
 $def = 'C:\RadioScripts'
 if ($env:RFNOISE_TEST_DIR) { $def = $env:RFNOISE_TEST_DIR }
 if ($script:ExistingDir) { $def = Split-Path $script:ExistingDir -Parent }
 if ($script:OptDir) { $def = $script:OptDir }
 Say 'Choose the folder for your radio programs. RF Noise Map gets its OWN subfolder in it,'
 Say "named $SUB, so its files never mix with your other programs."
-Say 'Your recorded drives and maps are kept in that same subfolder.'
+Say 'Your recorded drives and maps, the help files, the tools and the uninstaller are all kept in that same subfolder.'
 Say 'Do not use "Program Files" (Windows blocks the log and settings there).'
 $dir = ''; $base = ''
 while (-not $dir) {
@@ -475,18 +496,31 @@ while (-not $dir) {
     } catch { Say 'That folder is not writable. Choose another.' 'Yellow'; continue }
     $dir = $sd; $base = $b
 }
+# an install from an older version may still be in the folder named RFNoise: it will be renamed (nothing is lost)
+$legacyDir = ''
+$cand = Join-Path $b $OLDSUB
+if ($script:ExistingDir -and ((Split-Path $script:ExistingDir -Leaf) -ieq $OLDSUB)) { $cand = $script:ExistingDir }
+if ((Split-Path $cand -Leaf) -ieq $OLDSUB -and (Test-Path -LiteralPath (Join-Path $cand 'app\rfmap_common.py')) -and -not (Test-Path -LiteralPath (Join-Path $dir 'app'))) { $legacyDir = $cand }
 Say "RF Noise Map goes into:  $dir" 'Green'
+if ($legacyDir) {
+    Say ''
+    Say "An earlier RF Noise Map is in:  $legacyDir" 'Yellow'
+    Say "This version names its folder $SUB. Your folder will be RENAMED to that name." 'Yellow'
+    Say 'Nothing is copied or deleted: your drives, maps, exports, backups, settings and recordings stay exactly as they are.' 'Yellow'
+    if (-not (AskYN 'Rename it and upgrade?' $true)) { Say 'Cancelled. Nothing was changed.'; Pause-Key; exit 0 }
+}
 $script:Dir2 = $dir
 $appDir = Join-Path $dir 'app'
 $prevDir = Join-Path $dir 'app_previous'
 $launcher = Join-Path $dir 'Start_RFNoise.bat'
 $oldCommon = Join-Path $appDir 'rfmap_common.py'
+if ($legacyDir) { $oldCommon = Join-Path $legacyDir 'app\rfmap_common.py' }
 
 # ---- 3. Copy the program -------------------------------------------------------
 Head 'Step 3 of 7: Copying the program'
 $upgrade = Test-Path -LiteralPath $oldCommon
 if ($upgrade) {
-    $oldVer = ([regex]::Match([IO.File]::ReadAllText($oldCommon), '(?m)^VERSION = "([\d.]+)"')).Groups[1].Value
+    $oldVer = ([regex]::Match([IO.File]::ReadAllText($oldCommon), '(?m)^VERSION = "([\w.]+)"')).Groups[1].Value
     Say ("An earlier install (version $oldVer) is in this folder. It will be upgraded to $newVer.") 'Yellow'
     Say 'Your drives, maps, exports, backups and settings are kept. The old program is saved in the folder app_previous.'
     if (-not (AskYN 'Continue?' $true)) { Say 'Cancelled. Nothing was changed.'; Pause-Key; exit 0 }
@@ -507,6 +541,12 @@ if ($ports.Count -gt 0) {
     }
 }
 $stamp = Get-Date -Format 'yyyyMMdd_HHmmss'
+if ($legacyDir) {
+    # the program is closed now, so the folder can be renamed. The empty folder step 2 made is removed first.
+    if (Test-Path -LiteralPath $dir) { if (@(Get-ChildItem -LiteralPath $dir -Force).Count -eq 0) { Remove-Item -LiteralPath $dir -Force } else { throw "The folder $dir already exists and is not empty, so $legacyDir cannot be renamed to it. Move or rename one of them and run this installer again." } }
+    Move-Item -LiteralPath $legacyDir -Destination $dir -ErrorAction Stop
+    Say "Renamed  $legacyDir  to  $dir" 'Green'
+}
 if ($upgrade) {
     if (Test-Path -LiteralPath $prevDir) { Remove-Item -LiteralPath $prevDir -Recurse -Force }
     Move-Item -LiteralPath $appDir -Destination $prevDir -Force
@@ -515,20 +555,28 @@ if ($upgrade) {
     Remove-Item -LiteralPath $appDir -Recurse -Force
 }
 Copy-Item -LiteralPath (Join-Path $pk 'app') -Destination $appDir -Recurse -Force
-foreach ($f in @('Open_Panel.bat', 'Uninstall_RFNoise.ps1', 'README_RFNoise.txt', 'RFNoise_Help.html', 'RFNoise_User_Guide.pdf')) {
+$toolsDir = Join-Path $dir 'Tools'; $repDir = Join-Path $dir 'Reports'
+foreach ($d in @($toolsDir, $repDir)) { New-Item -ItemType Directory -Force -Path $d | Out-Null }
+foreach ($f in @('README_RFNoise.txt', 'RFNoise_Help.html', 'RFNoise_User_Guide.pdf', 'LICENSE.txt')) {
     Copy-Item -LiteralPath (Join-Path $pk $f) -Destination (Join-Path $dir $f) -Force
 }
+foreach ($f in @('Open_Panel.bat', 'Uninstall_RFNoise.ps1')) { Copy-Item -LiteralPath (Join-Path $pk $f) -Destination (Join-Path $toolsDir $f) -Force }
 # the start, stop, uninstall, test and GPS-finder files carry the Python command found in step 1
+# Start, Stop and Uninstall stay in the main folder; the test and helper files go in Tools
 foreach ($nm in @('Start_RFNoise', 'Stop_RFNoise', 'Uninstall_RFNoise', 'Test_Everything', 'Find_GPS', 'Make_Support_File', 'Open_Logs', 'Switch_Test', 'HL2_Test')) {
     $bt = [IO.File]::ReadAllText((Join-Path $pk ($nm + '.template.bat'))).Replace('@@PYCMD@@', $script:PyCmd)
-    [IO.File]::WriteAllText((Join-Path $dir ($nm + '.bat')), $bt)
+    $where = if (@('Start_RFNoise', 'Stop_RFNoise', 'Uninstall_RFNoise') -contains $nm) { $dir } else { $toolsDir }
+    [IO.File]::WriteAllText((Join-Path $where ($nm + '.bat')), $bt)
 }
+# files left in the main folder by earlier versions are moved (never deleted) so the folder is tidy
+$moved = Move-LooseFiles $dir
+if ($moved -gt 0) { Say "Tidied the main folder: $moved leftover file(s) from earlier versions were moved to Reports or Backups\old_files." 'Green' }
 # the marker file tells the program to keep your data in this folder
 [IO.File]::WriteAllText((Join-Path $dir 'rfnoise_install.flag'), "RF Noise Map install marker. Do not delete: it makes the program keep your data in this folder.`r`n")
-foreach ($d in @('Drives', 'Maps', 'Exports', 'Backups', 'Settings', 'Recordings', 'Logs')) { New-Item -ItemType Directory -Force -Path (Join-Path $dir $d) | Out-Null }
+foreach ($d in @('Drives', 'Maps', 'Exports', 'Backups', 'Settings', 'Recordings', 'Logs', 'Reports')) { New-Item -ItemType Directory -Force -Path (Join-Path $dir $d) | Out-Null }
 if (-not (Test-Path -LiteralPath (Join-Path $appDir 'rfmap_app.py'))) { throw "Could not copy the program files into $dir." }
 Say "Program files copied to $dir" 'Green'
-Say 'Data folders ready: Drives, Maps, Exports, Backups, Settings, Recordings, Logs' 'Green'
+Say 'Data folders ready: Drives, Maps, Exports, Backups, Settings, Recordings, Logs. Tools and Reports hold the test files and their reports.' 'Green'
 
 # ---- 4. The radio -----------------------------------------------------------------
 Head 'Step 4 of 7: The radio'
@@ -645,7 +693,7 @@ if ($script:IsWin -and -not $script:Test) {
         if ((Test-Path -LiteralPath $smf) -or (AskYN 'Add RF Noise Map to the Windows Start menu?' $true)) {
             New-Item -ItemType Directory -Force -Path $smf | Out-Null
             New-Shortcut (Join-Path $smf 'RF Noise Map.lnk') $launcher $dir 'Start RF Noise Map' $icon
-            New-Shortcut (Join-Path $smf 'RF Noise Map - problem logs.lnk') (Join-Path $dir 'Open_Logs.bat') $dir 'Open the log folder' $icon
+            New-Shortcut (Join-Path $smf 'RF Noise Map - problem logs.lnk') (Join-Path $dir 'Tools\Open_Logs.bat') $dir 'Open the log folder' $icon
             New-Shortcut (Join-Path $smf 'Uninstall RF Noise Map.lnk') (Join-Path $dir 'Uninstall_RFNoise.bat') $dir 'Remove RF Noise Map' $icon
             Say 'Start menu entries added (RF Noise Map, problem logs, Uninstall).' 'Green'
         }
@@ -689,17 +737,17 @@ if ($radioReady -and -not $script:Test) {
     Say 'The FULL TEST checks the real radio, the GPS and a pretend drive in about a minute.'
     Say 'Have the radio plugged in with its antenna (Hermes Lite 2: network cable and 12 V power).'
     if (AskYN 'Run the full test now?' $true) {
-        $fa = @((Join-Path $appDir 'full_test.py'), '--report', (Join-Path $dir 'full_test_report.txt'))
+        $fa = @((Join-Path $appDir 'full_test.py'), '--report', (Join-Path $repDir 'full_test_report.txt'))
         if (-not $script:UsbGps) { $fa += '--iphone' }
         $o = Invoke-Py $fa
         foreach ($l in ($o -split "`r?`n" | Where-Object { $_.Trim() })) {
             if ($l -match '\[FIX') { Say ('  ' + $l) 'Yellow' } elseif ($l -match '\[WARN') { Say ('  ' + $l) 'Yellow' } else { Say ('  ' + $l) }
         }
-        Say 'You can repeat this any time: double-click Test_Everything.bat. (Report: full_test_report.txt)'
+        Say 'You can repeat this any time: double-click Tools\Test_Everything.bat. (Report: Reports\full_test_report.txt)'
     }
 } elseif (-not $script:Test) {
     Say ''
-    Say 'Later, when the radio driver and GPS are set up, double-click Test_Everything.bat to test everything automatically.'
+    Say 'Later, when the radio driver and GPS are set up, double-click Tools\Test_Everything.bat to test everything automatically.'
 }
 
 # ---- done -----------------------------------------------------------------------
@@ -709,9 +757,10 @@ Say ("Start it with: " + $launcher + $(if ($script:Made.Count) { '   (or the Des
 Say 'Control panel: http://localhost:8780  (it opens in your browser by itself)'
 Say 'Your data:     the folders Drives, Maps, Exports, Backups, Settings and Recordings in the install folder.'
 Say 'Stop it:       press Quit in the panel, or double-click Stop_RFNoise.bat.'
-Say 'Test it:       Test_Everything.bat checks the radio, GPS and a pretend drive. Find_GPS.bat finds your GPS puck.'
+Say 'Test it:       Tools\Test_Everything.bat checks the radio, GPS and a pretend drive. Tools\Find_GPS.bat finds your GPS puck.'
 Say 'Help file:     RFNoise_Help.html (also the Help button in the panel). A printable PDF guide is there too.'
 Say 'To remove:     Windows Settings > Apps, or Uninstall_RFNoise.bat (you choose what happens to your data).'
+Say 'Licence:       LICENSE.txt (MIT). Shared as is, with no warranty; use at your own risk.'
 if ($script:Warns.Count) {
     Say ''
     Say 'Things to look at (the install itself finished):' 'Yellow'
@@ -719,9 +768,9 @@ if ($script:Warns.Count) {
 }
 Say ''
 Say 'If anything goes wrong later:' 
-Say '  - The install log is kept in the Logs folder of the install folder (the newest 10 are kept).'
-Say '  - Program problems are written to Logs\program_errors.log. Open_Logs.bat opens that folder.'
-Say '  - Make_Support_File.bat packs the logs into one zip to send to Claude.'
+Say '  - The install log is kept in the Logs folder of the install folder (the newest 10 are kept); the newest is also Reports\install_log.txt.'
+Say '  - Program problems are written to Logs\program_errors.log. Tools\Open_Logs.bat opens that folder.'
+Say '  - Tools\Make_Support_File.bat packs the logs into one zip to send to Claude.'
 Save-Log
 if ($script:IsWin -and -not $script:Test -and -not $script:Silent) {
     Say ''

@@ -10,7 +10,7 @@ import re
 import sys
 
 APP_NAME = "RF Noise Map"
-VERSION = "1.4.0h"
+VERSION = "1.4.0i"
 IS_MAC = sys.platform == "darwin"
 IS_WIN = sys.platform.startswith("win")
 
@@ -22,7 +22,7 @@ def app_dir():
 
 def install_dir():
     """
-    The folder that holds app/ when installed by the Windows installer (C:\\RadioScripts\\RFNoise by
+    The folder that holds app/ when installed by the Windows installer (C:\\RadioScripts\\RFNoise_Mapping by
     default). It is recognised by a small marker file the installer writes there. None otherwise.
     """
     parent = os.path.dirname(app_dir())
@@ -32,7 +32,7 @@ def install_dir():
 def data_dir():
     """
     Folder holding YOUR data (drives, maps, exports, backups, settings).
-      * Windows installer: the same folder as the program (e.g. C:\\RadioScripts\\RFNoise)
+      * Windows installer: the same folder as the program (e.g. C:\\RadioScripts\\RFNoise_Mapping)
       * Mac:               "RF Noise Map" in your home folder (NOT Documents: macOS blocks programs from Documents)
     The RFMAP_DATA variable overrides both (used for tests).
     """

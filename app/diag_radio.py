@@ -82,6 +82,8 @@ try:
             say(line)
 except Exception:
     say(traceback.format_exc())
-f = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "diag_radio.txt")
+root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+rd = os.path.join(root, "Reports")                  # the installer makes Reports next to the app folder
+f = os.path.join(rd if os.path.isdir(rd) else root, "diag_radio.txt")
 open(f, "w", encoding="utf-8").write(out.getvalue())
 print("\nReport saved to", f)

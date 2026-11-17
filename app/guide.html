@@ -73,11 +73,13 @@ th{background:#f0f3f7}
 <h3>Windows 11</h3>
 <ol>
  <li>Double-click <span class="k">Install_RFNoise_Windows.bat</span> (the file you downloaded; keep it anywhere, for example your Downloads folder). If Windows says <b>"Windows protected your PC"</b>, click <b>More info</b> then <b>Run anyway</b>.</li>
- <li>A window asks <b>which folder</b> to use. Press Enter to accept <b>C:\RadioScripts</b>, or type another. The program makes its own subfolder, <b>RFNoise</b>, inside it, so everything lives in <b>C:\RadioScripts\RFNoise</b>.</li>
+ <li>A window asks <b>which folder</b> to use. Press Enter to accept <b>C:\RadioScripts</b>, or type another. The program makes its own subfolder, <b>RFNoise_Mapping</b>, inside it, so everything lives in <b>C:\RadioScripts\RFNoise_Mapping</b>. (If you have an older install in a folder called <b>RFNoise</b>, the installer offers to rename it. Nothing is copied or lost.)</li>
  <li>It explains each step and asks short questions (answer <span class="k">y</span> or <span class="k">n</span>). It finds Python and offers to install it if missing, and no administrator password is needed.</li>
  <li>When it says <b>All done</b>, start the program with <span class="k">Start_RFNoise.bat</span> in that folder, or the Desktop shortcut if you chose one.</li>
 </ol>
-<div class="box tip">The installer keeps a <b>log of every install</b> (the newest 10) in the <b>Logs</b> folder inside the RFNoise folder, plus a copy named install_log.txt. If something goes wrong it also tells you in plain words what the cause probably is, what to do and where to read more, and offers to make a <b>support file</b> (one zip) to send to Claude. While the program runs, problems are written to <b>Logs/program_errors.log</b>. In the panel, <b>Tools &rsaquo; Show recent problems</b> shows them and <b>Make a support file</b> packs everything. The installer also checks your computer first, and if the program is already installed it offers upgrade/repair, a check, or uninstall.</div>
+<div class="box tip">The installer keeps a <b>log of every install</b> (the newest 10) in the <b>Logs</b> folder inside the RFNoise_Mapping folder, plus a copy named install_log.txt in the <b>Reports</b> folder. If something goes wrong it also tells you in plain words what the cause probably is, what to do and where to read more, and offers to make a <b>support file</b> (one zip) to send to Claude. While the program runs, problems are written to <b>Logs/program_errors.log</b>. In the panel, <b>Tools &rsaquo; Show recent problems</b> shows them and <b>Make a support file</b> packs everything. The installer also checks your computer first, and if the program is already installed it offers upgrade/repair, a check, or uninstall.</div>
+<p><b>What is in the Windows folder (new in 1.4.0i).</b> The folder <b>C:\RadioScripts\RFNoise_Mapping</b> holds everything, laid out like your other programs: <b>Start_RFNoise.bat</b>, <b>Stop_RFNoise.bat</b> and <b>Uninstall_RFNoise.bat</b> at the top, then the help (<b>RFNoise_Help.html</b>, <b>RFNoise_User_Guide.pdf</b>, <b>README_RFNoise.txt</b>) and <b>LICENSE.txt</b>. The folder <b>Tools</b> has the test and helper files (Test_Everything, Find_GPS, HL2_Test, Switch_Test, Make_Support_File, Open_Logs, Open_Panel). The folder <b>Reports</b> keeps what those tests write. Your data stays in <b>Drives</b>, <b>Maps</b>, <b>Exports</b>, <b>Backups</b>, <b>Settings</b> and <b>Recordings</b>. The program is in <b>app</b>, and the previous version in <b>app_previous</b>. When you upgrade from an older install, files left loose in the main folder are moved to <b>Reports</b> or <b>Backups\old_files</b> (nothing is deleted).</p>
+
 
 <h2 id="radio">3. The radio driver (SDRplay only)</h2>
 <p><b>A Hermes Lite 2 needs none of this</b> &mdash; it has no driver at all. Skip to section 6 if that is your radio. The SDRplay driver is not mine to include; it comes from sdrplay.com. Without it, <b>Practice mode and all map features still work</b>, and you can make maps from drives recorded on another computer.</p>
@@ -94,7 +96,7 @@ th{background:#f0f3f7}
  <li>Open RF Noise Map, plug in the SDRplay, and press <span class="btn">Check setup</span>.</li>
  <li><b>Python version:</b> PothosSDR's Python part is made for ONE Python version (currently <b>Python 3.9</b>). The installer notices this, uses (or installs) the matching Python by itself, and sets up the launcher files to use it. If you install PothosSDR later, run the installer again so it picks the right Python.</li>
  <li>Close other SDR programs (SDRuno, SDRconnect, SDR Console, HDSDR ...) before you start: only one program can use the radio at a time. RF Noise Map shows a yellow box with a <span class="btn">Close them for me</span> button if it sees one.</li>
- <li>For a complete automatic check, double-click <b>Test_Everything.bat</b> (or press <span class="btn">Full test</span> in the window). It takes about a minute and tests the radio, the GPS and a pretend drive.</li>
+ <li>For a complete automatic check, double-click <b>Test_Everything.bat</b> in the <b>Tools</b> folder (or press <span class="btn">Full test</span> in the window). It takes about a minute and tests the radio, the GPS and a pretend drive.</li>
 </ol>
 <div class="box">Press <span class="btn">Check setup</span> any time. It says in plain English what is working and what is missing.</div>
 
@@ -201,7 +203,7 @@ th{background:#f0f3f7}
 <tr><td><b>Backups</b></td><td>Zip backups made by the <b>Back up everything</b> button.</td></tr>
 <tr><td><b>Settings</b></td><td>Your remembered choices and the logger's log file.</td></tr>
 </table>
-<p>The program itself is kept apart from your data (Mac: Applications / RF Noise Map; Windows: the <b>app</b> folder inside RFNoise), so you can reinstall or update it without touching your data.</p>
+<p>The program itself is kept apart from your data (Mac: Applications / RF Noise Map; Windows: the <b>app</b> folder inside RFNoise_Mapping), so you can reinstall or update it without touching your data.</p>
 <p><b>Level numbers:</b> readings are in <b>dB relative to the receiver's maximum</b> (so they're negative; closer to zero = stronger). They compare places perfectly well. See section 10 for true dBm.</p>
 
 <h3>Your radios, and which radio measures which frequency</h3>
@@ -218,7 +220,7 @@ th{background:#f0f3f7}
  <li><b>Detail per frequency</b>: 96&nbsp;kHz is a good choice. Higher numbers use more of the network cable.</li>
  <li><b>Radio gain</b> (More settings): start at +15&nbsp;dB; many antennas hear best at +20 to +30&nbsp;dB (the Hermes Lite 2 designers suggest +12 to +24, and a quiet antenna may need more because the radio&rsquo;s own noise is lowest when its input stage has gain). If a slot shows <b>OVERLOAD</b>, lower it with the <b>Gain</b> slider in any Hermes slot. Two tick boxes sit beside the slider: <b>Auto gain (listening only)</b> lowers the gain by 3&nbsp;dB when a strong signal overloads the radio and raises it 1&nbsp;dB after 30 quiet seconds (never above +36); <b>Gain per band</b> (on by default) remembers the gain you set for each band and puts it back when the first Hermes slot moves to that band. You can still move the slider any time, and the newest setting is remembered. Both stop while recording, so a drive is always measured at one fixed gain.</li>
  <li><b>Hermes picture</b> (next to <b>Stop live view</b>): <b>Smooth</b>, <b>Normal</b> or <b>Light</b> sets how often the Hermes pictures refresh. It is one setting for the whole radio, changes while the program runs and is remembered. Choose Light on a slow computer or slow network.</li>
- <li>Press <span class="btn">HL2_Test.bat</span> (Windows, in the program folder) once to check the radio, the cable and the gain. Send its report if anything is wrong.</li>
+ <li>Press <span class="btn">HL2_Test.bat</span> (Windows, in the <b>Tools</b> folder) once to check the radio, the cable and the gain. Send its report if anything is wrong.</li>
 </ol>
 <div class="box tip"><b>On a Mac: the network port for the Hermes Lite 2.</b> Most Macs have no network socket, so the radio goes into a <b>USB-to-Ethernet adapter</b> (or a dock with an Ethernet socket). The Mac then has two network connections at once: <b>Wi-Fi</b> for the internet and the adapter for the radio. This is fine; <b>leave Wi-Fi on</b>. Since version 1.3.0b the program looks for the radio out of <b>every</b> network port, one after the other. Steps:
 <ol>
