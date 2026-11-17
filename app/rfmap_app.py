@@ -317,7 +317,7 @@ class App:
         if practice is None:
             practice = bool(self.cfg.get("practice"))
         out = []
-        for ch in chans[:4]:
+        for slot_no, ch in enumerate(chans[:4], 1):
             if str(ch.get("mhz", "")).strip() == "" or str(ch.get("radio")) == "off":
                 continue                                   # empty, or switched off with the slot's Radio chooser
             mhz = float(ch["mhz"])
@@ -326,7 +326,8 @@ class App:
             out.append({"mhz": mhz, "bw_khz": max(0.5, float(ch.get("bw_khz") or 5)),
                         "cal_db": float(ch.get("cal_db") or 0),
                         "mode": (str(ch.get("mode") or "AM").upper() if str(ch.get("mode") or "AM").upper() in ("AM", "SAM", "USB", "LSB", "NFM") else "AM"),
-                        "radio": self.resolve_radio(mhz, str(ch.get("radio") or "auto"), practice)})
+                        "radio": self.resolve_radio(mhz, str(ch.get("radio") or "auto"), practice),
+                        "slot": slot_no})                  # the slot number on the panel, kept in the drive file
         if for_slices:            # the live-view engine (the panadapter) owns the SDRplay; the slices preview only serves the other radios
             for c2 in out:
                 if c2["radio"] == "sdrplay":

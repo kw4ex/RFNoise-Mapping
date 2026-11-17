@@ -1088,7 +1088,8 @@ def make_handler(settings, state, stop_event, sdr=None):
                                           "bw_khz": max(0.5, float(c.get("bw_khz", 5))),
                                           "cal_db": float(c.get("cal_db", 0)),
                                           "mode": str(c.get("mode") or "AM").upper() if str(c.get("mode") or "AM").upper() in ("AM", "SAM", "USB", "LSB", "NFM") else "AM",
-                                          "radio": c.get("radio") if c.get("radio") in ("hl2", "sdrplay") + RTL_IDS else "sdrplay"})
+                                          "radio": c.get("radio") if c.get("radio") in ("hl2", "sdrplay") + RTL_IDS else "sdrplay",
+                                          "slot": int(c.get("slot") or (len(chans) + 1))})
                         if not chans:
                             raise ValueError("need at least one frequency")
                         upd["channels"] = chans
@@ -1211,8 +1212,10 @@ def main():
     # time_utc     = the moment THIS reading was taken (to the millisecond)
     # pos_time_utc = the moment the lat/lon on the line refer to (also to the millisecond)
     # Together they let the map builder work out speed and re-space the dots by distance later.
+    # slot = the slot number (1-4) the frequency has on the control panel; radio = which radio read it
+    # (hl2, sdrplay, rtl1..rtl4). Both let you pick out one slot or one radio in later processing.
     w.writerow(["time_utc", "lat", "lon", "speed_mph", "freq_mhz", "bw_khz",
-                "level_dbfs", "level_cal", "sats", "hdop", "pos_time_utc"])
+                "level_dbfs", "level_cal", "sats", "hdop", "pos_time_utc", "slot", "radio"])
     fh.flush()
 
     # --- Shared status for the web page
@@ -1372,7 +1375,8 @@ def main():
                             f"{ch['mhz']:.4f}", f"{ch['bw_khz']:.1f}",
                             f"{level:.2f}", f"{level + ch['cal_db']:.2f}",
                             "" if fix.sats is None else fix.sats,
-                            "" if fix.hdop is None else fix.hdop, pos_iso])
+                            "" if fix.hdop is None else fix.hdop, pos_iso,
+                            ch.get("slot", ci + 1), ch.get("radio", "")])
                 last.append({"ch": ci, "mhz": ch["mhz"], "level": level + ch["cal_db"], "t": t_read})
             if hasattr(sdr, "health"):
                 state["radio_health"] = sdr.health()
