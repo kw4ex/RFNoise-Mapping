@@ -562,7 +562,9 @@ start_app
 exit 0
 LAUNCH
 chmod +x "$APPBUNDLE/Contents/MacOS/launcher"
-if command -v sips >/dev/null 2>&1 && sips -s format icns "$DEST/app/icon.png" --out "$APPBUNDLE/Contents/Resources/icon.icns" >/dev/null 2>&1; then
+if [ -f "$DEST/app/icon.icns" ] && cp "$DEST/app/icon.icns" "$APPBUNDLE/Contents/Resources/icon.icns" 2>/dev/null; then
+    say "Icon created."
+elif command -v sips >/dev/null 2>&1 && sips -s format icns "$DEST/app/icon.png" --out "$APPBUNDLE/Contents/Resources/icon.icns" >/dev/null 2>&1; then
     say "Icon created."
 else
     say "(Icon could not be made; the app will have a plain icon. That is cosmetic only.)"
