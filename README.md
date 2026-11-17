@@ -6,7 +6,7 @@ Up to four software-defined radios (an **SDRplay RSP1**, a **Hermes Lite 2**, an
 
 > **Latest version: 1.4.0 (testing version).** Tested with simulated hardware, and on a Windows 11 PC and a Mac with a real SDRplay RSP1, a real Hermes Lite 2 and a GPS. A long real drive with every radio has **not** been done yet, and the new **RTL-SDR dongle support has only been tried with simulated dongles**. The Mac version is experimental. Please report what you find.
 >
-> **Latest test build (1.4.0f):** a bigger top bar with a hardware line (GPS, slot radios, fastest safe speed), a separate **Hardware setup** window, **Test my setup**, **S-units** next to every dB value, and four large **S-meters**. See [the release notes](docs/release-notes/v1.4.0.md).
+> **Latest test build (1.4.0g):** a bigger top bar with a hardware line (GPS, slot radios, fastest safe speed), a separate **Hardware setup** window, **Test my setup**, **S-units** next to every dB value, and four large **S-meters**. See [the release notes](docs/release-notes/v1.4.0.md).
 >
 > **What is new in 1.4.0:** up to four radios at once, any radio in any of the four slots (new: RTL-SDR dongles). Since 1.3.0: Hermes Lite 2 auto gain and gain per band, a Hermes picture-speed choice, a Mac network setup for the Hermes (USB Ethernet adapter, Wi-Fi left on), Chrome opens by default for sound, and many fixes. See [the release notes](docs/release-notes/v1.4.0.md).
 

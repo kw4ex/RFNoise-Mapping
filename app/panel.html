@@ -56,15 +56,20 @@ td.lvlcell,.slv{white-space:nowrap}
 /* S-meters */
 #cMeters{padding:12px 14px}
 #cMeters .trh{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;margin-bottom:8px}
-#mGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+#mGrid{--mw:560px;display:grid;grid-template-columns:repeat(auto-fill,var(--mw));gap:14px;justify-content:start}
+#mGrid.side{grid-template-columns:repeat(4,var(--mw))}
+.mbox{position:relative}
+.mgrip{position:absolute;right:3px;bottom:3px;width:26px;height:26px;cursor:nwse-resize;touch-action:none;border-radius:6px;opacity:.75;background:repeating-linear-gradient(135deg,transparent 0 5px,#14233a 5px 7px);clip-path:polygon(100% 0,100% 100%,0 100%)}
+.mgrip:hover{opacity:1}
+#mGrid.side .mgrip{display:none}
 .mbox{border:2px solid #14233a;border-radius:14px;padding:8px 10px 10px;background:#fbf7ea}
 .mbox.off{opacity:.4}
-.mbox .mh{display:flex;gap:10px;align-items:baseline;font-size:18px;white-space:nowrap}
+.mbox .mh{display:flex;gap:10px;align-items:baseline;font-size:calc(10px + var(--mw)*.013);white-space:nowrap}
 .mbox svg{width:100%;height:auto;display:block}
 .mbox .mr{display:flex;flex-wrap:wrap;align-items:baseline;gap:0 14px;white-space:nowrap;font-variant-numeric:tabular-nums}
-.mbox .mS{flex:none;display:inline-block;width:6.4ch;font-size:54px;line-height:1.05;font-weight:800;color:#14233a}
-.mbox .mDb{flex:none;display:inline-block;width:9.2ch;text-align:right;font-size:24px;font-weight:600}
-.mbox .mPk{flex:1 0 100%;min-height:1.3em;font-size:18px;color:#a45300;font-weight:600}
+.mbox .mS{flex:none;display:inline-block;width:6.4ch;font-size:calc(14px + var(--mw)*.07);line-height:1.05;font-weight:800;color:#14233a}
+.mbox .mDb{flex:none;display:inline-block;width:9.2ch;text-align:right;font-size:calc(10px + var(--mw)*.023);font-weight:600}
+.mbox .mPk{flex:1 0 100%;min-height:1.3em;font-size:calc(10px + var(--mw)*.013);color:#a45300;font-weight:600}
 body.car #cMeters{display:block !important}
 #barHw .bbox .sub2{font-size:calc(12.5px*var(--bz2)*.85);color:var(--mut);font-variant-numeric:tabular-nums}
 #barHw button{align-self:center}
@@ -322,7 +327,10 @@ body.only-slices #staleBanner,body.only-slices #warnBanner,body.only-slices #blo
 <section class="card" id="cMeters">
  <div class="trh"><b style="font-size:18px">S-meters</b>
   <span class="mut">One per slot. The needle is the reading from the latest sample cycle; the orange marker is the highest reading taken since the drive started.</span>
-  <button class="sm" onclick="meterReset()" title="Put the orange peak markers back to the current readings">Reset peaks</button></div>
+  <button class="sm" onclick="meterReset()" title="Put the orange peak markers back to the current readings">Reset peaks</button>
+  <label class="chk" title="Show all four meters in one row, sized to fit the window"><input type="checkbox" id="mSide" onchange="meterSide(this.checked)"> <span>Side by side (4 across)</span></label>
+  <button class="sm" id="mRst" onclick="meterSizeReset()" title="Put the meters back to the standard size">Reset size</button>
+  <span class="mut" id="mHint">Drag the corner grip of any meter to make all four bigger or smaller.</span></div>
  <div id="mGrid"></div>
  <div class="mut" style="margin-top:6px">S9 = &minus;73&nbsp;dBm up to 30&nbsp;MHz, &minus;93&nbsp;dBm above; 6&nbsp;dB per S-unit. A <b>~</b> means the slot is not calibrated yet (Hardware setup &rarr; Slots).</div>
 </section>
@@ -729,7 +737,7 @@ async function findHl2(){
 function hl2GainReset(){ $("hl2g").value=15; gainChanged("hl2"); }
 
 /* ---------- slots: four live panadapters ---------- */
-const PAGE_VER="1.4.0f";        /* the version of this page: it must match the program version shown in the top bar */
+const PAGE_VER="1.4.0g";        /* the version of this page: it must match the program version shown in the top bar */
 const SL={logging:false,live:false,busy:false,starting:false,manualStop:false,lastTry:0,health:{},byCh:{},startErr:"",radio:"",lastSync:0,seen:{},last:{},paused:false,autoPaused:false};
 const SLH={0:[],1:[],2:[],3:[]};      // the last readings saved for each slot (for the readout shown when a slot's radio is busy mapping)
 const ONLY_SLICES=new URLSearchParams(location.search).get("view")==="slices";
@@ -2226,7 +2234,22 @@ function meterSVG(i){
   g+='<g id="mn'+i+'" style="transform-origin:150px 190px;transform:rotate(-55deg);transition:transform .35s cubic-bezier(.3,1.35,.5,1)"><line x1="150" y1="190" x2="150" y2="46" stroke="#111" stroke-width="2.8" stroke-linecap="round"/></g>';
   return '<svg viewBox="0 0 300 150" xmlns="http://www.w3.org/2000/svg" aria-label="S-meter slot '+(i+1)+'">'+g+'</svg>'; }
 function meterBuild(){ $("mGrid").innerHTML=[0,1,2,3].map(i=>'<div class="mbox off" id="mb'+i+'"><div class="mh"><b>Slot '+(i+1)+'</b><span class="mrn">&ndash;</span><span class="mfq"></span></div>'+meterSVG(i)+
-  '<div class="mr"><b class="mS">&ndash;</b><span class="mDb"></span><span class="mPk"></span></div></div>').join(""); }
+  '<div class="mr"><b class="mS">&ndash;</b><span class="mDb"></span><span class="mPk"></span></div><div class="mgrip" title="Drag to resize all four meters" onpointerdown="meterGrip(event)"></div></div>').join(""); meterLayout(); }
+/* meter size: one width for all four; saved in this browser */
+let MW=0, MSIDE=false;   /* 0 = standard size: two across */
+try{ const w=parseInt(localStorage.getItem("rfmapMeterW")); if(w>=200&&w<=1400) MW=w; else MW=0; MSIDE=localStorage.getItem("rfmapMeterSide")==="1"; }catch(e){}
+function meterLayout(){ const g=$("mGrid"); if(!g) return; const W=g.clientWidth||900;
+  const w=MSIDE?Math.max(150,Math.floor((W-3*14-2)/4)):(MW?Math.max(200,Math.min(MW,W-2)):Math.max(200,Math.floor((W-14-2)/2)));
+  g.style.setProperty("--mw",w+"px"); g.classList.toggle("side",MSIDE);
+  const c=$("mSide"); if(c) c.checked=MSIDE; const h=$("mHint"); if(h) h.textContent=MSIDE?"Side by side: the meters fit the window width. Untick it to resize them by hand.":"Drag the corner grip of any meter to make all four bigger or smaller."; }
+function meterSide(on){ MSIDE=!!on; try{localStorage.setItem("rfmapMeterSide",MSIDE?"1":"0");}catch(e){} meterLayout(); }
+function meterSizeReset(){ MW=0; try{localStorage.setItem("rfmapMeterW","0");}catch(e){} meterLayout(); }
+function meterGrip(ev){ ev.preventDefault(); const el=ev.currentTarget, g=$("mGrid"), x0=ev.clientX, w0=parseFloat(getComputedStyle(g).getPropertyValue("--mw"))||MW;
+  try{ el.setPointerCapture(ev.pointerId); }catch(e){}
+  const mv=e=>{ MW=Math.round(Math.max(200,Math.min(1400,w0+(e.clientX-x0)))); meterLayout(); };
+  const up=e=>{ el.removeEventListener("pointermove",mv); el.removeEventListener("pointerup",up); el.removeEventListener("pointercancel",up); try{localStorage.setItem("rfmapMeterW",String(MW));}catch(x){} };
+  el.addEventListener("pointermove",mv); el.addEventListener("pointerup",up); el.addEventListener("pointercancel",up); }
+window.addEventListener("resize",meterLayout);
 function meterReset(){ for(let i=0;i<4;i++){ MT[i].peak=MT[i].v==null?null:MT[i].v; MT[i].t=null; meterDraw(i); } }
 function meterUpdate(i,v,m,t){
   const M=MT[i]; if(v==null||isNaN(v)){ if(M.v!=null){ M.v=null; meterDraw(i); } return; }
