@@ -107,6 +107,7 @@ th{background:#f0f3f7}
 <p>The practice route is made up, so it won't follow real streets. Real drives will.</p>
 
 <h2 id="gps">5. Connect the GPS</h2>
+<p>The GPS choice (iPhone or USB), and a live display of the fix, satellites and position, are in the <b>Hardware setup</b> window (button at the top right of the page). The top bar also always shows the GPS: a light, the satellites and your coordinates.</p>
 <h3>Option A: iPhone</h3>
 <ol>
  <li>On the iPhone, install <b>GPS2IP</b> from the App Store. A free <b>GPS2IP Lite</b> lets you try it; the full version (a few dollars) is the one to use.</li>
@@ -127,7 +128,7 @@ th{background:#f0f3f7}
 <h2 id="collect">6. Collect data</h2>
 <ol>
  <li>In box <b>1 Collect data</b>, type a <b>Route name</b> (optional, but it makes drives easy to find).</li>
- <li>Choose the GPS (iPhone or USB), unless you're in Practice mode.</li>
+ <li>Choose the GPS (iPhone or USB) in <b>Hardware setup</b>, unless you're in Practice mode.</li>
  <li>Enter up to <b>four frequencies</b> in MHz. Suggestions: <b>0.75</b> (AM broadcast band, wide area), <b>3.7</b> or <b>7.3</b> (ham bands), and a VHF channel such as <b>148</b> or an <b>AM airband channel (118&ndash;137)</b> for pinpointing.
   <ul><li><b>Pick a quiet channel</b> with no station on it. A pilot's transmission on an airband channel would look like a hot spot.</li>
   <li><b>Width</b> is the slice measured (5&ndash;10 kHz is good). Narrow slices ignore nearby stations.</li>
@@ -170,6 +171,21 @@ th{background:#f0f3f7}
 <p><b>While you are logging:</b> Hermes slots stay fully live. An SDRplay slot has to retune for each reading, so while mapping it shows its latest reading and a small history line instead of a picture; the live picture comes back the moment you pause or stop. <span class="btn">Pause recording</span> stops the dots (at a traffic light, say) and brings every slot back to full life; press it again to carry on. <b>Pause automatically</b> (box 1) does this by itself when you have not moved for a number of seconds (10 by default) and resumes when you move. <span class="btn">Stop live view</span> lets another program use the radio; <span class="btn">Start live view</span> brings it back.</p>
 <div class="box tip">The level shown is <b>dBFS, not calibrated</b>. It is good for comparing places, not for absolute measurements. Recording <b>always uses fixed gain</b>, never automatic gain, so the picture shows what is recorded.</div>
 
+<h2 id="hardware">Hardware setup, S-units and Test my setup (new in 1.4.0e)</h2>
+<p>The things you set once before driving have their own window, so they stay out of the way while you map. Press <span class="btn">Hardware setup</span> at the top (or in the drive bar). Close it with <b>Close this window</b>; nothing is lost.</p>
+<ol>
+ <li><b>GPS:</b> the fix, the satellites (with HDOP), your position and speed, kept up to date. Choose iPhone or USB and press <b>Find my GPS</b> here. The program listens to the GPS while it is not recording; the moment you press Start it lets go so the recording can use it.</li>
+ <li><b>Radios:</b> tick the radios you have and press <b>Scan for radios</b>. Every radio type the program knows is listed with what it found. Types that are planned (ANAN, FlexRadio, TCI radios, and Icom / Kenwood / Yaesu over the CAT port) are shown greyed out. They are built as separate small &ldquo;plug-ins&rdquo;, so each new radio is added without changing the screens.</li>
+ <li><b>Slots:</b> any radio can be given to any slot, with its frequency and calibration, right here. A change applies at once, also while recording. A radio with one receiver can only listen to one frequency at a time, so its slots take turns.</li>
+ <li><b>Test my setup:</b> records for a few seconds (nothing is kept), checks the GPS and every slot, times <b>one round of readings</b>, and works out <b>how fast you can drive</b> and still get a dot at each spacing. The number stays in the top bar: <b>Fastest safe speed for 10&nbsp;ft dots: 42&nbsp;mph</b>. While you record it shows the live figure and turns red if you go faster. In Practice mode the radios are pretend, so run the test again with the real ones.</li>
+</ol>
+<h3>The top bar</h3>
+<p>The bar under the title is larger now: press <b>A&minus;</b> or <b>A+</b> to make it smaller or larger. Under the speed and health numbers is a <b>hardware line</b> that is always in view: the GPS (fix, satellites, coordinates), the radio and frequency of each slot, and the fastest safe speed. The big speed row appears while you record.</p>
+<h3>S-units</h3>
+<p>Next to every dB value the program also shows the <b>S-unit</b> (S1 to S9, then S9+10, S9+20 and so on): in the slot readouts, the readings table, the live track, and on the map (pop-ups, legend, hottest spots, and the Google Earth export). <b>All calculations stay in dB</b>, which has finer steps; S-units are only a friendlier way to read the same number. The scale is the usual amateur one: <b>6&nbsp;dB per S-unit; S9 = &minus;73&nbsp;dBm up to 30&nbsp;MHz and &minus;93&nbsp;dBm above 30&nbsp;MHz</b>. The saved drive file has an extra <b>level_s</b> column.</p>
+<p><b>S-units are only right when the slot is calibrated</b> (the radio's reading is a true dBm). Until then they show with a <b>~</b> in front (for example ~S7), a rough guide. To calibrate: in <b>Hardware setup &rarr; Slots</b>, feed the slot a signal of known strength, type its true level (like <b>-73</b> or <b>S9</b>) and press <b>Calibrate</b>. The program works out the Calibration number for you.</p>
+<p>On the map, <b>Flag high noise</b> draws a bold red ring on every reading at or above the S-level you choose (S5, S7, S9, S9+10 and up), so the noisiest places stand out.</p>
+
 <h2 id="where">7. Where your data is stored</h2>
 <p>Everything you create is in one folder: on a Mac, the <b>RF Noise Map</b> folder in your home folder (not inside Documents: macOS blocks programs from Documents); on Windows, the install folder itself (normally <b>C:\RadioScripts\RFNoise</b>). The window's footer shows its exact path, and <span class="btn">Open my data folder</span> opens it.</p>
 <table>
@@ -184,7 +200,7 @@ th{background:#f0f3f7}
 <p><b>Level numbers:</b> readings are in <b>dB relative to the receiver's maximum</b> (so they're negative; closer to zero = stronger). They compare places perfectly well. See section 10 for true dBm.</p>
 
 <h3>Your radios, and which radio measures which frequency</h3>
-<p>Box <b>1 Collect data</b> has a <b>Your radios</b> section. Tick what you have &mdash; one radio or both:</p>
+<p>The <b>Hardware setup</b> window (button at the top) has a <b>Radios</b> section. Tick what you have &mdash; one radio or several:</p>
 <ul>
  <li><b>SDRplay RSP1</b> (USB): one receiver, so its frequencies take turns. Covers VHF, airband, 70&nbsp;cm and the FM band.</li>
  <li><b>Hermes Lite 2</b> (network cable): several receivers that run <b>at the same time</b>, so its frequencies are all read at the same instant with no retuning. HF only (about 0.1&ndash;38&nbsp;MHz).</li>
@@ -216,7 +232,7 @@ Only <b>one program</b> can use the radio at a time: close Thetis or SDR Console
  <li><b>Drivers (once).</b><br>
   <b>Windows:</b> the radio library <b>PothosSDR</b> already contains the RTL-SDR driver. If you have no SDRplay, run the installer and answer <b>yes</b> to the SDRplay question so it sets up PothosSDR and Python 3.9, then skip the SDRplay driver page. Then give each dongle its USB driver with the free tool <b>Zadig</b> (zadig.akeo.ie): plug in <b>one</b> dongle, open Zadig, choose <b>Options &rarr; List All Devices</b>, pick the entry that reads <b>Bulk-In, Interface (Interface 0)</b> (never your keyboard or mouse), make sure <b>WinUSB</b> is shown, press <b>Replace Driver</b>, wait for the message, and repeat for each dongle. This changes only that dongle.<br>
   <b>Mac:</b> open Terminal and run <b>brew install soapysdr soapyrtlsdr</b> (needs Homebrew, which the Mac installer can set up). No driver swap is needed.</li>
- <li>In the program, under <b>Your radios</b>, tick <b>RTL-SDR dongles</b> and press <span class="btn">Find my dongles</span>. It lists the dongles it sees as <b>RTL-SDR 1</b>, <b>2</b>, &hellip; in order of their serial numbers.</li>
+ <li>In the program, under <b>Radios</b> in <b>Hardware setup</b>, tick <b>RTL-SDR dongles</b> and press <span class="btn">Find my dongles</span>. It lists the dongles it sees as <b>RTL-SDR 1</b>, <b>2</b>, &hellip; in order of their serial numbers.</li>
  <li><b>Give each dongle its own serial number (one minute each).</b> New dongles often all carry the same number, so the computer cannot tell them apart and the slots could swap after a replug. With <b>only one dongle plugged in</b>, open a command window (Windows: the <b>bin</b> folder of PothosSDR; Mac: Terminal) and type <b>rtl_eeprom -s 00000001</b>, answer <b>y</b>, unplug and replug. Do the next dongle with <b>00000002</b>, and so on. <b>Find my dongles</b> warns you while two dongles still share a number.</li>
  <li>In any slot's <b>Radio</b> chooser pick <b>RTL-SDR 1</b> to <b>4</b>. The slot shows a live picture of about <b>2&nbsp;MHz</b> around the frequency, with a <b>Gain</b> slider for that dongle (0&ndash;49&nbsp;dB, start at 30; higher hears weaker signals but overloads sooner). Each dongle has its own gain.</li>
  <li><b>HF with the V3:</b> below about 24&nbsp;MHz the program switches the dongle into its <b>direct sampling</b> mode by itself (the V3&rsquo;s HF input). HF is weaker than VHF on these dongles; leave the V3&rsquo;s bias tee off unless your antenna needs power.</li>
@@ -281,7 +297,7 @@ Only <b>one program</b> can use the radio at a time: close Thetis or SDR Console
 <ul>
  <li><b>Position:</b> a GPS is typically good to about 10&ndash;15&nbsp;ft, so a dot can sit slightly off the road. Dots consistently 30&nbsp;ft or more off the road suggest a GPS problem (poor sky view, or a slow-updating GPS in turns).</li>
  <li><b>Spacing:</b> a new dot is saved each time you move the spacing distance (default 10&nbsp;ft; <b>More settings</b>). Measuring four frequencies takes a fraction of a second, so at 45&nbsp;mph spacing may be a little wider than 10&nbsp;ft. Fewer frequencies = tighter dots.</li>
- <li><b>Levels are relative</b> (dB below the receiver's maximum). To get true dBm: feed the receiver a known signal (a signal generator at, say, &minus;60&nbsp;dBm), note the reading, and enter <b>(known dBm) minus (reading)</b> in that frequency's <b>Calibration</b> box. Keep the same gain settings afterward.</li>
+ <li><b>Levels are relative</b> (dB below the receiver's maximum). The easy way to calibrate is <b>Hardware setup &rarr; Slots &rarr; Calibrate</b> (type the known level, like -73 or S9). By hand: to get true dBm: feed the receiver a known signal (a signal generator at, say, &minus;60&nbsp;dBm), note the reading, and enter <b>(known dBm) minus (reading)</b> in that frequency's <b>Calibration</b> box. Keep the same gain settings afterward.</li>
  <li><b>Gain and attenuation:</b> automatic gain is always switched off while recording, so readings along the route can be compared. The <b>IF attenuation</b> and <b>RF attenuation</b> numbers (in <b>More settings</b>, and beside the panadapter) set how much the radio is turned down. If readings are stuck near the top or bottom of the scale, or strong stations overload the radio, raise the attenuation before the drive. You can change it while driving if you must, but dots before and after the change are then not directly comparable.</li>
 </ul>
 

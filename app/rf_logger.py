@@ -1303,7 +1303,9 @@ def main():
     # slot = the slot number (1-4) the frequency has on the control panel; radio = which radio read it
     # (hl2, sdrplay, rtl1..rtl4). Both let you pick out one slot or one radio in later processing.
     w.writerow(["time_utc", "lat", "lon", "speed_mph", "freq_mhz", "bw_khz",
-                "level_dbfs", "level_cal", "sats", "hdop", "pos_time_utc", "slot", "radio"])
+                "level_dbfs", "level_cal", "sats", "hdop", "pos_time_utc", "slot", "radio", "level_s"])
+    # level_s = level_cal shown in S-units (S9 = -73 dBm below 30 MHz, -93 dBm above; 6 dB per S-unit). Only a
+    # display convenience: the map and every calculation use the dB numbers. Meaningful once the slot is calibrated.
     fh.flush()
 
     # --- Shared status for the web page
@@ -1474,7 +1476,8 @@ def main():
                             f"{level:.2f}", f"{level + ch['cal_db']:.2f}",
                             "" if fix.sats is None else fix.sats,
                             "" if fix.hdop is None else fix.hdop, pos_iso,
-                            ch.get("slot", ci + 1), ch.get("radio", "")])
+                            ch.get("slot", ci + 1), ch.get("radio", ""),
+                            C.s_unit_text(level + ch["cal_db"], ch["mhz"])])
                 last.append({"ch": ci, "mhz": ch["mhz"], "level": level + ch["cal_db"], "t": t_read})
             if hasattr(sdr, "health"):
                 state["radio_health"] = sdr.health()

@@ -23,6 +23,8 @@ import json
 import math
 import os
 import sys
+
+import rfmap_common as C
 from datetime import datetime, timezone
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -410,7 +412,7 @@ button{font-size:13px;padding:3px 8px}
 <div id="printhdr">
  <h2>__TITLE__</h2>
  <div id="pline"></div>
- <div id="pbar"></div><div id="pbarlab"><span id="plo"></span><span>weak &rarr; strong (dB, relative unless calibrated)</span><span id="phi"></span></div>
+ <div id="pbar"></div><div id="pbarlab"><span id="plo"></span><span>weak &rarr; strong (dB and S-units; both are relative unless the slot was calibrated)</span><span id="phi"></span></div>
  <div id="phot"></div>
  <div id="pmulti"></div>
 </div>
@@ -431,6 +433,8 @@ button{font-size:13px;padding:3px 8px}
   <label class="tg"><input type="checkbox" id="tgDots" checked> Dots</label>
   <label class="tg"><input type="checkbox" id="tgHeat"> Heat glow (smooth areas of noise)</label>
   <label class="tg"><input type="checkbox" id="tgMarks" checked> &#128681; Marked spots</label>
+  <label class="tg"><input type="checkbox" id="tgSflag"> Flag high noise: S-level <select id="sflagSel"><option value="5">S5</option><option value="7">S7</option><option value="9" selected>S9</option><option value="19">S9+10</option><option value="29">S9+20</option><option value="39">S9+30</option></select> or stronger</label>
+  <div class="sm" id="sflagMsg"></div>
   <label class="tg"><input type="checkbox" id="tgPower"> Power lines &amp; poles (OpenStreetMap)</label>
   <div class="sm" id="powerMsg"></div>
   Also show <select id="freq2"><option value="">(nothing)</option></select> as rings
@@ -455,6 +459,11 @@ const MARKS = __MARKS__;  // spots flagged with 'Mark this spot' while driving: 
 const HOT = __HOT__;     // places where 2 or more frequencies rose together
 const MINSPAN = __MINSPAN__, FLATDB = __FLATDB__;
 const STOPS = __STOPS__;
+// S-units: a friendlier way to SHOW a level (all the maths stays in dB). 6 dB per S-unit; S9 = -73 dBm up to 30 MHz,
+// -93 dBm above. Only right when the slot was calibrated to dBm; otherwise treat it as a rough guide.
+function s9(m){ return parseFloat(m)<30?-73:-93; }
+function sTxt(v,m){ const o=v-s9(m); if(o>=1) return "S9+"+Math.round(o); const n=Math.round(9+o/6); return n<1?"S0":"S"+n; }
+function dbS(v,m){ return v.toFixed(1)+" dB ("+sTxt(v,m)+")"; }
 function hex2rgb(h){return [1,3,5].map(i=>parseInt(h.substr(i,2),16));}
 const RGB = STOPS.map(hex2rgb);
 function colorAt(f){            // f = 0..1
@@ -507,7 +516,7 @@ function autoRange(){
 function dotOp(){ return (+document.getElementById("op").value)/100; }
 function dotMarker(r,lo,hi,rad,op){
   return L.circleMarker([r.lat,r.lon],{radius:rad,color:"#222",weight:0.6,opacity:Math.min(1,op+0.1),fillColor:colorAt((r.v-lo)/(hi-lo||1)),fillOpacity:op})
-   .bindPopup("<b>"+r.v.toFixed(1)+" dB</b><br>"+sel.value+" MHz, "+r.bw+" kHz wide<br>"+
+   .bindPopup("<b>"+dbS(r.v,sel.value)+"</b><br>"+sel.value+" MHz, "+r.bw+" kHz wide<br>"+
               r.t.replace("T"," ").replace("Z"," UTC")+"<br>"+r.mph.toFixed(0)+" mph<br>"+
               r.lat.toFixed(6)+", "+r.lon.toFixed(6)+geoLinks(r.lat,r.lon));
 }
@@ -515,8 +524,8 @@ function draw(){
   pbStop();
   group.clearLayers();
   const rows=DATA[sel.value], lo=+mn.value, hi=+mx.value, rad=+document.getElementById("sz").value, op=dotOp();
-  document.getElementById("lo").textContent=lo; document.getElementById("hi").textContent=hi;
-  document.getElementById("plo").textContent=lo; document.getElementById("phi").textContent=hi;
+  document.getElementById("lo").textContent=lo+" ("+sTxt(lo,sel.value)+")"; document.getElementById("hi").textContent=hi+" ("+sTxt(hi,sel.value)+")";
+  document.getElementById("plo").textContent=lo+" ("+sTxt(lo,sel.value)+")"; document.getElementById("phi").textContent=hi+" ("+sTxt(hi,sel.value)+")";
   // draw weak first, strong last, so the strong dots sit on top
   [...rows].sort((a,b)=>a.v-b.v).forEach(r=>dotMarker(r,lo,hi,rad,op).addTo(group));
   if(!fitted && rows.length){map.fitBounds(L.latLngBounds(rows.map(r=>[r.lat,r.lon])).pad(0.05));fitted=true;}
@@ -530,7 +539,7 @@ function draw(){
   document.getElementById("pline").textContent=sel.value+" MHz   |   "+rows.length+" dots   |   "+
      t0.replace("T"," ").slice(0,16)+" to "+t1.replace("T"," ").slice(0,16)+" UTC   |   spread "+spread+" dB";
   hotspots(rows,lo,hi);
-  drawHeat(); draw2();
+  drawHeat(); draw2(); if(typeof drawSFlag==="function") drawSFlag();
 }
 // ---- heat glow: big soft translucent discs that add up where readings are strong
 function drawHeat(){
@@ -548,7 +557,7 @@ function draw2(){
   const rows=DATA[k], r2=rangeOf(rows.map(r=>r.v)), rad=+document.getElementById("sz").value+4, op=Math.min(1,dotOp()+0.05);
   inf.textContent="Rings: "+k+" MHz, coloured "+r2[0]+" to "+r2[1]+" dB (same colour scale as the dots)";
   [...rows].sort((a,b)=>a.v-b.v).forEach(r=>L.circleMarker([r.lat,r.lon],{radius:rad,color:colorAt((r.v-r2[0])/(r2[1]-r2[0]||1)),weight:3,fill:false,opacity:op})
-    .bindPopup("<b>"+k+" MHz: "+r.v.toFixed(1)+" dB</b><br>"+r.t.replace("T"," ").replace("Z"," UTC")+"<br>"+r.lat.toFixed(6)+", "+r.lon.toFixed(6)+geoLinks(r.lat,r.lon)).addTo(group2));
+    .bindPopup("<b>"+k+" MHz: "+dbS(r.v,k)+"</b><br>"+r.t.replace("T"," ").replace("Z"," UTC")+"<br>"+r.lat.toFixed(6)+", "+r.lon.toFixed(6)+geoLinks(r.lat,r.lon)).addTo(group2));
 }
 // ---- replay: the dots appear in the order they were recorded
 const PB={timer:null,rows:[],ts:[],i:0,t0:0};
@@ -587,12 +596,12 @@ function hotspots(rows,lo,hi){
   const box=document.getElementById("hotlist"); box.innerHTML="";
   picked.forEach((r,i)=>{
     const d=document.createElement("div");
-    d.innerHTML='<span class="sw" style="background:'+colorAt((r.v-lo)/(hi-lo||1))+'"></span>'+(i+1)+". "+r.v.toFixed(1)+" dB";
-    d.onclick=()=>{map.setView([r.lat,r.lon],19);L.popup().setLatLng([r.lat,r.lon]).setContent("<b>"+r.v.toFixed(1)+" dB</b><br>"+r.t.replace("T"," ")+geoLinks(r.lat,r.lon)).openOn(map);};
+    d.innerHTML='<span class="sw" style="background:'+colorAt((r.v-lo)/(hi-lo||1))+'"></span>'+(i+1)+". "+dbS(r.v,sel.value);
+    d.onclick=()=>{map.setView([r.lat,r.lon],19);L.popup().setLatLng([r.lat,r.lon]).setContent("<b>"+dbS(r.v,sel.value)+"</b><br>"+r.t.replace("T"," ")+geoLinks(r.lat,r.lon)).openOn(map);};
     box.appendChild(d);
   });
   document.getElementById("phot").innerHTML="<b>Strongest spots:</b> "+picked.slice(0,5).map((r,i)=>
-     (i+1)+") "+r.v.toFixed(1)+" dB at "+r.lat.toFixed(5)+", "+r.lon.toFixed(5)).join(" &nbsp; ");
+     (i+1)+") "+dbS(r.v,sel.value)+" at "+r.lat.toFixed(5)+", "+r.lon.toFixed(5)).join(" &nbsp; ");
 }
 // ---- places where several frequencies rose together
 const hotLayer=L.layerGroup().addTo(map);
@@ -624,6 +633,18 @@ sel.onchange=()=>{autoRange();draw();};
 mn.onchange=mx.onchange=document.getElementById("sz").oninput=document.getElementById("op").oninput=draw;
 f2.onchange=draw2;
 document.getElementById("tgHeat").onchange=drawHeat;
+// ---- high-noise flags: a bold red ring on every reading at or above the chosen S-level (S9 = -73 dBm up to 30 MHz, -93 dBm above)
+const sFlagLayer=L.layerGroup().addTo(map);
+function drawSFlag(){
+  sFlagLayer.clearLayers(); const msg=document.getElementById("sflagMsg"); msg.textContent="";
+  if(!document.getElementById("tgSflag").checked) return;
+  const v=+document.getElementById("sflagSel").value, f=sel.value;
+  const thr=v>=10?s9(f)+(v-9):s9(f)-(9-v)*6, rows=DATA[f].filter(r=>r.v>=thr);
+  rows.forEach(r=>L.circleMarker([r.lat,r.lon],{radius:(+document.getElementById("sz").value)+5,color:"#d00000",weight:3,fill:false,opacity:0.95})
+    .bindPopup("<b>"+dbS(r.v,f)+"</b><br>"+f+" MHz<br>"+r.t.replace("T"," ").replace("Z"," UTC")+geoLinks(r.lat,r.lon)).addTo(sFlagLayer));
+  msg.textContent=rows.length+" of "+DATA[f].length+" readings at "+thr.toFixed(0)+" dB or stronger on "+f+" MHz"+(rows.length?"":" (none: try a lower S-level)");
+}
+document.getElementById("tgSflag").onchange=document.getElementById("sflagSel").onchange=drawSFlag;
 document.getElementById("tgDots").onchange=function(){ if(this.checked) map.addLayer(group); else map.removeLayer(group); };
 document.getElementById("tgMarks").onchange=function(){ if(this.checked) map.addLayer(markLayer); else map.removeLayer(markLayer); };
 document.getElementById("auto").onclick=()=>{autoRange();draw();};
@@ -753,8 +774,8 @@ def export_kml(paths, out, freq=None, title="RF noise map", spacing_ft=None, pic
         for r in rows:
             f = (r["v"] - lo) / ((hi - lo) or 1)
             idx = max(0, min(len(STOPS) - 1, int(round(f * (len(STOPS) - 1)))))
-            parts.append(f'<Placemark><name>{r["v"]:.1f} dB</name><styleUrl>#s{idx}</styleUrl>'
-                         f'<description>{k} MHz, {r["v"]:.1f} dB, {r["t"]}</description>'
+            parts.append(f'<Placemark><name>{r["v"]:.1f} dB ({C.s_unit_text(r["v"], key_mhz(k))})</name><styleUrl>#s{idx}</styleUrl>'
+                         f'<description>{k} MHz, {r["v"]:.1f} dB ({C.s_unit_text(r["v"], key_mhz(k))}), {r["t"]}</description>'
                          f'<Point><coordinates>{r["lon"]},{r["lat"]},0</coordinates></Point></Placemark>')
         parts.append("</Folder>")
     parts.append("</Document></kml>")

@@ -10,7 +10,7 @@ import re
 import sys
 
 APP_NAME = "RF Noise Map"
-VERSION = "1.4.0d"
+VERSION = "1.4.0e"
 IS_MAC = sys.platform == "darwin"
 IS_WIN = sys.platform.startswith("win")
 
@@ -206,3 +206,34 @@ def find_soapy():
     return None, ("SoapySDR is not installed or does not match this Python. " + first).strip()
 
 RTL_IDS = ("rtl1", "rtl2", "rtl3", "rtl4")      # the places an RTL-SDR dongle can take in a slot's Radio chooser
+
+
+# ---------------------------------------------------------------------------
+# S-units. The program always CALCULATES in dB (more resolution); S-units are only a
+# friendlier way to SHOW the same number. Standard amateur scale: 6 dB per S-unit,
+# S9 = -73 dBm up to 30 MHz and -93 dBm above 30 MHz, S1 = 48 dB below S9.
+# They mean something only when the slot's Calibration makes the level a true dBm.
+# (The same rule is written in JavaScript in panel.html and make_map.py - keep them alike.)
+# ---------------------------------------------------------------------------
+def s9_dbm(mhz):
+    return -73.0 if float(mhz or 0) < 30.0 else -93.0
+
+
+def s_unit_value(db, mhz):
+    """Decimal S-units: S9 = 9.0, S5 = 5.0; above S9 it keeps counting in dB over S9 (returns (s, over_db))."""
+    over = float(db) - s9_dbm(mhz)
+    if over >= 0:
+        return 9.0, over
+    return max(0.0, 9.0 + over / 6.0), 0.0
+
+
+def s_unit_text(db, mhz):
+    """'S7', 'S9', 'S9+12' or 'S0' (below S1)."""
+    if db is None:
+        return ""
+    s, over = s_unit_value(db, mhz)
+    if over >= 1.0:
+        return "S9+%d" % round(over)
+    if s < 0.5:
+        return "S0"
+    return "S%d" % round(s)

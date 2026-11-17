@@ -42,6 +42,7 @@ import make_map
 from panadapter import PAN, REC, REC_RATE, REC_HEADER
 from slices import SLICES
 import hl2
+import radio_plugins
 RTL_IDS = C.RTL_IDS
 
 DEFAULT_PORT = 8780
@@ -80,6 +81,7 @@ DEFAULT_CONFIG = {
         {"mhz": 148.000, "bw_khz": 10.0, "cal_db": 0.0, "radio": "auto"},
         {"mhz": "", "bw_khz": 5.0, "cal_db": 0.0, "radio": "auto"},
     ],
+    "perf": {},                      # result of the last "Test my setup" (reading-round time, max safe speed)
     "sdr_live": -1,                  # which SDRplay slot is the live one (-1 = the lowest-numbered SDRplay slot)
     "pan_mem": None,                 # saved panadapter memory frequencies (None = show the starter list)
     "phone_access": False,           # let an iPhone/iPad open this window too (needs restart)
@@ -218,6 +220,7 @@ class App:
         self.logger_log = os.path.join(self.settings_dir, "logger.log")
         self.active_csv = None
         self._cache = {}
+        self.hw_cache = {}                     # what the last hardware scan found, per radio type
         self.port = DEFAULT_PORT
         self.server = None
 
@@ -356,6 +359,7 @@ class App:
         except Exception:
             known = ""
         PAN.stop(); SLICES.stop()                          # the radio can only do one job: close the panadapter first
+        GPSMON.release()                                   # the logger needs the GPS port to itself
         if had_view:
             time.sleep(1.2)                                # give the radio a moment to settle: a streaming Hermes ignores other programs
         c = self.cfg
@@ -445,6 +449,137 @@ class App:
         self.proc = None
         self.active_csv = None
         return csv_name
+
+    # ---- hardware: the radio list, slot summary and the "Test my setup" measurement
+    RADIO_LABELS = {"hl2": "Hermes Lite 2", "sdrplay": "SDRplay", "off": "Off"}
+
+    def radio_label(self, rid):
+        if rid in self.RADIO_LABELS:
+            return self.RADIO_LABELS[rid]
+        if str(rid).startswith("rtl"):
+            return "RTL-SDR " + str(rid)[3:]
+        return str(rid)
+
+    def slot_summary(self):
+        out = []
+        for i, ch in enumerate((self.cfg.get("channels") or [])[:4]):
+            blank = str(ch.get("mhz", "")).strip() == "" or str(ch.get("radio")) == "off"
+            if blank:
+                out.append({"slot": i + 1, "on": False})
+                continue
+            try:
+                rid = self.resolve_radio(float(ch["mhz"]), str(ch.get("radio") or "auto"), bool(self.cfg.get("practice")))
+                problem = ""
+            except ValueError as e:
+                rid, problem = str(ch.get("radio") or "auto"), str(e)
+            out.append({"slot": i + 1, "on": True, "mhz": float(ch["mhz"]), "radio": rid, "radio_label": self.radio_label(rid),
+                        "cal_db": float(ch.get("cal_db") or 0), "mode": str(ch.get("mode") or "AM"), "problem": problem})
+        return out
+
+    def hardware_state(self):
+        drivers = []
+        for d in radio_plugins.DRIVERS:
+            row = d.describe()
+            row["ticked"] = bool(self.cfg.get(d.cfg_flag)) if d.cfg_flag else False
+            row["scan"] = self.hw_cache.get(d.id)
+            row["slot_choices"] = [{"value": v, "label": lab} for v, lab in d.slot_values((self.hw_cache.get(d.id) or {}).get("found") or [])] if not d.planned else []
+            drivers.append(row)
+        return {"drivers": drivers, "slots": self.slot_summary(), "perf": self.cfg.get("perf") or {},
+                "practice": bool(self.cfg.get("practice"))}
+
+    def scan_hardware(self):
+        """Look for every radio type that can be found. Slow (a few seconds); the page shows a message."""
+        if self.running():
+            raise ValueError("A drive is being recorded, so the radios are busy. Stop recording, then scan.")
+        PAN.stop(); SLICES.stop(); GPSMON.release()
+        practice = bool(self.cfg.get("practice"))
+        for d in radio_plugins.DRIVERS:
+            if d.planned:
+                continue
+            try:
+                r = d.detect(self.cfg, practice)
+            except Exception as e:
+                r = {"found": [], "note": "Looking failed: %s" % e}
+            r["when"] = time.strftime("%H:%M:%S")
+            self.hw_cache[d.id] = r
+        return self.hardware_state()
+
+    PERF_SPACINGS = (5, 10, 20, 50, 100)
+
+    @staticmethod
+    def max_mph(cycle_s, spacing_ft):
+        """Fastest speed at which a reading round (cycle_s) still fits between two dots spacing_ft apart."""
+        if not cycle_s or cycle_s <= 0:
+            return None
+        return round(float(spacing_ft) / (1.46667 * float(cycle_s)), 1)
+
+    def perf_test(self):
+        """Records for a few seconds (throw-away drive), times a round of readings, and works out the fastest safe speed."""
+        if self.running():
+            raise ValueError("A drive is being recorded. The top bar already shows the live numbers; stop recording to run the test.")
+        c = self.cfg
+        keep = {k: c.get(k) for k in ("sample_mode", "interval_s", "auto_pause", "route_name")}
+        c.update(sample_mode="time", interval_s=0.5, auto_pause=False, route_name="SetupTest")
+        st, name, err = {}, None, ""
+        try:
+            self.start()
+            name = self.active_csv
+            need = 8                                 # 8 dots = 8 timed rounds of readings
+            t0 = time.time()
+            while time.time() - t0 < 40:
+                time.sleep(0.5)
+                if not self.running():
+                    raise ValueError(self.log_tail() or "The logger stopped right away.")
+                s2 = self.logger_status()
+                if s2:
+                    st = s2
+                    if st.get("cycle_s") and int(st.get("rows") or 0) >= need:
+                        break
+        except ValueError as e:
+            err = str(e)
+        finally:
+            name = self.stop() or name
+            c.update(keep)
+            if name:
+                try:
+                    self.delete_drive(name)             # the test drive is not kept
+                except Exception:
+                    pass
+        if err:
+            raise ValueError(err)
+        cyc = st.get("cycle_s")
+        gps_ok = st.get("sats") is not None or st.get("pos") is not None
+        problems, good = [], []
+        if not cyc:
+            problems.append("No readings were taken in 40 seconds. The most common reason is no GPS position yet: "
+                            "give the GPS a clear view of the sky (or use Practice mode) and try again.")
+        sats, hd = st.get("sats"), st.get("hdop")
+        if cyc:
+            if sats is not None and sats < 5:
+                problems.append("Only %s GPS satellites. 6 or more is better for steady dots." % sats)
+            elif sats is not None:
+                good.append("GPS: %s satellites%s." % (sats, ", HDOP %s" % hd if hd is not None else ""))
+            h = st.get("radio_health") or {}
+            if h.get("overload"):
+                problems.append("The Hermes reported OVERLOAD. Lower its gain, then test again.")
+            rp = h.get("recent_packets") or 0
+            if rp and (h.get("recent_lost") or 0) > 0.02 * rp:
+                problems.append("The Hermes is losing network packets (%d of %d). Use a direct network cable." % (h.get("recent_lost"), rp))
+            for l in st.get("last") or []:
+                good.append("Slot %d: %.3f MHz read OK (%.1f dB)." % (int(l.get("ch", 0)) + 1, l.get("mhz", 0), l.get("level", 0)))
+            if cyc > 1.5:
+                problems.append("One round of readings takes %.2f s, which is slow. Fewer slots, or a smaller measure width, speeds it up." % cyc)
+        result = {"cycle_s": cyc, "when": time.strftime("%Y-%m-%d %H:%M"), "slots": len(st.get("last") or []),
+                  "sats": sats, "hdop": hd, "practice": bool(c.get("practice")),
+                  "table": [{"ft": f, "mph": self.max_mph(cyc, f)} for f in self.PERF_SPACINGS] if (cyc and not c.get("practice")) else [],
+                  "radios": sorted({self.radio_label(x.get("radio")) for x in self.slot_summary() if x.get("on")}),
+                  "good": good, "problems": problems,
+                  "verdict": ("bad" if (not cyc or any("OVERLOAD" in x or "losing" in x for x in problems)) else
+                              ("warn" if problems else "good"))}
+        if c.get("practice") and cyc:
+            result["note"] = "Practice mode: the radios are pretend, so these timings are not real. Run the test again with the real radios."
+        self.update_cfg({"perf": result})
+        return result
 
     # ---- drives
     def meta_path(self, csv_path):
@@ -711,6 +846,85 @@ class App:
 APP = App()
 
 
+# ----------------------------------------------------------------------------
+# The live GPS reader for the Hardware window and the top bar (used when NOT recording; while recording
+# the logger owns the GPS and the numbers come from its status instead).
+# ----------------------------------------------------------------------------
+class GpsMonitor:
+    IDLE_S = 45                       # let go of the GPS this long after the page stops asking
+
+    def __init__(self):
+        self.gps, self.spec, self.last_poll = None, None, 0.0
+        self.hold = False                 # True while a check / test / scan needs the GPS port to itself
+        self.lock = threading.Lock()
+
+    def release(self):
+        with self.lock:
+            g, self.gps, self.spec = self.gps, None, None
+        if g is not None and hasattr(g, "stop") and callable(g.stop) and not isinstance(g.stop, (tuple, type(None))):
+            try:
+                g.stop()
+            except Exception:
+                pass
+
+    def _watch(self):
+        while True:
+            time.sleep(5)
+            if self.gps is None:
+                return
+            if time.time() - self.last_poll > self.IDLE_S:
+                self.release()
+                return
+
+    def info(self):
+        if APP.running():
+            self.release()
+            st = APP.logger_status() or {}
+            pos = st.get("pos") or [None, None]
+            age = st.get("gps_age_s")
+            ok = pos[0] is not None and (age is None or age < 5)
+            return {"source": "recording", "state": "fix" if ok else "nofix", "lat": pos[0], "lon": pos[1],
+                    "sats": st.get("sats"), "hdop": st.get("hdop"), "age_s": age,
+                    "speed_mph": st.get("speed_mph"), "status": st.get("gps_status", "")}
+        try:
+            spec = APP.gps_spec()
+        except ValueError as e:
+            return {"source": "none", "state": "notset", "status": str(e)}
+        if APP.starting or self.hold:
+            return {"source": "busy", "state": "busy", "status": "the GPS is being used by a test or the recording start..."}
+        import rf_logger as RL
+        with self.lock:
+            if self.gps is None or self.spec != spec:
+                old = self.gps
+                if spec == "sim":
+                    self.gps = RL.SimGps()
+                else:
+                    self.gps = RL.NmeaGps(spec)
+                    self.gps.start()
+                self.spec = spec
+                threading.Thread(target=self._watch, daemon=True).start()
+                if old is not None and hasattr(old, "stop"):
+                    try:
+                        old.stop()
+                    except Exception:
+                        pass
+            g = self.gps
+        self.last_poll = time.time()
+        fix = g.latest()
+        status = getattr(g, "status", "")
+        if fix is None:
+            return {"source": "monitor", "state": "nofix", "lat": None, "lon": None, "sats": getattr(g, "sats", None),
+                    "hdop": getattr(g, "hdop", None), "age_s": None, "speed_mph": None, "status": status,
+                    "lines": getattr(g, "lines", 0)}
+        age = 0.0 if spec == "sim" else round(max(0.0, time.time() - fix.t_rx), 1)
+        return {"source": "monitor", "state": "fix" if age < 5 else "nofix", "lat": round(fix.lat, 6), "lon": round(fix.lon, 6),
+                "sats": fix.sats, "hdop": fix.hdop, "age_s": age, "speed_mph": round(fix.speed_mps * 2.23694, 1),
+                "status": status, "lines": getattr(g, "lines", 0)}
+
+
+GPSMON = GpsMonitor()
+
+
 def _files_stamp():
     """Newest change time of the program's own files, to notice when new files were installed while it runs."""
     now = time.time()
@@ -796,6 +1010,10 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(self.full_state())
             if path == "/api/live":
                 return self._json(self.live_state())
+            if path == "/api/gps":                     # live GPS for the top bar and the Hardware window
+                return self._json({"ok": True, **GPSMON.info()})
+            if path == "/api/hardware":
+                return self._json({"ok": True, **APP.hardware_state()})
             if path == "/api/track":                   # the dots of the drive in progress (for the live track map)
                 after = int((q.get("after") or ["0"])[0] or 0)
                 if not APP.running():
@@ -920,6 +1138,10 @@ class Handler(BaseHTTPRequestHandler):
         except ValueError:
             return self._fail("bad request")
         path = urlparse(self.path).path
+        hold = path in ("/api/check", "/api/fulltest", "/api/gps_detect", "/api/perftest", "/api/hardware/scan")
+        if hold:
+            GPSMON.hold = True
+            GPSMON.release()
         try:
             return self._json(self.route_post(path, body))
         except ValueError as e:
@@ -929,6 +1151,9 @@ class Handler(BaseHTTPRequestHandler):
         except Exception as e:
             L.exception("request %s" % path)
             return self._fail(f"{type(e).__name__}: {e}", 500)
+        finally:
+            if hold:
+                GPSMON.hold = False
 
     def route_post(self, path, b):
         if path == "/api/config":
@@ -1176,8 +1401,13 @@ class Handler(BaseHTTPRequestHandler):
             return {"ok": True, "file": os.path.basename(out)}
         if path == "/api/demo":
             return dict(ok=True, **APP.demo())
+        if path == "/api/hardware/scan":
+            return {"ok": True, **APP.scan_hardware()}
+        if path == "/api/perftest":
+            PAN.stop(); SLICES.stop(); GPSMON.release()
+            return {"ok": True, "perf": APP.perf_test()}
         if path in ("/api/check", "/api/fulltest", "/api/gps_detect"):
-            PAN.stop(); SLICES.stop()
+            PAN.stop(); SLICES.stop(); GPSMON.release()
         if path == "/api/check":
             if APP.running():
                 return {"ok": True, "results": [{"name": "Logging", "status": "info",
