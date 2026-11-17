@@ -13,6 +13,21 @@ header h1{font-size:19px;margin:0;font-weight:650}
 .dot.on{background:#35d07f}.dot.bad{background:#ff6b5c}.dot.warn{background:#f3b64a}
 header .sp{flex:1}
 main{max-width:1050px;margin:16px auto;padding:0 14px 40px}
+#driveBar{position:sticky;top:50px;z-index:9;background:#fff;border-bottom:2px solid #c9d3df;box-shadow:0 2px 6px rgba(20,35,58,.15);padding:8px 18px}
+#driveBar .dbrow{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center}
+#driveBar button.pri,#driveBar button.stop{font-size:16px;padding:9px 20px}
+#driveBar button.dbq{background:#fff6dc;border-color:#d9a400;font-weight:600}
+#driveBar input[type=text]{width:190px;padding:6px 8px}
+#driveBar .chk{margin:0;align-items:center}
+#driveBar .jump{font-size:12.5px;color:var(--mut)}
+#driveBar .jump a{color:var(--acc);text-decoration:none;margin-left:7px}
+#barStat{font-size:13.5px;font-weight:600;color:var(--ink)}
+section.card{scroll-margin-top:130px}
+details.filt{border:1px solid var(--line);border-radius:9px;padding:6px 12px;margin:10px 0;background:#fafbfd}
+details.filt summary{font-weight:600;color:var(--ink);font-size:14.5px}
+details.filt .row{margin:6px 0;align-items:center;gap:6px 14px}
+details.filt .chk{margin:0}
+details.filt input[type=number]{width:78px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-bottom:16px}
 .card h2{margin:0 0 4px 0;font-size:17px}
 .card .sub{color:var(--mut);margin:0 0 12px 0;font-size:13.5px}
@@ -50,7 +65,7 @@ button.slLock.on{background:#d93025;border-color:#b3261e;color:#fff;font-weight:
 .slbox .slmsg{position:absolute;inset:0;display:none;align-items:center;justify-content:center;text-align:center;color:#cfe3f3;font-size:13px;padding:10px;background:rgba(11,22,32,.9);border-radius:4px}
 .slbox.empty .slview,.slbox.empty .slctl,.slbox.empty .sltune.hideoff{display:none}
 .slbox.fb .slwf{display:none}
-body.only-slot header,body.only-slot footer,body.only-slot main>section.card:not(#cSlices),body.only-slot #cSlices>h2,body.only-slot #cSlices>p.sub,body.only-slot #bSlCompact,body.only-slot #bSlPop,body.only-slot .slPop,body.only-slot #staleBanner,body.only-slot #warnBanner,body.only-slot #blockBanner{display:none !important}
+body.only-slot #driveBar,body.only-slices #driveBar,body.only-slot header,body.only-slot footer,body.only-slot main>section.card:not(#cSlices),body.only-slot #cSlices>h2,body.only-slot #cSlices>p.sub,body.only-slot #bSlCompact,body.only-slot #bSlPop,body.only-slot .slPop,body.only-slot #staleBanner,body.only-slot #warnBanner,body.only-slot #blockBanner{display:none !important}
 body.only-slot main{max-width:none;margin:6px auto;padding:0 12px 12px}
 body.only-slot #slGrid{display:block !important}
 body.only-slot #slGrid .slbox{display:none}
@@ -133,6 +148,25 @@ body.only-slices #staleBanner,body.only-slices #warnBanner,body.only-slices #blo
  <a class="btn" href="/help" target="_blank">Help &amp; guide</a>
 </header>
 
+<!-- ======================= DRIVE BAR (always in view) ======================= -->
+<div id="driveBar">
+ <div class="dbrow">
+  <input type="text" id="route" placeholder="Route name (optional)" title="Goes into the drive's file name">
+  <label class="chk" title="Pretend radio and GPS, no hardware needed"><input type="checkbox" id="practice"> <span>Practice</span></label>
+  <button class="pri" id="bStart" onclick="startLog()">&#9654; Start logging</button>
+  <button class="stop" id="bStop" onclick="stopLog()" style="display:none">&#9632; Stop logging</button>
+  <button id="bPause" onclick="slPause()" style="display:none">&#9208; Pause recording</button>
+  <button id="bApply" onclick="applyLive()" style="display:none" title="Use the frequencies and slots as they are now in the slots below">Apply frequency changes</button>
+  <span id="barStat"></span>
+  <span style="flex:1"></span>
+  <label class="chk" title="When you press Stop, a map of that drive opens by itself"><input type="checkbox" id="autoMap"> <span>Map when I stop</span></label>
+  <button class="dbq" onclick="quickMap()" title="One press: a map of the drive being recorded now (or your newest drive) with all slots, using the dot spacing chosen in the Drives box">&#9889; Quick map</button>
+  <button onclick="gotoCard('cDrives')" title="Choose drives and slots for a map">Make map&hellip;</button>
+ </div>
+ <div class="dbrow jump" style="margin-top:4px">Jump to: <a href="#cCollect">Setup</a><a href="#cSlices">Live slots</a><a href="#cDrives">Drives &amp; map choices</a><a href="#cMaps">Maps</a><a href="#cTools">Tools</a></div>
+ <div id="startErr" class="note err" style="display:none;margin:6px 0 0"></div>
+</div>
+
 <main>
 <div id="staleBanner" style="display:none;background:#fff4cc;border:1px solid #e0b400;border-radius:8px;padding:10px 12px;margin:10px 0">
  <b>New program files were installed, but the old program is still running.</b> To use the new version: click <b>Close program</b> (top right), then open RF Noise Map again from its Desktop icon.
@@ -148,10 +182,7 @@ body.only-slices #staleBanner,body.only-slices #warnBanner,body.only-slices #blo
  <h2><span class="num">1</span>Collect data</h2>
  <p class="sub">Drive your route while this runs. A reading is saved about every 10&nbsp;ft along the way.</p>
 
- <div class="row">
-  <div><label>Route name (optional)</label><br><input type="text" id="route" size="30" placeholder="e.g. Maple St powerline"></div>
-  <label class="chk"><input type="checkbox" id="practice"> <span><b>Practice mode</b> &mdash; pretend radio and GPS, no hardware needed</span></label>
- </div>
+ <p class="mut" style="margin:0 0 6px">The route name, <b>Practice</b> mode and the <b>Start / Stop / Pause</b> buttons are in the bar at the top of the page, always in view.</p>
 
  <div id="radioBox" style="margin:10px 0 4px">
   <b>Your radios</b> <span class="mut">&mdash; tick what you have; each frequency slot can pick which one measures it</span>
@@ -225,14 +256,6 @@ body.only-slices #staleBanner,body.only-slices #warnBanner,body.only-slices #blo
   </div>
  </div>
 
- <div class="row" style="margin-top:14px">
-  <button class="pri" id="bStart" onclick="startLog()">&#9654; Start logging</button>
-  <button class="stop" id="bStop" onclick="stopLog()" style="display:none">&#9632; Stop logging</button>
-  <button id="bApply" onclick="applyLive()" style="display:none">Apply frequency changes now</button>
-  <button id="bPause" onclick="slPause()" style="display:none">&#9208; Pause recording</button>
-  <label class="chk"><input type="checkbox" id="autoMap"> <span>Make a map automatically when I stop</span></label>
- </div>
- <div id="startErr" class="note err" style="display:none"></div>
  <div id="liveBox" style="display:none">
   <div class="mut" id="liveLine"></div>
   <div class="live" id="liveCards"></div>
@@ -346,6 +369,7 @@ body.only-slices #staleBanner,body.only-slices #warnBanner,body.only-slices #blo
  <p class="sub">Every drive is saved automatically as a spreadsheet-style file (CSV) in <span id="pDrives" class="mut"></span>. Tick one or several drives, then make a map.</p>
  <div class="row">
   <button class="pri" onclick="mapChecked()">Make map from ticked drives</button>
+  <button onclick="quickMap()" style="background:#fff6dc;border-color:#d9a400;font-weight:600" title="The drive being recorded now, or your newest drive; all slots; the dot spacing chosen below">&#9889; Quick map</button>
   <button onclick="openFolder('drives')">Open Drives folder</button>
  </div>
  <div class="mut" style="margin:8px 0 2px"><b style="color:var(--fg,inherit)">How many dots on the map?</b> Every reading has its time to the millisecond, so the program can work out how far you travelled and space the dots evenly, whatever speed you drove.</div>
@@ -354,6 +378,17 @@ body.only-slices #staleBanner,body.only-slices #warnBanner,body.only-slices #blo
   <label class="chk"><input type="radio" name="mapsp" value="ft" onchange="mapSpSave()"> <span>One dot every <input type="number" id="mapFt" value="50" min="2" max="5280" step="1" style="width:72px" onchange="mapSpSave()"> feet,</span></label>
   <select id="mapPick" onchange="mapSpSave()"><option value="peak">keeping the strongest reading</option><option value="average">keeping the average</option></select>
  </div>
+ <details class="filt" id="mapFilt" open>
+  <summary>Only use some of the readings (optional)</summary>
+  <div class="mut">Untick to leave something out of the map. It applies to <b>Make map</b> and <b>Google Earth</b>. Leave everything ticked to use all readings. The choices follow the drives you tick below (or all drives if none is ticked). <b>Quick map</b> ignores these choices.</div>
+  <div class="row"><b>Slots</b> <span id="fSlots" class="row" style="margin:0"></span></div>
+  <div class="row" id="fRadRow"><b>Radios</b> <span id="fRads" class="row" style="margin:0"></span></div>
+  <div class="row"><b>Frequencies</b> <span id="fFreqs" class="row" style="margin:0"></span></div>
+  <div class="row"><span>Speed from <input type="number" id="fMphMin" step="1" placeholder="any"> to <input type="number" id="fMphMax" step="1" placeholder="any"> mph</span>
+   <span>Level from <input type="number" id="fDbMin" step="1" placeholder="any"> to <input type="number" id="fDbMax" step="1" placeholder="any"> dB</span>
+   <button class="sm" onclick="filtReset()">Use everything again</button></div>
+  <div class="mut">Speed: setting a minimum of 3 mph leaves out the readings taken while you were stopped. Level: the numbers are in dB as shown on the map.</div>
+ </details>
  <table><thead><tr><th></th><th>Name</th><th>When</th><th>Dots</th><th>Miles</th><th>MHz</th><th></th></tr></thead>
  <tbody id="dTable"></tbody></table>
  <div id="dEmpty" class="mut" style="display:none;padding:8px">No drives yet. Press Start logging above (or try Practice mode).</div>
@@ -438,6 +473,7 @@ const BUSY_MSG={"/api/logs/bundle":"Collecting the logs and settings into a supp
  "/api/demo":"Running a practice drive and building its map",
  "/api/backup":"Making a backup zip of all your data",
  "/api/kml":"Making the Google Earth file",
+ "/api/quickmap":"Making the quick map from your newest drive",
  "/api/start":"Starting the radio and GPS",
  "/api/stop":"Stopping and saving your drive",
  "/api/gps_detect":"Looking for the GPS on the USB ports",
@@ -524,7 +560,7 @@ async function findHl2(){
 function hl2GainReset(){ $("hl2g").value=15; gainChanged("hl2"); }
 
 /* ---------- slots: four live panadapters ---------- */
-const PAGE_VER="1.4.0a";        /* the version of this page: it must match the program version shown in the top bar */
+const PAGE_VER="1.4.0b";        /* the version of this page: it must match the program version shown in the top bar */
 const SL={logging:false,live:false,busy:false,starting:false,manualStop:false,lastTry:0,health:{},byCh:{},startErr:"",radio:"",lastSync:0,seen:{},last:{},paused:false,autoPaused:false};
 const SLH={0:[],1:[],2:[],3:[]};      // the last readings saved for each slot (for the readout shown when a slot's radio is busy mapping)
 const ONLY_SLICES=new URLSearchParams(location.search).get("view")==="slices";
@@ -1220,6 +1256,8 @@ async function refreshLive(){
   $("bStart").style.display=lg?"none":""; $("bStop").style.display=lg?"":"none";
   $("bApply").style.display=lg?"":"none";
   for(const id of ["practice","route"]) $(id).disabled=lg;
+  { const bs=$("barStat"); if(!lg) bs.innerHTML=""; else { const paused=st&&st.settings&&st.settings.paused, ap=st&&st.auto_paused;
+      bs.innerHTML=(paused?"&#9208; PAUSED":(ap?"&#9208; Paused (stopped)":'<span style="color:#c0392b">&#9679;</span> Recording'))+(st&&st.rows!=null?" &middot; "+st.rows+" dots":"")+(st&&st.speed_mph!=null?" &middot; "+Math.round(st.speed_mph)+" mph":""); } }
   PAN.logging=lg; if(!PAN.on) $("bPanStart").innerHTML=lg?"&#9654; Watch a band while logging":"&#9654; Start panadapter";
   document.querySelectorAll("input[name=gpsm],#gHost,#gPort,#gSerial,#gBaud").forEach(e=>e.disabled=lg);
   $("liveBox").style.display=lg?"block":"none";
@@ -1251,7 +1289,7 @@ function renderDrives(list){
   $("dTable").innerHTML=list.map(d=>`<tr>
    <td><input type="checkbox" class="dsel" value="${esc(d.file)}" ${d.recording?"disabled":""} ${keep.has(d.file)?"checked":""}></td>
    <td><b>${esc(d.name)}</b> ${d.recording?'<span class="tag rec">&#9679; recording</span>':""}${d.practice?' <span class="tag">practice</span>':""}
-       <div class="mut">${esc(d.notes).slice(0,90)}</div></td>
+       <div class="mut">${esc(d.notes).slice(0,90)}</div>${d.setup?`<div class="mut" title="Saved with the drive">${esc(d.setup)}</div>`:""}</td>
    <td>${esc(d.modified)}</td><td>${fmtDot(d)}</td><td>${d.miles==null?"":d.miles}</td><td>${(d.freqs||[]).join(", ")}</td>
    <td class="act">
      <button class="sm pri" ${d.recording?"disabled":""} onclick="mapOne('${esc(d.file)}')">Make map</button>
@@ -1262,6 +1300,7 @@ function renderDrives(list){
      <button class="sm" ${d.recording?"disabled":""} onclick="delDrive('${esc(d.file)}')">Delete</button>
    </td></tr>`).join("");
   window._drives=Object.fromEntries(list.map(d=>[d.file,d]));
+  renderFilt();
 }
 function renderMaps(list){
   $("mEmpty").style.display=list.length?"none":"block";
@@ -1297,18 +1336,76 @@ function mapSpLoad(){ try{const j=JSON.parse(localStorage.getItem("rfmapSp")||"n
   $("mapFt").value=j.ft||50; $("mapPick").value=j.pick||"peak";
   document.querySelector('input[name=mapsp][value='+(j.on?"ft":"all")+']').checked=true;}catch(e){} }
 window.addEventListener("load",mapSpLoad);
+/* ----- which readings go on the map: slots, radios, frequencies, speed, level ----- */
+const FILT={s:new Set(),r:new Set(),f:new Set()};        // the things switched OFF
+const radName=r=>({hl2:"Hermes Lite 2",sdrplay:"SDRplay"}[r]||(/^rtl[1-4]$/.test(r)?"RTL-SDR "+r.slice(3):r));
+function filtChoices(){
+  const L=window._drives||{}; let files=[...document.querySelectorAll(".dsel:checked")].map(x=>x.value);
+  if(!files.length) files=Object.keys(L);
+  const slots={}, rads=new Set(), freqs=new Set();
+  files.forEach(f=>{ const d=L[f]; if(!d) return;
+    Object.entries(d.slotfreqs||{}).forEach(([sl,fl])=>{ (slots[sl]=slots[sl]||new Set()); fl.forEach(x=>slots[sl].add(x)); });
+    (d.radios||[]).forEach(r=>rads.add(r)); (d.freqs||[]).forEach(x=>freqs.add(x)); });
+  return {slots,rads,freqs};
+}
+function renderFilt(){
+  const ch=filtChoices(), box=(cls,val,txt,off)=>`<label class="chk"><input type="checkbox" class="${cls}" value="${esc(String(val))}" ${off?"":"checked"} onchange="filtTick(this)"> <span>${txt}</span></label>`;
+  const sl=Object.keys(ch.slots).sort((a,b)=>a-b);
+  $("fSlots").innerHTML=sl.length?sl.map(k=>box("fS",k,"Slot "+k+' <span class="mut">('+[...ch.slots[k]].sort((a,b)=>a-b).join(", ")+" MHz)</span>",FILT.s.has(k))).join(""):'<span class="mut">no drives yet</span>';
+  const rd=[...ch.rads].sort();
+  $("fRadRow").style.display=rd.length>1?"":"none";
+  $("fRads").innerHTML=rd.map(r=>box("fR",r,radName(r),FILT.r.has(r))).join("");
+  const fq=[...ch.freqs].sort((a,b)=>a-b);
+  $("fFreqs").innerHTML=fq.length?fq.map(x=>box("fF",x,x+" MHz",FILT.f.has(String(x)))).join(""):'<span class="mut">no drives yet</span>';
+}
+function filtTick(el){ const set=el.classList.contains("fS")?FILT.s:el.classList.contains("fR")?FILT.r:FILT.f; if(el.checked) set.delete(el.value); else set.add(el.value); }
+function filtReset(){ FILT.s.clear(); FILT.r.clear(); FILT.f.clear(); for(const id of ["fMphMin","fMphMax","fDbMin","fDbMax"]) $(id).value=""; renderFilt(); }
+function mapFilters(){                                  // only the choices that leave something out
+  const ch=filtChoices(), o={};
+  const pick=(all,off,key,conv,what)=>{ const on=all.filter(x=>!off.has(String(x)));
+    if(all.length&&!on.length) throw new Error("Every "+what+" is unticked in 'Only use some of the readings'. Tick at least one.");
+    if(on.length<all.length) o[key]=on.map(conv); };
+  pick(Object.keys(ch.slots),FILT.s,"slots",Number,"slot");
+  pick([...ch.rads],FILT.r,"radios",String,"radio");
+  pick([...ch.freqs],FILT.f,"freqs",Number,"frequency");
+  for(const [id,k] of [["fMphMin","mph_min"],["fMphMax","mph_max"],["fDbMin","db_min"],["fDbMax","db_max"]]) if($(id).value.trim()!=="") o[k]=+$(id).value;
+  return o;
+}
+document.addEventListener("change",e=>{ if(e.target&&e.target.classList&&e.target.classList.contains("dsel")) renderFilt(); });
+function mapNote(r){
+  const b=[]; if(r.filters) b.push("Only: "+esc(r.filters));
+  if(r.hot) b.push("<b>"+r.hot+" place"+(r.hot>1?"s":"")+" where several frequencies rose together</b> (listed on the map, top right)");
+  if(r.flat&&r.flat.length) b.push("Flat, nothing stands out: "+esc(r.flat.join(", "))+" MHz");
+  return b.join("<br>");
+}
+function mapDone(r,win){
+  const url="/maps/"+encodeURIComponent(r.map), note=mapNote(r);
+  if(win) win.location=url;
+  if(!win) toast("Map ready: <a href=\""+url+"\" target=\"_blank\">open it</a>"+(note?"<br>"+note:""),12000);
+  else if(note) toast("Map made.<br>"+note,10000);
+}
 async function makeMap(files,title){
+  let filters; try{ filters=mapFilters(); }catch(e){ toast("&#9888; "+esc(e.message),9000); return; }
   const win=window.open("about:blank","_blank");
   try{
-    const r=await api("/api/map",Object.assign({files,title},mapSpGet()));
-    await refreshDrivesOnly();
-    const url="/maps/"+encodeURIComponent(r.map);
-    if(win) win.location=url; else toast(`Map ready: <a href="${url}" target="_blank">open it</a>`);
+    const r=await api("/api/map",Object.assign({files,title,filters},mapSpGet()));
+    await refreshDrivesOnly(); mapDone(r,win);
   }catch(e){ if(win)win.close(); toast("&#9888; "+esc(e.message),9000); }
 }
+async function quickMap(){
+  const win=window.open("about:blank","_blank");
+  try{
+    const r=await api("/api/quickmap",mapSpGet());
+    await refreshDrivesOnly(); mapDone(r,win);
+    if(r.live) toast("Quick map of the drive in progress ("+esc(r.drive)+"): it shows what is saved so far.",8000);
+  }catch(e){ if(win)win.close(); toast("&#9888; "+esc(e.message),9000); }
+}
+function gotoCard(id){ const c=$(id); if(c) c.scrollIntoView({behavior:"smooth",block:"start"}); }
+function fixBarTop(){ const h=document.querySelector("header"), b=$("driveBar"); if(h&&b) b.style.top=h.offsetHeight+"px"; }
+window.addEventListener("load",fixBarTop); window.addEventListener("resize",fixBarTop);
 const mapOne=f=>makeMap([f]);
 function mapChecked(){const f=[...document.querySelectorAll(".dsel:checked")].map(x=>x.value); if(!f.length){toast("Tick at least one drive first.");return;} makeMap(f);}
-async function doKml(f){await guard(async()=>{const r=await api("/api/kml",Object.assign({file:f},mapSpGet()));await refreshDrivesOnly();toast(`Google Earth file saved: <a href="/exports/${encodeURIComponent(r.file)}">${esc(r.file)}</a> (open it with Google Earth)`,9000);});}
+async function doKml(f){await guard(async()=>{const r=await api("/api/kml",Object.assign({file:f,filters:mapFilters()},mapSpGet()));await refreshDrivesOnly();toast(`Google Earth file saved: <a href="/exports/${encodeURIComponent(r.file)}">${esc(r.file)}</a> (open it with Google Earth)`,9000);});}
 async function reveal(kind,file){await guard(()=>api("/api/reveal",{kind,file}));}
 async function openFolder(which){await guard(()=>api("/api/open_folder",{which}));}
 async function delDrive(f){ if(!confirm("Delete this drive's data file? Maps already made from it are kept.\n\n"+f))return; await guard(async()=>{await api("/api/drive/delete",{file:f});await refreshDrivesOnly();}); }

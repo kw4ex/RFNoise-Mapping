@@ -1112,11 +1112,59 @@ def make_handler(settings, state, stop_event, sdr=None):
                     if isinstance(req.get("rtl_gain_db"), dict):
                         upd["rtl_gain_db"] = {k: int(min(max(int(v), 0), 49)) for k, v in req["rtl_gain_db"].items() if k in RTL_IDS}
                     if upd:
+                        try:
+                            meta_note_change(settings.get(), upd)
+                        except Exception:
+                            pass
                         settings.update(upd)
                 self._send(200, "{}")
             except Exception as e:
                 self._send(400, json.dumps({"error": str(e)}))
     return H
+
+
+# The drive's info file (.meta.json) records how the drive was set up, and any gain changes made during it,
+# so the settings that produced a map can be looked up later.
+META_STATE = {"path": None, "meta": None}
+GAIN_KEYS = ("if_gain_db", "rf_gain_state", "hl2_gain_db", "rtl_gain_db")
+
+
+def meta_save():
+    st = META_STATE
+    if not st["path"] or st["meta"] is None:
+        return
+    try:
+        try:
+            with open(st["path"]) as mf:                  # keep any notes edited meanwhile
+                old = json.load(mf)
+        except Exception:
+            old = {}
+        old.update(st["meta"])
+        old["notes"] = old.get("notes", "")
+        with open(st["path"], "w") as mf:
+            json.dump(old, mf, indent=2)
+    except Exception:
+        pass
+
+
+def meta_note_change(before, upd):
+    """Called when the settings change while logging: remember gain and slot changes with their time."""
+    st = META_STATE
+    if st["meta"] is None:
+        return
+    ch = {}
+    for k in GAIN_KEYS:
+        if k in upd and upd[k] != before.get(k):
+            ch[k] = upd[k]
+    if "channels" in upd:
+        old = [(c.get("slot"), c.get("mhz"), c.get("radio")) for c in before.get("channels", [])]
+        new = [(c.get("slot"), c.get("mhz"), c.get("radio")) for c in upd["channels"]]
+        if old != new:
+            ch["slots"] = [{"slot": c.get("slot"), "mhz": c.get("mhz"), "radio": c.get("radio")} for c in upd["channels"]]
+    if ch:
+        ch = dict({"t_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")}, **ch)
+        st["meta"].setdefault("changes", []).append(ch)
+        meta_save()
 
 
 def lan_ip():
@@ -1202,6 +1250,15 @@ def main():
     meta = {"name": args.name or base, "notes": "", "started_local": datetime.now().isoformat(timespec="seconds"),
             "gps": args.gps if args.gps == "sim" else args.gps.split(":")[0],
             "radio": sdr.name, "channels": settings.get()["channels"]}
+    _s = settings.get()
+    meta["version"] = C.VERSION
+    meta["settings"] = {"hl2_gain_db": _s.get("hl2_gain_db"), "if_gain_db": _s.get("if_gain_db"),
+                        "rf_gain_state": _s.get("rf_gain_state"), "rtl_gain_db": _s.get("rtl_gain_db") or {},
+                        "hl2_rate": args.hl2_rate, "spacing_ft": _s.get("spacing_ft"),
+                        "sample_mode": _s.get("sample_mode"), "interval_s": _s.get("interval_s")}
+    meta["slots"] = [{"slot": c.get("slot", i + 1), "mhz": c.get("mhz"), "radio": c.get("radio"),
+                      "bw_khz": c.get("bw_khz"), "mode": c.get("mode")} for i, c in enumerate(_s["channels"])]
+    META_STATE["path"], META_STATE["meta"] = meta_path, meta
     try:
         with open(meta_path, "w") as mf:
             json.dump(meta, mf, indent=2)
@@ -1406,9 +1463,14 @@ def main():
         try:
             meta["rows_saved"] = dots
             meta["ended_local"] = datetime.now().isoformat(timespec="seconds")
+            _e = settings.get()
+            meta["settings_end"] = {"hl2_gain_db": _e.get("hl2_gain_db"), "if_gain_db": _e.get("if_gain_db"),
+                                    "rf_gain_state": _e.get("rf_gain_state"), "rtl_gain_db": _e.get("rtl_gain_db") or {}}
             with open(meta_path) as mf:                       # keep any notes edited meanwhile
                 old = json.load(mf)
-            old.update({k: meta[k] for k in ("rows_saved", "ended_local")})
+            old.update({k: meta[k] for k in ("rows_saved", "ended_local", "settings_end")})
+            if meta.get("changes"):
+                old["changes"] = meta["changes"]
             with open(meta_path, "w") as mf:
                 json.dump(old, mf, indent=2)
         except Exception:

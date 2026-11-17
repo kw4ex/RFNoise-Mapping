@@ -39,30 +39,225 @@ def b64(name):
     return base64.b64encode(read_vendor(name, "rb")).decode()
 
 
+def _meta_for(csv_path):
+    try:
+        with open(csv_path[:-4] + ".meta.json") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def infer_slots(csv_path):
+    """Older drive files have no slot / radio columns. The drive's info file lists the frequencies in slot order,
+    so the slot and radio can be worked out from the frequency: {freq_mhz: (slot, radio)}."""
+    out = {}
+    for i, c in enumerate(_meta_for(csv_path).get("channels", []) or []):
+        try:
+            out.setdefault(round(float(c["mhz"]), 6), (int(c.get("slot") or (i + 1)), str(c.get("radio") or "")))
+        except (KeyError, ValueError, TypeError):
+            continue
+    return out
+
+
 def load_rows(paths):
     rows = []
     for p in paths:
+        guess = None
         with open(p, newline="") as f:
             for r in csv.DictReader(f):
                 try:
+                    fq = float(r["freq_mhz"])
+                    slot, radio = (r.get("slot") or "").strip(), (r.get("radio") or "").strip()
+                    if not slot:
+                        if guess is None:
+                            guess = infer_slots(p)
+                        g = guess.get(round(fq, 6))
+                        slot, radio = (str(g[0]), g[1]) if g else ("", radio)
                     rows.append({
                         "t": r["time_utc"], "lat": float(r["lat"]), "lon": float(r["lon"]),
-                        "mph": float(r["speed_mph"] or 0), "f": float(r["freq_mhz"]),
+                        "mph": float(r["speed_mph"] or 0), "f": fq,
                         "bw": float(r["bw_khz"]), "v": float(r["level_cal"]),
                         "pt": (r.get("pos_time_utc") or r["time_utc"]),
+                        "slot": int(slot) if slot.isdigit() else 0, "radio": radio,
                     })
-                except (KeyError, ValueError):
+                except (KeyError, ValueError, TypeError):
                     continue
     return rows
 
 
+def clean_filters(flt):
+    """Make the 'only use these readings' choices safe: lists of numbers / names, plain numbers for ranges."""
+    flt = dict(flt or {})
+    out = {}
+    def nums(k, conv):
+        v = flt.get(k)
+        if isinstance(v, (list, tuple)) and v:
+            try:
+                out[k] = [conv(x) for x in v]
+            except (TypeError, ValueError):
+                pass
+    nums("slots", int)
+    nums("freqs", float)
+    v = flt.get("radios")
+    if isinstance(v, (list, tuple)) and v:
+        out["radios"] = [str(x) for x in v]
+    for k in ("mph_min", "mph_max", "db_min", "db_max"):
+        try:
+            if flt.get(k) not in (None, ""):
+                out[k] = float(flt[k])
+        except (TypeError, ValueError):
+            pass
+    return out
+
+
+def filter_rows(rows, flt, stage="pre"):
+    """pre  = choices that do not depend on the dot spacing (slot, radio, frequency)
+       post = choices on the finished dots (speed, level)"""
+    if not flt:
+        return rows
+    if stage == "pre":
+        sl, rd, fr = flt.get("slots"), flt.get("radios"), flt.get("freqs")
+        return [r for r in rows
+                if (not sl or r["slot"] in sl) and (not rd or r["radio"] in rd)
+                and (not fr or any(abs(r["f"] - x) < 1e-6 for x in fr))]
+    a, b, c, d = flt.get("mph_min"), flt.get("mph_max"), flt.get("db_min"), flt.get("db_max")
+    return [r for r in rows
+            if (a is None or r["mph"] >= a) and (b is None or r["mph"] <= b)
+            and (c is None or r["v"] >= c) and (d is None or r["v"] <= d)]
+
+
+def filter_tag(flt):
+    """A short piece of the map's file name, so a limited map does not overwrite the full one."""
+    t = ""
+    if flt.get("slots"):
+        t += "_slot" + "".join(str(x) for x in sorted(flt["slots"]))
+    if flt.get("radios"):
+        t += "_" + "-".join(flt["radios"])
+    if flt.get("freqs"):
+        t += "_f" + "-".join("%g" % x for x in flt["freqs"])
+    if "mph_min" in flt or "mph_max" in flt:
+        t += "_spd"
+    if "db_min" in flt or "db_max" in flt:
+        t += "_lvl"
+    return t[:60]
+
+
+def describe_filters(flt):
+    """A short sentence for the map title: what the map was limited to."""
+    bits = []
+    if flt.get("slots"):
+        bits.append("slot " + ",".join(str(x) for x in sorted(flt["slots"])))
+    if flt.get("radios"):
+        bits.append("radio " + ",".join(flt["radios"]))
+    if flt.get("freqs"):
+        bits.append(",".join("%g" % x for x in flt["freqs"]) + " MHz")
+    if "mph_min" in flt or "mph_max" in flt:
+        bits.append("speed %s-%s mph" % (("%g" % flt["mph_min"]) if "mph_min" in flt else "0",
+                                         ("%g" % flt["mph_max"]) if "mph_max" in flt else "any"))
+    if "db_min" in flt or "db_max" in flt:
+        bits.append("level %s to %s dB" % (("%g" % flt["db_min"]) if "db_min" in flt else "any",
+                                           ("%g" % flt["db_max"]) if "db_max" in flt else "any"))
+    return ", ".join(bits)
+
+
 def group_rows(rows):
+    """One group per frequency. If the same frequency is used in two slots, each slot gets its own group,
+    labelled '7.2 [slot 2]'."""
+    slots_of = {}
+    for r in rows:
+        slots_of.setdefault(f"{r['f']:g}", set()).add(r["slot"])
     groups = {}
     for r in rows:
-        groups.setdefault(f"{r['f']:g}", []).append(
+        k = f"{r['f']:g}"
+        if len(slots_of[k]) > 1:
+            k += " [slot %d]" % r["slot"]
+        groups.setdefault(k, []).append(
             {"lat": round(r["lat"], 7), "lon": round(r["lon"], 7), "v": round(r["v"], 2),
              "t": r["t"], "mph": r["mph"], "bw": r["bw"]})
     return groups
+
+
+def key_mhz(k):
+    """'7.2 [slot 2]' -> 7.2"""
+    return float(str(k).split()[0])
+
+
+MIN_SPAN_DB = 10.0      # a colour scale narrower than this makes a quiet channel look like it has hot spots
+FLAT_DB = 6.0           # a channel that moved less than this in total is called flat
+
+
+def colour_range(vals):
+    """Low / high of the colour scale for one frequency: the 2nd to 99.5th percentile, but never narrower than
+    MIN_SPAN_DB. Returns (lo, hi, flat)."""
+    v = sorted(vals)
+    lo = v[int(0.02 * (len(v) - 1))]
+    hi = v[int(0.995 * (len(v) - 1))]
+    lo = math.floor(lo)
+    hi = math.ceil(hi)
+    if hi - lo < MIN_SPAN_DB:
+        hi = lo + MIN_SPAN_DB
+    return lo, hi, (v[-1] - v[0]) < FLAT_DB
+
+
+# ----------------------------------------------------------------------------
+# Hot spots: places where several frequencies rise together
+# ----------------------------------------------------------------------------
+HOT_RADIUS_FT = 150.0       # readings this close together count as the same place
+PASS_GAP_S = 60.0           # elevated readings more than this far apart in time are different passes
+
+
+def find_hotspots(groups, max_spots=12):
+    """A noise source (a bad insulator, a faulty LED lamp) usually raises several frequencies at once.
+    For each frequency, 'raised' means well above that frequency's usual level (the median): at least
+    6 dB, or 2.5 times its normal wobble if that is more. Flat channels are skipped. Raised readings
+    from different frequencies that sit within 150 ft of each other are one place. Places with two or
+    more frequencies are returned, best first."""
+    pts = []                                              # (rise, freqkey, lat, lon, t_epoch, level)
+    for k, rows in groups.items():
+        if len(rows) < 8:
+            continue
+        vals = sorted(r["v"] for r in rows)
+        if vals[-1] - vals[0] < FLAT_DB:
+            continue
+        med = vals[len(vals) // 2]
+        dev = sorted(abs(x - med) for x in vals)
+        sigma = 1.4826 * dev[len(dev) // 2]
+        thr = max(6.0, 2.5 * sigma)
+        for r in rows:
+            if r["v"] - med >= thr:
+                try:
+                    te = _epoch(r["t"])
+                except Exception:
+                    te = 0.0
+                pts.append((r["v"] - med, k, r["lat"], r["lon"], te, r["v"]))
+    pts.sort(reverse=True)
+    used = [False] * len(pts)
+    spots = []
+    for i, p in enumerate(pts):
+        if used[i]:
+            continue
+        members = []
+        for j, q in enumerate(pts):
+            if not used[j] and _dist_ft(p[2], p[3], q[2], q[3]) <= HOT_RADIUS_FT:
+                members.append(q)
+                used[j] = True
+        per = {}
+        for q in members:
+            if q[1] not in per or q[0] > per[q[1]][0]:
+                per[q[1]] = q
+        if len(per) < 2:
+            continue
+        ts = sorted(q[4] for q in members)
+        passes = 1 + sum(1 for a, b in zip(ts, ts[1:]) if b - a > PASS_GAP_S)
+        spots.append({"lat": round(sum(q[2] for q in members) / len(members), 6),
+                      "lon": round(sum(q[3] for q in members) / len(members), 6),
+                      "n": len(per), "passes": passes,
+                      "total": round(sum(q[0] for q in per.values()), 1),
+                      "t": _iso(ts[0]) if ts[0] else "",
+                      "items": [[k, round(q[0], 1), round(q[5], 1)] for k, q in
+                                sorted(per.items(), key=lambda kv: -kv[1][0])]})
+    spots.sort(key=lambda sp: (-sp["n"], -sp["passes"], -sp["total"]))
+    return spots[:max_spots]
 
 
 # ----------------------------------------------------------------------------
@@ -184,6 +379,11 @@ html,body{height:100%;margin:0;font-family:-apple-system,Helvetica,Arial,sans-se
 #bar,#pbar{height:14px;border-radius:3px;margin:6px 0 2px}
 #barlab,#pbarlab{display:flex;justify-content:space-between;font-size:12px}
 #hot{bottom:24px;left:10px;max-height:34%;overflow:auto;width:250px}
+#multi{top:10px;right:56px;max-height:46%;overflow:auto;width:290px}
+#multi div.sp{padding:3px 0;cursor:pointer;border-bottom:1px solid #eee}
+#multi div.sp:hover{background:#eef}
+#multi small{color:#555}
+#flat{display:none;margin-top:4px;padding:3px 6px;background:#fff3cd;border:1px solid #e0c36a;border-radius:4px;font-size:12px}
 #hot div{padding:2px 0;cursor:pointer;border-bottom:1px solid #eee}
 #hot div:hover{background:#eef}
 .sw{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;border:1px solid #333}
@@ -207,6 +407,7 @@ button{font-size:13px;padding:3px 8px}
  <div id="pline"></div>
  <div id="pbar"></div><div id="pbarlab"><span id="plo"></span><span>weak &rarr; strong (dB, relative unless calibrated)</span><span id="phi"></span></div>
  <div id="phot"></div>
+ <div id="pmulti"></div>
 </div>
 <div id="map"></div>
 <div id="ctl" class="panel">
@@ -218,14 +419,18 @@ button{font-size:13px;padding:3px 8px}
  <div id="bar"></div>
  <div id="barlab"><span id="lo"></span><span>weak &rarr; strong</span><span id="hi"></span></div>
  <div id="info" style="margin-top:4px;color:#555"></div>
+ <div id="flat"></div>
  <div style="margin-top:6px"><button id="print">Print / Save as PDF</button></div>
 </div>
 <div id="hot" class="panel"><h4>Hottest spots</h4><div id="hotlist"></div></div>
+<div id="multi" class="panel"><h4>Same place, several frequencies</h4><label style="font-size:12px"><input type="checkbox" id="hotmark" checked> mark them on the map</label><div id="multilist"></div></div>
 <script>
 __LEAFLET_JS__
 </script>
 <script>
 const DATA = __DATA__;   // { "3.7": [ {lat,lon,v,t,mph,bw}, ... ], ... }
+const HOT = __HOT__;     // places where 2 or more frequencies rose together
+const MINSPAN = __MINSPAN__, FLATDB = __FLATDB__;
 const STOPS = __STOPS__;
 function hex2rgb(h){return [1,3,5].map(i=>parseInt(h.substr(i,2),16));}
 const RGB = STOPS.map(hex2rgb);
@@ -247,15 +452,17 @@ L.control.layers({"Street":street,"Satellite":sat}).addTo(map);
 L.control.scale({imperial:true,metric:false}).addTo(map);
 
 const sel=document.getElementById("freq"), mn=document.getElementById("mn"), mx=document.getElementById("mx");
-const freqs=Object.keys(DATA).sort((a,b)=>+a-+b);
-freqs.forEach(f=>{const o=document.createElement("option");o.value=f;o.textContent=(+f)+" MHz  ("+DATA[f].length+" dots)";sel.appendChild(o);});
+const freqs=Object.keys(DATA).sort((a,b)=>parseFloat(a)-parseFloat(b));
+freqs.forEach(f=>{const o=document.createElement("option");o.value=f;o.textContent=f+" MHz  ("+DATA[f].length+" dots)";sel.appendChild(o);});
 
 let group=L.layerGroup().addTo(map), fitted=false, lastPicked=[];
 
 function pct(arr,p){const s=[...arr].sort((a,b)=>a-b);return s[Math.min(s.length-1,Math.max(0,Math.floor(p*(s.length-1))))];}
 function autoRange(){
   const vals=DATA[sel.value].map(r=>r.v);
-  mn.value=Math.floor(pct(vals,0.02)); mx.value=Math.ceil(pct(vals,0.995));
+  let lo=Math.floor(pct(vals,0.02)), hi=Math.ceil(pct(vals,0.995));
+  if(hi-lo<MINSPAN) hi=lo+MINSPAN;          // a quiet channel must not be stretched into a rainbow
+  mn.value=lo; mx.value=hi;
 }
 function draw(){
   group.clearLayers();
@@ -267,15 +474,19 @@ function draw(){
   order.forEach(r=>{
     const c=colorAt((r.v-lo)/(hi-lo||1));
     L.circleMarker([r.lat,r.lon],{radius:rad,color:"#222",weight:0.6,fillColor:c,fillOpacity:0.92})
-     .bindPopup("<b>"+r.v.toFixed(1)+" dB</b><br>"+(+sel.value)+" MHz, "+r.bw+" kHz wide<br>"+
+     .bindPopup("<b>"+r.v.toFixed(1)+" dB</b><br>"+sel.value+" MHz, "+r.bw+" kHz wide<br>"+
                 r.t.replace("T"," ").replace("Z"," UTC")+"<br>"+r.mph.toFixed(0)+" mph<br>"+
                 r.lat.toFixed(6)+", "+r.lon.toFixed(6)).addTo(group);
   });
   if(!fitted && rows.length){map.fitBounds(L.latLngBounds(rows.map(r=>[r.lat,r.lon])).pad(0.05));fitted=true;}
   const spread=(Math.max(...rows.map(r=>r.v))-Math.min(...rows.map(r=>r.v))).toFixed(0);
   document.getElementById("info").textContent=rows.length+" dots, spread "+spread+" dB";
+  const fl=document.getElementById("flat"), flat=(+spread)<FLATDB;
+  fl.style.display=flat?"block":"none";
+  fl.textContent=flat?"FLAT: this frequency moved only "+spread+" dB along the whole route, so nothing stands out. The colours are spread over a "+MINSPAN+" dB scale so small wobbles do not look like hot spots.":"";
+  document.querySelector("#hot h4").textContent=flat?"Highest readings (flat channel)":"Hottest spots";
   const t0=rows.map(r=>r.t).sort()[0]||"", t1=rows.map(r=>r.t).sort().slice(-1)[0]||"";
-  document.getElementById("pline").textContent=(+sel.value)+" MHz   |   "+rows.length+" dots   |   "+
+  document.getElementById("pline").textContent=sel.value+" MHz   |   "+rows.length+" dots   |   "+
      t0.replace("T"," ").slice(0,16)+" to "+t1.replace("T"," ").slice(0,16)+" UTC   |   spread "+spread+" dB";
   hotspots(rows,lo,hi);
 }
@@ -297,10 +508,29 @@ function hotspots(rows,lo,hi){
   document.getElementById("phot").innerHTML="<b>Strongest spots:</b> "+picked.slice(0,5).map((r,i)=>
      (i+1)+") "+r.v.toFixed(1)+" dB at "+r.lat.toFixed(5)+", "+r.lon.toFixed(5)).join(" &nbsp; ");
 }
+// ---- places where several frequencies rose together
+const hotLayer=L.layerGroup().addTo(map);
+function drawHot(){
+  hotLayer.clearLayers();
+  const on=document.getElementById("hotmark").checked;
+  const box=document.getElementById("multilist"); box.innerHTML="";
+  if(!HOT.length){box.innerHTML="<small>None found. This list needs two or more frequencies that rise at the same place.</small>";}
+  HOT.forEach((h,i)=>{
+    const txt=h.items.map(x=>x[0]+" MHz +"+x[1]+" dB").join("<br>");
+    if(on){ L.circle([h.lat,h.lon],{radius:30,color:"#000",weight:2,dashArray:"4 3",fill:false}).bindPopup("<b>Place "+(i+1)+": "+h.n+" frequencies</b><br>"+txt+"<br>seen on "+h.passes+" pass"+(h.passes>1?"es":"")).addTo(hotLayer); }
+    const d=document.createElement("div"); d.className="sp";
+    d.innerHTML="<b>"+(i+1)+". "+h.n+" frequencies"+(h.passes>1?", "+h.passes+" passes":"")+"</b><br><small>"+h.items.map(x=>x[0]+" (+"+x[1]+")").join(", ")+"<br>"+h.lat.toFixed(5)+", "+h.lon.toFixed(5)+"</small>";
+    d.onclick=()=>{map.setView([h.lat,h.lon],18);};
+    box.appendChild(d);
+  });
+  document.getElementById("pmulti").innerHTML=HOT.length?"<b>Same place, several frequencies:</b> "+HOT.slice(0,5).map((h,i)=>(i+1)+") "+h.n+" freq at "+h.lat.toFixed(5)+", "+h.lon.toFixed(5)+" ("+h.items.map(x=>x[0]).join(", ")+" MHz)").join(" &nbsp; "):"";
+}
+document.getElementById("hotmark").onchange=drawHot;
 sel.onchange=()=>{autoRange();draw();};
 mn.onchange=mx.onchange=document.getElementById("sz").oninput=draw;
 document.getElementById("auto").onclick=()=>{autoRange();draw();};
 if(freqs.length){sel.value=freqs[0];autoRange();draw();}
+drawHot();
 
 // ---- printing: resize the map for the page, print, then restore
 function doPrint(){ window.print(); }
@@ -314,19 +544,31 @@ if(location.search.indexOf("print=1")>=0){ setTimeout(doPrint,3500); }   // lets
 """
 
 
-def build_map(paths, out, title=None, spacing_ft=None, pick="peak"):
-    """Create the HTML map. Returns (out_path, {freq: dot_count})."""
+def build_map(paths, out, title=None, spacing_ft=None, pick="peak", filters=None):
+    """Create the HTML map. Returns (out_path, {freq: dot_count}, info) where info holds the
+    multi-frequency hot spots, the flat channels and what the map was limited to.
+    filters (all optional): slots [1,3,4], radios ["hl2"], freqs [7.2], mph_min, mph_max, db_min, db_max."""
     rows = load_rows(paths)
     if not rows:
         raise ValueError("No usable rows found in the CSV (is it empty?).")
-    n_raw = len(rows)
+    flt = clean_filters(filters)
+    rows = filter_rows(rows, flt, "pre")
+    if not rows:
+        raise ValueError("No readings match those choices (slot / radio / frequency). Loosen them and try again.")
     if spacing_ft:
         rows = thin_rows(rows, float(spacing_ft), pick)
+    rows = filter_rows(rows, flt, "post")
+    if not rows:
+        raise ValueError("No readings match those choices (speed / level). Loosen them and try again.")
     groups = group_rows(rows)
 
     title = title or "RF noise map - " + os.path.basename(paths[0])
     if spacing_ft:
         title += "  (one dot per %g ft, %s)" % (float(spacing_ft), "strongest" if pick != "average" else "average")
+    if flt:
+        title += "  [only: %s]" % describe_filters(flt)
+    hot = find_hotspots(groups)
+    flat = sorted((k for k, v in groups.items() if max(r["v"] for r in v) - min(r["v"] for r in v) < FLAT_DB), key=key_mhz)
     css = read_vendor("leaflet.css")
     # The layer-switch icon is an image file; embed it so the map is one single file.
     css = css.replace("url(images/layers-2x.png)", f"url(data:image/png;base64,{b64('layers-2x.png')})")
@@ -338,10 +580,12 @@ def build_map(paths, out, title=None, spacing_ft=None, pick="peak"):
                 .replace("__LEAFLET_CSS__", css)
                 .replace("__LEAFLET_JS__", js.replace("</script>", "<\\/script>"))
                 .replace("__STOPS__", json.dumps(STOPS))
+                .replace("__HOT__", json.dumps(hot, separators=(",", ":")).replace("</", "<\\/"))
+                .replace("__MINSPAN__", repr(MIN_SPAN_DB)).replace("__FLATDB__", repr(FLAT_DB))
                 .replace("__DATA__", json.dumps(groups, separators=(",", ":")).replace("</", "<\\/")))
     with open(out, "w", encoding="utf-8") as f:
         f.write(html)
-    return out, {k: len(v) for k, v in groups.items()}
+    return out, {k: len(v) for k, v in groups.items()}, {"hot": hot, "flat": flat, "filters": describe_filters(flt)}
 
 
 # ----------------------------------------------------------------------------
@@ -352,14 +596,16 @@ def _kml_color(hexrgb, alpha="ff"):
     return alpha + b + g + r                      # KML wants aabbggrr
 
 
-def export_kml(paths, out, freq=None, title="RF noise map", spacing_ft=None, pick="peak"):
+def export_kml(paths, out, freq=None, title="RF noise map", spacing_ft=None, pick="peak", filters=None):
     """Colored dots for Google Earth. One folder per frequency (or just `freq`)."""
-    rows = load_rows(paths)
+    flt = clean_filters(filters)
+    rows = filter_rows(load_rows(paths), flt, "pre")
     if spacing_ft:
         rows = thin_rows(rows, float(spacing_ft), pick)
+    rows = filter_rows(rows, flt, "post")
     groups = group_rows(rows)
     if freq is not None:
-        groups = {k: v for k, v in groups.items() if float(k) == float(freq)}
+        groups = {k: v for k, v in groups.items() if key_mhz(k) == float(freq)}
     if not groups:
         raise ValueError("No data for that frequency.")
     esc = lambda s: s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
@@ -369,11 +615,9 @@ def export_kml(paths, out, freq=None, title="RF noise map", spacing_ft=None, pic
         parts.append(f'<Style id="s{i}"><IconStyle><color>{_kml_color(c)}</color><scale>0.45</scale>'
                      '<Icon><href>http://maps.google.com/mapfiles/kml/shapes/shaded_dot.png</href></Icon>'
                      '</IconStyle><LabelStyle><scale>0</scale></LabelStyle></Style>')
-    for k in sorted(groups, key=float):
+    for k in sorted(groups, key=key_mhz):
         rows = groups[k]
-        vals = sorted(r["v"] for r in rows)
-        lo = vals[int(0.02 * (len(vals) - 1))]
-        hi = vals[int(0.995 * (len(vals) - 1))]
+        lo, hi, _flat = colour_range([r["v"] for r in rows])
         parts.append(f"<Folder><name>{k} MHz</name>")
         for r in rows:
             f = (r["v"] - lo) / ((hi - lo) or 1)
@@ -413,9 +657,13 @@ def main():
             print(f"KML written: {out}")
         else:
             out = args.out or os.path.splitext(paths[0])[0] + "_map.html"
-            out, counts = build_map(paths, out, args.title, args.spacing_ft, args.pick)
+            out, counts, info = build_map(paths, out, args.title, args.spacing_ft, args.pick)
             print(f"Map written: {out}\n  dots per frequency -> " +
-                  ", ".join(f"{k} MHz: {v}" for k, v in sorted(counts.items(), key=lambda kv: float(kv[0]))))
+                  ", ".join(f"{k} MHz: {v}" for k, v in sorted(counts.items(), key=lambda kv: key_mhz(kv[0]))))
+            if info["hot"]:
+                print("  places where several frequencies rose together: %d" % len(info["hot"]))
+            if info["flat"]:
+                print("  flat channels (moved under %g dB): %s" % (FLAT_DB, ", ".join(info["flat"])))
     except ValueError as e:
         sys.exit(str(e))
 

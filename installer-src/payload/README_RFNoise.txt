@@ -118,7 +118,8 @@ PART 3 - USING IT (short version; the full guide has pictures)
    2. Choose the GPS (iPhone with the GPS2IP app, or a USB GPS puck) and the
       frequencies (up to four; you can change them while driving).
    3. Press Start. Drive. Press Stop.
-   4. Press "Make map". View it, print it, save it, or email it.
+   4. Press "Make map" (or the Quick map button at the top). View it, print it, save it, or email it.
+      In box 2 you can limit a map to chosen slots, radios, frequencies, speeds or levels.
 
   Safety: have a passenger run the computer, or set it up while parked.
 

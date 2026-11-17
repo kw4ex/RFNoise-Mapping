@@ -102,7 +102,7 @@ th{background:#f0f3f7}
 <ol>
  <li>Open <b>RF Noise Map</b> (double-click the icon). A window opens in your web browser.</li>
  <li>Press <span class="btn">Try a practice drive + map</span> in the <b>Tools</b> box. A fake drive is recorded in a second and a map opens: a red stretch is a pretend noisy power pole.</li>
- <li>Or tick <b>Practice mode</b> in box 1 and press <b>Start logging</b> to watch the live readings for about 40 seconds.</li>
+ <li>Or tick <b>Practice</b> in the bar at the top and press <b>Start logging</b> to watch the live readings for about 40 seconds.</li>
 </ol>
 <p>The practice route is made up, so it won't follow real streets. Real drives will.</p>
 
@@ -134,10 +134,11 @@ th{background:#f0f3f7}
   <li>Leave <b>Calibration</b> at 0 unless you've calibrated (section 10).</li></ul></li>
  <li><b>Dot spacing</b> sets how often a reading is saved (default one every 10&nbsp;ft). Use the quick buttons or type a number. You can change it <b>while driving</b>; it applies from the next dot. Smaller spacing gives more detail but bigger files, and if you drive faster than the radio can measure, dots end up farther apart than the setting.</li>
  <li><b>Take a reading by time instead of distance.</b> Next to Dot spacing, choose <b>by time</b> and type the seconds (for example 5). The program then saves a reading every few seconds, even when you stand still &mdash; handy for catching an <b>intermittent noise</b> at one spot. The default is by distance. You can switch while driving; readings taken at one place pile up on one dot on the map.</li>
- <li>Press <span class="btn">&#9654; Start logging</span>. The header shows <b>Logging</b> and <b>GPS: OK</b>, and the big numbers show the live level for each frequency.</li>
- <li><b>Drive the route.</b> Steady speed is best. You can change frequencies <b>while driving</b>: edit the boxes and press <span class="btn">Apply frequency changes now</span>. <span class="btn">Pause / resume</span> is there for stops.</li>
- <li>Press <span class="btn">&#9632; Stop logging</span> when finished. If <b>Make a map automatically</b> is ticked, the map opens.</li>
+ <li>Press <span class="btn">&#9654; Start logging</span> in the <b>drive bar</b> at the top of the page (it stays in view as you scroll; type the route name there first if you like). The header shows <b>Logging</b> and <b>GPS: OK</b>, and the big numbers show the live level for each frequency.</li>
+ <li><b>Drive the route.</b> Steady speed is best. You can change frequencies <b>while driving</b>: edit the boxes and press <span class="btn">Apply frequency changes</span> in the drive bar. <span class="btn">Pause recording</span> / <span class="btn">Resume</span> is there too, for stops.</li>
+ <li>Press <span class="btn">&#9632; Stop logging</span> in the drive bar when finished. If <b>Map when I stop</b> is ticked, the map opens.</li>
 </ol>
+<div class="box tip"><b>The drive bar.</b> The strip under the title is always in view. From left to right: <b>Route name</b>, <b>Practice</b>, <b>Start logging</b> (which becomes <b>Stop logging</b>), <b>Pause recording</b>, <b>Apply frequency changes</b> (while logging), and a status text (<i>Recording &middot; 214 dots &middot; 17 mph</i>, or <i>PAUSED</i>). On the right: <b>Map when I stop</b>, <b>&#9889; Quick map</b> and <b>Make map&hellip;</b>. Any problem starting a drive shows up right under the bar. The <b>Jump to</b> links take you to Setup, Live slots, Drives and Maps.</div>
 <div class="box tip"><b>Good habits:</b> don't change attenuation mid-route (dots before and after would not be directly comparable); keep the computer plugged in (the program keeps it awake while logging); drive each important road twice, once in each direction; note the date and conditions in <b>Name / notes</b>.</div>
 <div class="box warn"><b>Safety:</b> have a passenger operate the computer, or set everything up while parked. Please don't use the screen while driving.</div>
 
@@ -219,15 +220,21 @@ Only <b>one program</b> can use the radio at a time: close Thetis or SDR Console
 <ol>
  <li>In box <b>2 Your recorded drives</b>, press <span class="btn">Make map</span> on a drive. The map opens in a new browser tab.</li>
  <li>To <b>combine several drives</b> on one map, tick them and press <span class="btn">Make map from ticked drives</span>.</li>
+ <li><b>&#9889; Quick map</b> (in the drive bar and in box 2) is the one-press version: it maps the drive being recorded right now (what is saved so far, even while you drive) or else your newest drive, with all slots and the dot spacing chosen under the drives list. Nothing else to choose.</li>
+ <li><b>Only use some of the readings.</b> Under the dot-spacing choice, the box <b>Only use some of the readings</b> lets you leave things out of the map: untick a <b>slot</b> (for example keep slots 1, 3 and 4 and leave out slot 2), a <b>radio</b>, or a <b>frequency</b>, or set a <b>speed</b> range (a minimum of 3&nbsp;mph drops the readings taken while you were stopped) or a <b>level</b> range in dB. The choices follow the drives you tick (all drives if none is ticked) and apply to <span class="btn">Make map</span> and <span class="btn">Google Earth</span>. The map title says what it was limited to, and the file name carries a tag (for example <b>_slot134</b>) so it never overwrites the full map. Drives recorded before slots were saved are sorted into slots by the order of their frequencies.</li>
  <li><b>How many dots?</b> Every reading is saved with its time to the millisecond, so the program can work out how far you travelled at every moment. Under the drives list, choose <b>One dot every [50] feet</b> to space the dots evenly <i>when the map is made</i>, whatever your speed was. Keep <b>the strongest reading</b> in each stretch (best for hunting noise: a short burst is never lost) or <b>the average</b>. The original recording is never changed, so you can make the same drive again with a different spacing.</li>
 </ol>
 <h3>Read the map</h3>
 <ul>
  <li><b>Blue</b> dots = weak, <b>red</b> dots = strong. The color bar shows the dB numbers; change <b>Min / Max</b> to stretch the colors, or press <b>Auto</b>.</li>
  <li>Pick the <b>frequency</b> in the drop-down. Each frequency has its own picture of the same route.</li>
+ <li><b>Flat channels.</b> The colours are stretched over the range of each frequency, but never over less than <b>10&nbsp;dB</b>. A frequency that moved less than 6&nbsp;dB in the whole drive is marked <b>FLAT</b>: nothing stands out there, so a few dB of wobble does not look like a hot spot. (Flat can also mean the radio could not hear below its own noise: try more gain.)</li>
+ <li><b>Same place, several frequencies</b> (box at top right). A noise source such as a bad insulator usually raises more than one frequency at once. The program looks for places within about 150&nbsp;ft where two or more frequencies rose well above their usual level at the same time, and lists them best first, with how much each rose and how many passes saw it. Tick <b>mark them on the map</b> to see a dashed ring at each; tap an entry to zoom there. A place seen on two passes is a strong lead.</li>
  <li>Tap a dot to see its level, time and speed. <b>Hottest spots</b> lists the ten strongest places; tap one to zoom there.</li>
  <li>The button at top right switches <b>Street / Satellite</b>. Zoom in to separate dots.</li>
 </ul>
+<h3>What is saved with each drive</h3>
+<p>Besides the readings (CSV), each drive has a small info file (<b>.meta.json</b>) holding its name and notes, the program version, the <b>gains</b> (Hermes, SDRplay IF/RF, RTL-SDR), the Hermes detail setting, the dot spacing, the slot-to-radio list, and a time-stamped note of any <b>gain or slot change</b> made during the drive. The drives list shows the gains under each drive name, so you can always tell what a map was recorded with.</p>
 <h3>Print or save as a PDF</h3>
 <p>In box <b>3 Maps</b> press <span class="btn">Print / PDF</span> (or the <b>Print / Save as PDF</b> button on the map itself). The print preview shows the title, color scale, strongest spots and the map. Choose your printer, or <b>Save as PDF</b> as the destination. Landscape paper works best.</p>
 <h3>Save a viewable file</h3>

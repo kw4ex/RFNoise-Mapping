@@ -316,11 +316,11 @@ def test_drive(r, radio_ok, seconds=25):
         r.add("Mock drive", "ok", f"Saved {len(rows)} readings using {what}; levels from "
                                   f"{min(levels):.1f} to {max(levels):.1f} dBFS.")
         import make_map
-        out, counts = make_map.build_map(csvs, os.path.join(tmp, "test_map.html"), "Self-test")
+        out, counts, _info = make_map.build_map(csvs, os.path.join(tmp, "test_map.html"), "Self-test")
         size = os.path.getsize(out)
         r.add("Mock drive", "ok" if size > 20000 else "warn",
               f"Map built ({size//1024} KB, dots per frequency: " +
-              ", ".join(f"{k} MHz: {v}" for k, v in sorted(counts.items(), key=lambda kv: float(kv[0]))) + ").")
+              ", ".join(f"{k} MHz: {v}" for k, v in sorted(counts.items(), key=lambda kv: make_map.key_mhz(kv[0]))) + ").")
         return True
     except Exception as e:
         r.add("Mock drive", "fix", f"The mock drive failed: {e}")

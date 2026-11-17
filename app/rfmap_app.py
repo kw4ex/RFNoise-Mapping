@@ -465,12 +465,27 @@ class App:
             return hit[1]
         times, pts, freqs = [], [], set()
         last_t = None
+        slotfreqs, radios, guess = {}, set(), None
         try:
             with open(path, newline="") as f:
                 for r in csv.DictReader(f):
                     try:
-                        t = r["time_utc"]
-                        freqs.add(float(r["freq_mhz"]))
+                        t = (r.get("pos_time_utc") or "").strip() or r["time_utc"]     # one dot = one position
+                        fq = float(r["freq_mhz"])
+                        freqs.add(fq)
+                        sl, rd = (r.get("slot") or "").strip(), (r.get("radio") or "").strip()
+                        if not sl:                          # an older drive: work the slot out from its info file
+                            if guess is None:
+                                guess = make_map.infer_slots(path)
+                            g = guess.get(round(fq, 6))
+                            if g:
+                                sl, rd = str(g[0]), g[1]
+                        if sl.isdigit():
+                            lst = slotfreqs.setdefault(sl, [])
+                            if round(fq, 6) not in lst:
+                                lst.append(round(fq, 6))
+                        if rd:
+                            radios.add(rd)
                         if t != last_t:
                             last_t = t
                             times.append(t)
@@ -481,6 +496,7 @@ class App:
             pass
         meters = sum(dist_m(a, b) for a, b in zip(pts, pts[1:]))
         info = {"dots": len(pts), "freqs": sorted(freqs), "miles": round(meters / 1609.344, 2),
+                "slotfreqs": slotfreqs, "radios": sorted(radios),
                 "first": times[0] if times else "", "size_kb": round(st.st_size / 1024, 1)}
         self._cache[path] = (key, info)
         return info
@@ -495,9 +511,31 @@ class App:
             info = ({"dots": None, "freqs": [], "miles": None, "first": "", "size_kb": round(os.path.getsize(path) / 1024, 1)}
                     if recording else self.drive_info(path))
             out.append(dict(info, file=fn, name=meta.get("name") or fn[:-4], notes=meta.get("notes", ""),
+                            setup=self.setup_text(meta),
                             recording=recording, practice=fn.endswith("_PRACTICE.csv"),
                             modified=datetime.fromtimestamp(os.path.getmtime(path)).strftime("%Y-%m-%d %H:%M")))
         return out
+
+    @staticmethod
+    def setup_text(meta):
+        """A short line for the drives list: the gains the drive was recorded with."""
+        st = meta.get("settings") or {}
+        if not st:
+            return ""
+        bits = []
+        radios = {str(c.get("radio")) for c in meta.get("slots", [])}
+        if "hl2" in radios and st.get("hl2_gain_db") is not None:
+            bits.append("Hermes %+d dB" % int(st["hl2_gain_db"]))
+        if "sdrplay" in radios and st.get("if_gain_db") is not None:
+            bits.append("SDRplay IF %s / RF %s" % (st["if_gain_db"], st.get("rf_gain_state")))
+        rg = st.get("rtl_gain_db") or {}
+        for r in sorted(radios):
+            if r.startswith("rtl"):
+                bits.append("RTL-SDR %s %s dB" % (r[3:], rg.get(r, 30)))
+        txt = ", ".join(bits)
+        if meta.get("changes"):
+            txt += " (gain changed %d time%s during the drive)" % (len(meta["changes"]), "" if len(meta["changes"]) == 1 else "s")
+        return txt
 
     def maps(self):
         out = []
@@ -514,7 +552,7 @@ class App:
                 for fn in sorted(os.listdir(self.exports_dir), reverse=True)]
 
     # ---- actions
-    def make_map(self, files, title=None, spacing_ft=None, pick="peak"):
+    def make_map(self, files, title=None, spacing_ft=None, pick="peak", filters=None):
         paths = [safe_name(f, self.drives_dir, (".csv",)) for f in files]
         if not paths:
             raise ValueError("Choose at least one drive.")
@@ -528,9 +566,32 @@ class App:
             title = title or f"Combined map ({len(paths)} drives)"
         sp = self._clean_spacing(spacing_ft)
         pick = "average" if pick == "average" else "peak"
-        out = os.path.join(self.maps_dir, base + (("_%gft" % sp) if sp else "") + "_map.html")
-        out, counts = make_map.build_map(paths, out, title, sp, pick)
-        return {"map": os.path.basename(out), "counts": counts}
+        flt = make_map.clean_filters(filters)
+        out = os.path.join(self.maps_dir, base + (("_%gft" % sp) if sp else "") + make_map.filter_tag(flt) + "_map.html")
+        out, counts, info = make_map.build_map(paths, out, title, sp, pick, flt)
+        return {"map": os.path.basename(out), "counts": counts, "hot": len(info["hot"]),
+                "hot_places": info["hot"][:3], "flat": info["flat"], "filters": info["filters"]}
+
+    def quick_map(self, spacing_ft=None, pick="peak"):
+        """One-press map: the drive being recorded right now (a map of what is saved so far), or else the newest
+        drive. All slots, the dot spacing the person has chosen in the Drives box."""
+        name, live = None, False
+        if self.running() and self.active_csv:
+            name, live = self.active_csv, True
+        else:
+            files = [f for f in os.listdir(self.drives_dir) if f.lower().endswith(".csv")]
+            real = [f for f in files if not f.endswith("_PRACTICE.csv")]
+            pool = files if self.cfg.get("practice") or not real else real
+            if pool:
+                name = sorted(pool, reverse=True)[0]
+        if not name:
+            raise ValueError("There is no drive yet. Press Start logging (or try Practice mode) first.")
+        title = None
+        if live:
+            title = (self.read_meta(os.path.join(self.drives_dir, name)).get("name") or name[:-4]) + " (so far)"
+        r = self.make_map([name], title, spacing_ft, pick)
+        r.update({"drive": name, "live": live})
+        return r
 
     @staticmethod
     def _clean_spacing(v):
@@ -543,12 +604,13 @@ class App:
             return None
         return min(max(v, 2.0), 5280.0)
 
-    def make_kml(self, fname, spacing_ft=None, pick="peak"):
+    def make_kml(self, fname, spacing_ft=None, pick="peak", filters=None):
         path = safe_name(fname, self.drives_dir, (".csv",))
         sp = self._clean_spacing(spacing_ft)
-        out = os.path.join(self.exports_dir, os.path.basename(path)[:-4] + (("_%gft" % sp) if sp else "") + ".kml")
+        flt = make_map.clean_filters(filters)
+        out = os.path.join(self.exports_dir, os.path.basename(path)[:-4] + (("_%gft" % sp) if sp else "") + make_map.filter_tag(flt) + ".kml")
         make_map.export_kml([path], out, title=self.read_meta(path).get("name") or os.path.basename(path),
-                            spacing_ft=sp, pick="average" if pick == "average" else "peak")
+                            spacing_ft=sp, pick="average" if pick == "average" else "peak", filters=flt)
         return out
 
     def backup(self):
@@ -1062,9 +1124,11 @@ class Handler(BaseHTTPRequestHandler):
                     res["map_error"] = str(e)
             return res
         if path == "/api/map":
-            return dict(ok=True, **APP.make_map(b.get("files", []), b.get("title"), b.get("spacing_ft"), b.get("pick", "peak")))
+            return dict(ok=True, **APP.make_map(b.get("files", []), b.get("title"), b.get("spacing_ft"), b.get("pick", "peak"), b.get("filters")))
+        if path == "/api/quickmap":
+            return dict(ok=True, **APP.quick_map(b.get("spacing_ft"), b.get("pick", "peak")))
         if path == "/api/kml":
-            out = APP.make_kml(b.get("file", ""), b.get("spacing_ft"), b.get("pick", "peak"))
+            out = APP.make_kml(b.get("file", ""), b.get("spacing_ft"), b.get("pick", "peak"), b.get("filters"))
             return {"ok": True, "file": os.path.basename(out)}
         if path == "/api/drive/meta":
             APP.set_meta(b.get("file", ""), str(b.get("name", ""))[:80], str(b.get("notes", ""))[:2000])
