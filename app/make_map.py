@@ -373,7 +373,12 @@ html,body{height:100%;margin:0;font-family:-apple-system,Helvetica,Arial,sans-se
 #map{position:absolute;inset:0}
 .panel{position:absolute;z-index:1000;background:rgba(255,255,255,.95);border-radius:8px;
  box-shadow:0 1px 6px rgba(0,0,0,.4);padding:8px 10px;font-size:13px}
-#ctl{top:10px;left:50px;max-width:270px}
+#ctl{top:10px;left:50px;width:292px;max-height:calc(100vh - 24px);overflow:auto}
+#ctl details{margin-top:5px;border-top:1px solid #ddd;padding-top:4px}
+#ctl summary{cursor:pointer;font-weight:600;font-size:13px}
+#ctl label{white-space:nowrap}
+#ctl .sm{font-size:12px;color:#555}
+#ctl .tg{display:block;margin:2px 0}
 #ctl select,#ctl input{font-size:14px}
 #ctl input[type=number]{width:62px}
 #bar,#pbar{height:14px;border-radius:3px;margin:6px 0 2px}
@@ -415,11 +420,28 @@ button{font-size:13px;padding:3px 8px}
  Frequency: <select id="freq"></select><br>
  Min <input id="mn" type="number" step="1"> Max <input id="mx" type="number" step="1"> dB
  <button id="auto">Auto</button><br>
- Dot size <input id="sz" type="range" min="2" max="12" value="5" style="width:110px">
+ Dot size <input id="sz" type="range" min="2" max="12" value="5" style="width:80px"> see-through <input id="op" type="range" min="15" max="100" value="92" style="width:62px" title="Left = more see-through">
  <div id="bar"></div>
  <div id="barlab"><span id="lo"></span><span>weak &rarr; strong</span><span id="hi"></span></div>
  <div id="info" style="margin-top:4px;color:#555"></div>
  <div id="flat"></div>
+ <details open><summary>Background and what to show</summary>
+  Background <select id="basesel" style="max-width:200px"></select>
+  <div class="sm">Terrain, topo and USGS are free public map layers; &ldquo;No background&rdquo; works without internet.</div>
+  <label class="tg"><input type="checkbox" id="tgDots" checked> Dots</label>
+  <label class="tg"><input type="checkbox" id="tgHeat"> Heat glow (smooth areas of noise)</label>
+  <label class="tg"><input type="checkbox" id="tgMarks" checked> &#128681; Marked spots</label>
+  <label class="tg"><input type="checkbox" id="tgPower"> Power lines &amp; poles (OpenStreetMap)</label>
+  <div class="sm" id="powerMsg"></div>
+  Also show <select id="freq2"><option value="">(nothing)</option></select> as rings
+  <div class="sm" id="f2info"></div>
+ </details>
+ <details><summary>Replay the drive</summary>
+  <button id="pPlay" title="Play / pause">&#9654;</button>
+  <input id="pSl" type="range" min="0" max="1000" value="1000" style="width:110px">
+  <select id="pSpd"><option value="10">10&times;</option><option value="30" selected>30&times;</option><option value="100">100&times;</option><option value="300">300&times;</option></select>
+  <div class="sm" id="pNow">Drag the slider or press play to watch the dots appear in the order they were recorded. Slide fully right for the normal view.</div>
+ </details>
  <div style="margin-top:6px"><button id="print">Print / Save as PDF</button></div>
 </div>
 <div id="hot" class="panel"><h4>Hottest spots</h4><div id="hotlist"></div></div>
@@ -443,42 +465,60 @@ const GRAD="linear-gradient(to right,"+STOPS.join(",")+")";
 document.getElementById("bar").style.background=GRAD;
 document.getElementById("pbar").style.background=GRAD;
 
-const map = L.map("map",{preferCanvas:true});
-const street = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-  {maxZoom:19, attribution:"&copy; OpenStreetMap contributors", crossOrigin:true});
-const sat = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-  {maxZoom:19, attribution:"Tiles &copy; Esri", crossOrigin:true});
-street.addTo(map);
-L.control.layers({"Street":street,"Satellite":sat}).addTo(map);
+const map = L.map("map",{preferCanvas:true,maxZoom:19});
+const OSMA="&copy; OpenStreetMap contributors", ESRI="Tiles &copy; Esri", ES="https://server.arcgisonline.com/ArcGIS/rest/services/";
+const TL=(u,o)=>L.tileLayer(u,Object.assign({maxZoom:19,crossOrigin:true},o||{}));
+const BASES={
+ "Street (OpenStreetMap)":TL("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{attribution:OSMA}),
+ "Satellite":TL(ES+"World_Imagery/MapServer/tile/{z}/{y}/{x}",{attribution:ESRI}),
+ "Satellite + street names":L.layerGroup([TL(ES+"World_Imagery/MapServer/tile/{z}/{y}/{x}",{attribution:ESRI}),
+    TL(ES+"Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}"),TL(ES+"Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}")]),
+ "Terrain (OpenTopoMap)":TL("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png",{maxNativeZoom:17,attribution:OSMA+", SRTM | &copy; OpenTopoMap (CC-BY-SA)"}),
+ "Topo (Esri)":TL(ES+"World_Topo_Map/MapServer/tile/{z}/{y}/{x}",{attribution:ESRI}),
+ "USGS imagery (US only)":TL("https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/{z}/{y}/{x}",{maxNativeZoom:16,attribution:"USGS The National Map"}),
+ "USGS topo (US only)":TL("https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/tile/{z}/{y}/{x}",{maxNativeZoom:16,attribution:"USGS The National Map"}),
+ "Light grey (dots stand out)":TL("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",{subdomains:"abcd",attribution:OSMA+" &copy; CARTO"}),
+ "Dark":TL("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",{subdomains:"abcd",attribution:OSMA+" &copy; CARTO"}),
+ "No background (works offline)":L.layerGroup([])
+};
+let baseName="Street (OpenStreetMap)", baseLayer=null;
+try{ const b=localStorage.getItem("rfmapBase"); if(b&&BASES[b]) baseName=b; }catch(e){}
+function setBase(n){ if(!BASES[n]) return; if(baseLayer) map.removeLayer(baseLayer); baseLayer=BASES[n]; baseLayer.addTo(map); if(baseLayer.bringToBack) baseLayer.bringToBack(); baseName=n; try{localStorage.setItem("rfmapBase",n);}catch(e){} }
+const bsel=document.getElementById("basesel");
+Object.keys(BASES).forEach(n=>{const o=document.createElement("option");o.value=o.textContent=n;bsel.appendChild(o);});
+bsel.value=baseName; setBase(baseName); bsel.onchange=()=>setBase(bsel.value);
+function geoLinks(la,lo){ const q=la.toFixed(6)+","+lo.toFixed(6), a=(u,t)=>'<a target="_blank" rel="noopener" href="'+u+'">'+t+'</a>';
+  return '<div style="margin-top:4px">'+a("https://www.google.com/maps/@?api=1&map_action=pano&viewpoint="+q,"Street View")+' &middot; '+
+    a("https://www.google.com/maps/dir/?api=1&destination="+q,"Navigate")+' &middot; '+a("https://maps.apple.com/?daddr="+q,"Apple Maps")+'</div>'; }
 L.control.scale({imperial:true,metric:false}).addTo(map);
 
 const sel=document.getElementById("freq"), mn=document.getElementById("mn"), mx=document.getElementById("mx");
 const freqs=Object.keys(DATA).sort((a,b)=>parseFloat(a)-parseFloat(b));
 freqs.forEach(f=>{const o=document.createElement("option");o.value=f;o.textContent=f+" MHz  ("+DATA[f].length+" dots)";sel.appendChild(o);});
 
+const heatLayer=L.layerGroup().addTo(map), group2=L.layerGroup().addTo(map);
 let group=L.layerGroup().addTo(map), fitted=false, lastPicked=[];
 
 function pct(arr,p){const s=[...arr].sort((a,b)=>a-b);return s[Math.min(s.length-1,Math.max(0,Math.floor(p*(s.length-1))))];}
+function rangeOf(vals){ let lo=Math.floor(pct(vals,0.02)), hi=Math.ceil(pct(vals,0.995)); if(hi-lo<MINSPAN) hi=lo+MINSPAN; return [lo,hi]; }
 function autoRange(){
-  const vals=DATA[sel.value].map(r=>r.v);
-  let lo=Math.floor(pct(vals,0.02)), hi=Math.ceil(pct(vals,0.995));
-  if(hi-lo<MINSPAN) hi=lo+MINSPAN;          // a quiet channel must not be stretched into a rainbow
-  mn.value=lo; mx.value=hi;
+  const r=rangeOf(DATA[sel.value].map(r=>r.v)); mn.value=r[0]; mx.value=r[1];   // a quiet channel must not be stretched into a rainbow
+}
+function dotOp(){ return (+document.getElementById("op").value)/100; }
+function dotMarker(r,lo,hi,rad,op){
+  return L.circleMarker([r.lat,r.lon],{radius:rad,color:"#222",weight:0.6,opacity:Math.min(1,op+0.1),fillColor:colorAt((r.v-lo)/(hi-lo||1)),fillOpacity:op})
+   .bindPopup("<b>"+r.v.toFixed(1)+" dB</b><br>"+sel.value+" MHz, "+r.bw+" kHz wide<br>"+
+              r.t.replace("T"," ").replace("Z"," UTC")+"<br>"+r.mph.toFixed(0)+" mph<br>"+
+              r.lat.toFixed(6)+", "+r.lon.toFixed(6)+geoLinks(r.lat,r.lon));
 }
 function draw(){
+  pbStop();
   group.clearLayers();
-  const rows=DATA[sel.value], lo=+mn.value, hi=+mx.value, rad=+document.getElementById("sz").value;
+  const rows=DATA[sel.value], lo=+mn.value, hi=+mx.value, rad=+document.getElementById("sz").value, op=dotOp();
   document.getElementById("lo").textContent=lo; document.getElementById("hi").textContent=hi;
   document.getElementById("plo").textContent=lo; document.getElementById("phi").textContent=hi;
   // draw weak first, strong last, so the strong dots sit on top
-  const order=[...rows].sort((a,b)=>a.v-b.v);
-  order.forEach(r=>{
-    const c=colorAt((r.v-lo)/(hi-lo||1));
-    L.circleMarker([r.lat,r.lon],{radius:rad,color:"#222",weight:0.6,fillColor:c,fillOpacity:0.92})
-     .bindPopup("<b>"+r.v.toFixed(1)+" dB</b><br>"+sel.value+" MHz, "+r.bw+" kHz wide<br>"+
-                r.t.replace("T"," ").replace("Z"," UTC")+"<br>"+r.mph.toFixed(0)+" mph<br>"+
-                r.lat.toFixed(6)+", "+r.lon.toFixed(6)).addTo(group);
-  });
+  [...rows].sort((a,b)=>a.v-b.v).forEach(r=>dotMarker(r,lo,hi,rad,op).addTo(group));
   if(!fitted && rows.length){map.fitBounds(L.latLngBounds(rows.map(r=>[r.lat,r.lon])).pad(0.05));fitted=true;}
   const spread=(Math.max(...rows.map(r=>r.v))-Math.min(...rows.map(r=>r.v))).toFixed(0);
   document.getElementById("info").textContent=rows.length+" dots, spread "+spread+" dB";
@@ -490,7 +530,52 @@ function draw(){
   document.getElementById("pline").textContent=sel.value+" MHz   |   "+rows.length+" dots   |   "+
      t0.replace("T"," ").slice(0,16)+" to "+t1.replace("T"," ").slice(0,16)+" UTC   |   spread "+spread+" dB";
   hotspots(rows,lo,hi);
+  drawHeat(); draw2();
 }
+// ---- heat glow: big soft translucent discs that add up where readings are strong
+function drawHeat(){
+  heatLayer.clearLayers();
+  if(!document.getElementById("tgHeat").checked) return;
+  const rows=DATA[sel.value], lo=+mn.value, hi=+mx.value;
+  [...rows].sort((a,b)=>a.v-b.v).forEach(r=>L.circleMarker([r.lat,r.lon],{radius:20,stroke:false,fillColor:colorAt((r.v-lo)/(hi-lo||1)),fillOpacity:0.13,interactive:false}).addTo(heatLayer));
+}
+// ---- a second frequency drawn as rings around the dots
+const f2=document.getElementById("freq2");
+freqs.forEach(f=>{const o=document.createElement("option");o.value=f;o.textContent=f+" MHz";f2.appendChild(o);});
+function draw2(){
+  group2.clearLayers(); const k=f2.value, inf=document.getElementById("f2info"); inf.textContent="";
+  if(!k||!DATA[k]) return;
+  const rows=DATA[k], r2=rangeOf(rows.map(r=>r.v)), rad=+document.getElementById("sz").value+4, op=Math.min(1,dotOp()+0.05);
+  inf.textContent="Rings: "+k+" MHz, coloured "+r2[0]+" to "+r2[1]+" dB (same colour scale as the dots)";
+  [...rows].sort((a,b)=>a.v-b.v).forEach(r=>L.circleMarker([r.lat,r.lon],{radius:rad,color:colorAt((r.v-r2[0])/(r2[1]-r2[0]||1)),weight:3,fill:false,opacity:op})
+    .bindPopup("<b>"+k+" MHz: "+r.v.toFixed(1)+" dB</b><br>"+r.t.replace("T"," ").replace("Z"," UTC")+"<br>"+r.lat.toFixed(6)+", "+r.lon.toFixed(6)+geoLinks(r.lat,r.lon)).addTo(group2));
+}
+// ---- replay: the dots appear in the order they were recorded
+const PB={timer:null,rows:[],ts:[],i:0,t0:0};
+function pbPrep(){ PB.rows=[...DATA[sel.value]].sort((a,b)=>a.t<b.t?-1:a.t>b.t?1:0); PB.ts=PB.rows.map(r=>Date.parse(r.t)); }
+function pbShow(i){                                   // dots 0..i on the map
+  group.clearLayers(); const lo=+mn.value, hi=+mx.value, rad=+document.getElementById("sz").value, op=dotOp();
+  for(let k=0;k<=i&&k<PB.rows.length;k++) dotMarker(PB.rows[k],lo,hi,rad,op).addTo(group);
+  const r=PB.rows[Math.min(i,PB.rows.length-1)]; if(r) document.getElementById("pNow").textContent=r.t.slice(11,19)+" UTC  |  "+r.v.toFixed(1)+" dB  |  "+r.mph.toFixed(0)+" mph  |  dot "+(i+1)+" of "+PB.rows.length;
+}
+function pbStop(){ if(PB.timer){ clearInterval(PB.timer); PB.timer=null; } document.getElementById("pPlay").innerHTML="&#9654;"; }
+const pSl=document.getElementById("pSl");
+pSl.oninput=()=>{ pbStop(); if(+pSl.value>=1000){ draw(); document.getElementById("pNow").textContent="Normal view: all dots."; return; }
+  pbPrep(); PB.i=Math.round(+pSl.value/1000*(PB.rows.length-1)); pbShow(PB.i); };
+document.getElementById("pPlay").onclick=()=>{
+  if(PB.timer){ pbStop(); return; }
+  pbPrep(); if(!PB.rows.length) return;
+  if(+pSl.value>=1000||PB.i>=PB.rows.length-1){ PB.i=0; group.clearLayers(); }
+  let wall=Date.now(); const base=PB.ts[PB.i];
+  document.getElementById("pPlay").innerHTML="&#9208;";
+  PB.timer=setInterval(()=>{
+    const driveT=base+(Date.now()-wall)*(+document.getElementById("pSpd").value);
+    let j=PB.i; const lo=+mn.value, hi=+mx.value, rad=+document.getElementById("sz").value, op=dotOp();
+    while(j+1<PB.rows.length&&PB.ts[j+1]<=driveT){ j++; dotMarker(PB.rows[j],lo,hi,rad,op).addTo(group); }
+    if(j!==PB.i){ PB.i=j; pSl.value=Math.round(j/(PB.rows.length-1)*1000); const r=PB.rows[j]; document.getElementById("pNow").textContent=r.t.slice(11,19)+" UTC  |  "+r.v.toFixed(1)+" dB  |  "+r.mph.toFixed(0)+" mph  |  dot "+(j+1)+" of "+PB.rows.length; }
+    if(PB.i>=PB.rows.length-1){ pbStop(); pSl.value=1000; }
+  },120);
+};
 function hotspots(rows,lo,hi){
   // strongest readings, skipping any within ~250 ft of one already listed
   const picked=[];
@@ -503,7 +588,7 @@ function hotspots(rows,lo,hi){
   picked.forEach((r,i)=>{
     const d=document.createElement("div");
     d.innerHTML='<span class="sw" style="background:'+colorAt((r.v-lo)/(hi-lo||1))+'"></span>'+(i+1)+". "+r.v.toFixed(1)+" dB";
-    d.onclick=()=>{map.setView([r.lat,r.lon],19);L.popup().setLatLng([r.lat,r.lon]).setContent("<b>"+r.v.toFixed(1)+" dB</b><br>"+r.t.replace("T"," ")).openOn(map);};
+    d.onclick=()=>{map.setView([r.lat,r.lon],19);L.popup().setLatLng([r.lat,r.lon]).setContent("<b>"+r.v.toFixed(1)+" dB</b><br>"+r.t.replace("T"," ")+geoLinks(r.lat,r.lon)).openOn(map);};
     box.appendChild(d);
   });
   document.getElementById("phot").innerHTML="<b>Strongest spots:</b> "+picked.slice(0,5).map((r,i)=>
@@ -518,7 +603,7 @@ function drawHot(){
   if(!HOT.length){box.innerHTML="<small>None found. This list needs two or more frequencies that rise at the same place.</small>";}
   HOT.forEach((h,i)=>{
     const txt=h.items.map(x=>x[0]+" MHz +"+x[1]+" dB").join("<br>");
-    if(on){ L.circle([h.lat,h.lon],{radius:30,color:"#000",weight:2,dashArray:"4 3",fill:false}).bindPopup("<b>Place "+(i+1)+": "+h.n+" frequencies</b><br>"+txt+"<br>seen on "+h.passes+" pass"+(h.passes>1?"es":"")).addTo(hotLayer); }
+    if(on){ L.circle([h.lat,h.lon],{radius:30,color:"#000",weight:2,dashArray:"4 3",fill:false}).bindPopup("<b>Place "+(i+1)+": "+h.n+" frequencies</b><br>"+txt+"<br>seen on "+h.passes+" pass"+(h.passes>1?"es":"")+geoLinks(h.lat,h.lon)).addTo(hotLayer); }
     const d=document.createElement("div"); d.className="sp";
     d.innerHTML="<b>"+(i+1)+". "+h.n+" frequencies"+(h.passes>1?", "+h.passes+" passes":"")+"</b><br><small>"+h.items.map(x=>x[0]+" (+"+x[1]+")").join(", ")+"<br>"+h.lat.toFixed(5)+", "+h.lon.toFixed(5)+"</small>";
     d.onclick=()=>{map.setView([h.lat,h.lon],18);};
@@ -531,15 +616,43 @@ document.getElementById("hotmark").onchange=drawHot;
 const markLayer=L.layerGroup().addTo(map);
 MARKS.forEach(m=>{
   const ic=L.divIcon({className:"",html:'<div style="font-size:22px;line-height:22px;text-shadow:0 0 3px #fff,0 0 3px #fff">&#128681;</div>',iconSize:[22,22],iconAnchor:[4,20]});
-  L.marker([m[0],m[1]],{icon:ic}).bindPopup("<b>Mark "+m[2]+"</b>"+(m[3]?"<br>"+m[3].replace(/</g,"&lt;"):"")+"<br>"+(m[4]||"").replace("T"," ").replace("Z"," UTC")+(m[5]?"<br>"+m[5]:"")).addTo(markLayer);
+  L.marker([m[0],m[1]],{icon:ic}).bindPopup("<b>Mark "+m[2]+"</b>"+(m[3]?"<br>"+m[3].replace(/</g,"&lt;"):"")+"<br>"+(m[4]||"").replace("T"," ").replace("Z"," UTC")+(m[5]?"<br>"+m[5]:"")+geoLinks(m[0],m[1])).addTo(markLayer);
 });
 if(MARKS.length){ const mb=document.createElement("div"); mb.style.marginTop="4px"; mb.innerHTML="&#128681; "+MARKS.length+" spot"+(MARKS.length>1?"s":"")+" marked while driving"; document.getElementById("info").after(mb);
   document.getElementById("phot").insertAdjacentHTML("afterend","<div id='pmarks'><b>Marked spots:</b> "+MARKS.slice(0,8).map(m=>m[2]+") "+(m[3]||"(no note)").replace(/</g,"&lt;")+" at "+m[0].toFixed(5)+", "+m[1].toFixed(5)).join(" &nbsp; ")+"</div>"); }
 sel.onchange=()=>{autoRange();draw();};
-mn.onchange=mx.onchange=document.getElementById("sz").oninput=draw;
+mn.onchange=mx.onchange=document.getElementById("sz").oninput=document.getElementById("op").oninput=draw;
+f2.onchange=draw2;
+document.getElementById("tgHeat").onchange=drawHeat;
+document.getElementById("tgDots").onchange=function(){ if(this.checked) map.addLayer(group); else map.removeLayer(group); };
+document.getElementById("tgMarks").onchange=function(){ if(this.checked) map.addLayer(markLayer); else map.removeLayer(markLayer); };
 document.getElementById("auto").onclick=()=>{autoRange();draw();};
 if(freqs.length){sel.value=freqs[0];autoRange();draw();}
 drawHot();
+
+// ---- power lines and poles from OpenStreetMap (needs internet; not every pole is mapped)
+const powerLayer=L.layerGroup(), pwMsg=document.getElementById("powerMsg"); let powerDone=false, powerBusy=false;
+function dataBounds(){ const pts=[]; freqs.forEach(f=>DATA[f].forEach(r=>pts.push([r.lat,r.lon]))); return L.latLngBounds(pts); }
+async function loadPower(){
+  if(powerDone||powerBusy) return; powerBusy=true; pwMsg.textContent="Loading power lines from OpenStreetMap...";
+  let b=dataBounds().pad(0.05); if(b.getNorth()-b.getSouth()>0.25||b.getEast()-b.getWest()>0.25) b=map.getBounds();
+  const bb=[b.getSouth(),b.getWest(),b.getNorth(),b.getEast()].map(x=>x.toFixed(5)).join(",");
+  const q='[out:json][timeout:25];(way["power"~"^(line|minor_line)$"]('+bb+');node["power"~"^(pole|tower)$"]('+bb+'););out geom;';
+  let j=null;
+  for(const ep of ["https://overpass-api.de/api/interpreter","https://overpass.kumi.systems/api/interpreter"]){
+    try{ const r=await fetch(ep,{method:"POST",body:"data="+encodeURIComponent(q),headers:{"Content-Type":"application/x-www-form-urlencoded"}}); if(!r.ok) continue; j=await r.json(); break; }catch(e){}
+  }
+  powerBusy=false;
+  if(!j){ pwMsg.textContent="Could not load power lines (needs internet). Untick and tick again to retry."; return; }
+  let nl=0,np=0;
+  (j.elements||[]).forEach(e=>{
+    const t=e.tags||{}, info=(t.power||"")+(t.voltage?", "+t.voltage+" V":"")+(t.operator?"<br>"+String(t.operator).replace(/</g,"&lt;"):"");
+    if(e.type==="way"&&e.geometry){ nl++; L.polyline(e.geometry.map(g=>[g.lat,g.lon]),{color:t.power==="line"?"#e67e00":"#b35900",weight:t.power==="line"?3.5:2.5,dashArray:t.power==="line"?null:"6 4",opacity:0.9}).bindPopup("<b>Power "+info+"</b>").addTo(powerLayer); }
+    else if(e.type==="node"&&e.lat!=null){ np++; L.circleMarker([e.lat,e.lon],{radius:t.power==="tower"?5:3.5,color:"#000",weight:1,fillColor:"#ffd400",fillOpacity:1}).bindPopup("<b>"+(t.power==="tower"?"Tower":"Pole")+"</b>"+(t.voltage?"<br>"+t.voltage+" V":"")+geoLinks(e.lat,e.lon)).addTo(powerLayer); }
+  });
+  powerDone=true; pwMsg.textContent=nl+" line"+(nl==1?"":"s")+" and "+np+" pole/tower"+(np==1?"":"s")+" found (OpenStreetMap data: coverage varies, not every pole is mapped).";
+}
+document.getElementById("tgPower").onchange=function(){ if(this.checked){ powerLayer.addTo(map); loadPower(); } else map.removeLayer(powerLayer); };
 
 // ---- printing: resize the map for the page, print, then restore
 function doPrint(){ window.print(); }

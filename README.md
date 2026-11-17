@@ -16,7 +16,7 @@ Up to four software-defined radios (an **SDRplay RSP1**, a **Hermes Lite 2**, an
 
 - Reads up to **4 frequencies** you choose (for example 3.8 MHz, 7.1 MHz, 14.2 MHz, 50.1 MHz).
 - Logs a reading about every **10 feet** while you drive, with the position from your GPS.
-- Draws a **Leaflet street map**. Each dot is a reading: **blue = weak, red = strong**. Pick which frequency to look at.
+- Draws a **Leaflet street map**. Each dot is a reading: **blue = weak, red = strong**. Pick which frequency to look at. Ten backgrounds (street, satellite, terrain, topo, USGS, grey, dark, none), switchable **power lines and poles**, **heat glow**, a second frequency as rings, **drive replay**, and **Street View / navigate** links on every dot.
 - **RTL-SDR dongles (new in 1.4.0, untested on real dongles):** up to four low-price USB dongles (for example the RTL-SDR Blog V3). Any dongle can serve any of the four slots, and dongles read at the same time. Find my dongles, a gain slider per dongle, and automatic direct sampling for HF on the V3. See the guide.
 - **Hermes gain help:** an optional **Auto gain (listening only)** that backs off on overload, **Gain per band** that remembers your gain for each band, and a **Hermes picture** speed (Smooth / Normal / Light) you can change while the program runs.
 - Has a **practice mode** with pretend radio and GPS, so you can try everything at home.
