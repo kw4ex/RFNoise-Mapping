@@ -28,19 +28,33 @@ body.logging #driveBar #barLive,body.car #driveBar #barLive{display:flex}
 body.logging .jump,body.logging #barStat{display:none !important}
 #barLive .bbox.snd,#barLive .bbox.sp2{font-size:14px;flex-direction:row;flex-wrap:wrap;align-items:center;gap:2px 12px}
 #barLive .bbox.snd .lab{width:100%}
-#driveBar{--bz:1.7;--bz2:calc(var(--bz)*.82)}
+#driveBar{--bz:1.7;--bz2:calc(var(--bz)*.66)}
 #barLive .bbox,#barHw .bbox{border:1px solid var(--line);border-radius:10px;padding:5px 11px;background:#fafbfd;font-size:calc(13.5px*var(--bz2));line-height:1.25;display:flex;flex-direction:column;justify-content:center}
 #barLive .bbox .lab,#barHw .bbox .lab{font-size:calc(11.5px*var(--bz2)*.85);color:var(--mut);text-transform:uppercase;letter-spacing:.04em}
-#barHw{display:grid;grid-template-columns:minmax(0,1.25fr) repeat(4,minmax(0,1fr)) minmax(0,1.15fr);margin-top:6px;align-items:stretch;gap:8px}
+#driveBar #barHw{display:grid;grid-template-columns:minmax(0,.95fr) repeat(4,minmax(0,1.12fr)) minmax(0,.8fr) minmax(0,1.55fr) minmax(0,1.7fr);margin-top:6px;align-items:stretch;gap:8px}
 #barHw .bbox{min-width:0;white-space:nowrap;overflow:hidden}
 #barHw .bbox .lab,#barHw .bbox .fq,#barHw .bbox .hwl{overflow:hidden;text-overflow:ellipsis}
 #barHw .slb .fq{font-weight:700;font-variant-numeric:tabular-nums}
 #barHw .slb.off{opacity:.45}
 #barHw .slb .sx,#barHw .slb .sdb{flex:none}
-#barHw .slb .sr{display:flex;align-items:baseline;gap:8px}
-#barHw .slb .sx{display:inline-block;width:6.8ch;white-space:nowrap;font-size:1.25em;font-variant-numeric:tabular-nums;color:#8a5a00}
-#barHw .slb .sdb{display:inline-block;width:8.8ch;text-align:right;font-size:.78em;color:var(--mut);font-variant-numeric:tabular-nums}
-@media(max-width:1180px){#barHw{grid-template-columns:repeat(3,minmax(0,1fr))}}
+#barHw .slb .sr{display:flex;align-items:baseline;gap:4px;justify-content:space-between}
+#barHw .slb .sx{display:inline-block;width:6.2ch;white-space:nowrap;font-size:1.25em;font-variant-numeric:tabular-nums;color:#8a5a00}
+#barHw .slb .sdb{display:inline-block;width:7.6ch;text-align:right;font-size:.78em;color:var(--mut);font-variant-numeric:tabular-nums}
+@media(max-width:1560px){#driveBar #barHw{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(max-width:1000px){#driveBar #barHw{grid-template-columns:repeat(2,minmax(0,1fr))}}
+#barHw .mst{flex-direction:row;align-items:center;gap:8px}
+#barHw .mstsvg{flex:none;width:calc(92px*var(--bz2))}#barHw .mstsvg svg{width:100%;height:auto;display:block}
+#barHw .mstt{display:flex;flex-direction:column;min-width:0;overflow:hidden}
+#barHw .mstS{font-size:calc(34px*var(--bz2)*.8);line-height:1.05;font-weight:800;color:#14233a;font-variant-numeric:tabular-nums;white-space:nowrap}
+#barHw .mst.hot{background:#fde1de;border-color:#d93025}
+#barHw .alb{gap:1px}#barHw .alb .lab{white-space:nowrap}#barHw .alb .lab label{text-transform:none;letter-spacing:0;font-size:calc(12px*var(--bz2))}
+#barHw .alr{display:flex;align-items:center;gap:6px;font-size:calc(12px*var(--bz2))}
+#barHw .alr select{font-size:calc(11.5px*var(--bz2));padding:1px 3px;flex:1;min-width:0}
+#barHw .alr .alk{width:6.6ch;color:var(--mut);flex:none}
+#barHw .alr input[type=range]{flex:1;min-width:40px;margin:0}
+#barHw .alr b{width:4.2ch;text-align:right;font-variant-numeric:tabular-nums;flex:none}
+#barHw .alr button{padding:1px 8px;font-size:calc(11.5px*var(--bz2))}
+#cMeters.moff #mGrid,#cMeters.moff #mFoot,#cMeters.moff .mctl{display:none}
 /* the top control row: much larger */
 #drvRow1{gap:10px 14px}
 #drvRow1 button,#drvRow1 input[type=text],#drvRow1 select{font-size:calc(14px*var(--bz));padding:calc(5px*var(--bz)) calc(10px*var(--bz));border-radius:10px}
@@ -232,7 +246,6 @@ body.only-slices #staleBanner,body.only-slices #warnBanner,body.only-slices #blo
  <span class="pill" title="The version of the program that is running now"><span id="tVer">v?</span></span>
  <span class="pill" id="pOv" style="display:none;background:#8a1f1f" title="A strong signal is overloading the Hermes. Lower its gain (see the slices box).">&#9888; Radio overload - lower the gain</span>
  <span class="sp"></span>
- <button class="sm" onclick="hwOpen()" title="GPS, radios and which radio measures each slot (a separate window, so it does not clutter the drive screen)">Hardware setup</button>
  <button class="sm" onclick="runCheck()">Check setup</button>
  <button class="sm" id="bQuitTop" style="border-color:#e58a8a;color:#a02222;font-weight:600" title="Stops any drive that is being recorded (saving it), then closes the program" onclick="quitApp()">Close program</button>
  <a class="btn" href="/help" target="_blank">Help &amp; guide</a>
@@ -268,9 +281,8 @@ body.only-slices #staleBanner,body.only-slices #warnBanner,body.only-slices #blo
    <span id="hOv" style="color:#a5281b;font-weight:700"></span></div>
   <div class="bbox carhide"><span class="lab">This drive</span><span><b id="tEl">0:00</b> &middot; <b id="tMi">0.00</b> mi &middot; <b id="tDots">0</b> dots &middot; <b id="tMarks">0</b> marks</span></div>
   <div class="bbox carhide"><span class="lab">Spacing (ft)</span><span class="seg"><button class="sm" onclick="setSpacing(5)">5</button><button class="sm" onclick="setSpacing(10)">10</button><button class="sm" onclick="setSpacing(20)">20</button><button class="sm" onclick="setSpacing(50)">50</button></span></div>
-  <div class="bbox snd"><span class="lab">Sound</span>
-   <label class="chk" title="Beeps if the GPS is lost or no new dots are saved while you are moving"><input type="checkbox" id="alarmOn" checked> <span>Alarm</span></label>
-   <label class="chk" title="A short tone each time the chosen slot rises well above its usual level; the higher the rise, the higher the pitch"><input type="checkbox" id="toneOn" onchange="toneToggle()"> <span>Noise tone: slot <select id="toneSlot" style="font-size:12px;padding:1px 3px"><option>1</option><option>2</option><option>3</option><option>4</option></select> rise <select id="toneThr" style="font-size:12px;padding:1px 3px"><option value="4">4 dB</option><option value="6" selected>6 dB</option><option value="10">10 dB</option></select></span></label></div>
+  <div class="bbox snd"><span class="lab">Noise tone</span>
+   <label class="chk" title="A short tone each time the chosen slot rises well above its usual level; the higher the rise, the higher the pitch"><input type="checkbox" id="toneOn" onchange="toneToggle()"> <span>slot <select id="toneSlot" style="font-size:12px;padding:1px 3px"><option>1</option><option>2</option><option>3</option><option>4</option></select> rise <select id="toneThr" style="font-size:12px;padding:1px 3px"><option value="4">4 dB</option><option value="6" selected>6 dB</option><option value="10">10 dB</option></select></span></label></div>
  </div>
  <div class="dbrow" id="barHw" title="Your GPS and the radio, frequency and live S-reading of each slot, always in view">
   <div class="bbox"><span class="lab">GPS</span><span class="hwl"><span class="hdot" id="hwGd"></span><b id="hwGt">&ndash;</b></span><span class="sub2" id="hwGc">&nbsp;</span></div>
@@ -278,7 +290,16 @@ body.only-slices #staleBanner,body.only-slices #warnBanner,body.only-slices #blo
   <div class="bbox slb off" id="hwS1"><span class="lab"><b>Slot 2</b> &middot; <span class="rn">&ndash;</span></span><span class="fq">&ndash;</span><span class="sr"><b class="sx">&ndash;</b><span class="sdb"></span></span></div>
   <div class="bbox slb off" id="hwS2"><span class="lab"><b>Slot 3</b> &middot; <span class="rn">&ndash;</span></span><span class="fq">&ndash;</span><span class="sr"><b class="sx">&ndash;</b><span class="sdb"></span></span></div>
   <div class="bbox slb off" id="hwS3"><span class="lab"><b>Slot 4</b> &middot; <span class="rn">&ndash;</span></span><span class="fq">&ndash;</span><span class="sr"><b class="sx">&ndash;</b><span class="sdb"></span></span></div>
-  <div class="bbox" title="Worked out from how long one round of readings takes (the time is measured by Test my setup, or live while you record)"><span class="lab">Fastest safe speed</span><span id="hwMax">&ndash;</span><span class="sub2" id="hwMaxN">&nbsp;</span></div>
+  <div class="bbox" title="The top speed at which your radios can still save a dot at your chosen dot spacing, worked out from how long one round of readings takes (measured by Test my setup, or live while you record). It does not know about the road, traffic or the speed limit."><span class="lab">Max speed</span><span id="hwMax">&ndash;</span><span class="sub2" id="hwMaxN">&nbsp;</span></div>
+ <div class="bbox mst" id="hwMst" title="The highest S-reading of the four slots in each round of readings, with the slot it came from. The orange marker is the highest since the drive started.">
+   <div class="mstsvg" id="mstSvg"></div>
+   <div class="mstt"><span class="lab">Highest</span><b class="mstS" id="mstS">&ndash;</b><span class="sub2" id="mstW">&nbsp;</span><span class="sub2" id="mstP">&nbsp;</span></div></div>
+  <div class="bbox alb hwx" id="hwAl" title="Plays a sound when the highest reading reaches the S-level you choose">
+   <span class="lab">Warning &nbsp;<label class="chk"><input type="checkbox" id="alOn" onchange="alSave()"> <span>noise</span></label> <label class="chk" title="Beeps if the GPS is lost or no new dots are saved while you are moving"><input type="checkbox" id="alarmOn" checked> <span>GPS</span></label></span>
+   <span class="alr"><select id="alSnd" onchange="alSave();alTest()"><option value="beep">Beep</option><option value="double">Double beep</option><option value="siren">Siren</option><option value="chirp">Chirp</option><option value="bell">Bell</option><option value="buzz">Low buzz</option></select><button class="sm" onclick="alTest()" title="Hear the chosen sound at the chosen volume">&#9654; Test</button></span>
+   <span class="alr"><span class="alk">Volume</span><input type="range" id="alVol" min="0" max="100" step="5" value="60" oninput="alSave()"><b id="alVolV">60</b></span>
+   <span class="alr"><span class="alk">Warn at</span><input type="range" id="alIdx" min="0" max="15" step="1" value="7" list="alTicks" oninput="alSave()"><b id="alIdxV">S7</b></span>
+   <datalist id="alTicks"><option value="0"></option><option value="1"></option><option value="2"></option><option value="3"></option><option value="4"></option><option value="5"></option><option value="6"></option><option value="7"></option><option value="8"></option><option value="9"></option><option value="10"></option><option value="11"></option><option value="12"></option><option value="13"></option><option value="14"></option><option value="15"></option></datalist></div>
  </div>
  <div id="alarmBar"></div>
  <div class="dbrow jump" style="margin-top:4px">Jump to: <a href="#cCollect">Setup</a><a href="#cSlices">Live slots</a><a href="#cDrives">Drives &amp; map choices</a><a href="#cMaps">Maps</a><a href="#cTools">Tools</a></div>
@@ -327,12 +348,13 @@ body.only-slices #staleBanner,body.only-slices #warnBanner,body.only-slices #blo
 <section class="card" id="cMeters">
  <div class="trh"><b style="font-size:18px">S-meters</b>
   <span class="mut">One per slot. The needle is the reading from the latest sample cycle; the orange marker is the highest reading taken since the drive started.</span>
-  <button class="sm" onclick="meterReset()" title="Put the orange peak markers back to the current readings">Reset peaks</button>
-  <label class="chk" title="Show all four meters in one row, sized to fit the window"><input type="checkbox" id="mSide" onchange="meterSide(this.checked)"> <span>Side by side (4 across)</span></label>
-  <button class="sm" id="mRst" onclick="meterSizeReset()" title="Put the meters back to the standard size">Reset size</button>
-  <span class="mut" id="mHint">Drag the corner grip of any meter to make all four bigger or smaller.</span></div>
+  <label class="chk" title="Show or hide the four big S-meters. The Highest meter in the top bar stays."><input type="checkbox" id="mShow" onchange="meterShow(this.checked)" checked> <span><b>Show meters</b></span></label>
+  <button class="sm mctl" onclick="meterReset()" title="Put the orange peak markers back to the current readings">Reset peaks</button>
+  <label class="chk mctl" title="Show all four meters in one row, sized to fit the window"><input type="checkbox" id="mSide" onchange="meterSide(this.checked)"> <span>Side by side (4 across)</span></label>
+  <button class="sm mctl" id="mRst" onclick="meterSizeReset()" title="Put the meters back to the standard size">Reset size</button>
+  <span class="mut mctl" id="mHint">Drag the corner grip of any meter to make all four bigger or smaller.</span></div>
  <div id="mGrid"></div>
- <div class="mut" style="margin-top:6px">S9 = &minus;73&nbsp;dBm up to 30&nbsp;MHz, &minus;93&nbsp;dBm above; 6&nbsp;dB per S-unit. A <b>~</b> means the slot is not calibrated yet (Hardware setup &rarr; Slots).</div>
+ <div class="mut" id="mFoot" style="margin-top:6px">S9 = &minus;73&nbsp;dBm up to 30&nbsp;MHz, &minus;93&nbsp;dBm above; 6&nbsp;dB per S-unit. A <b>~</b> means the slot is not calibrated yet (Hardware setup &rarr; Slots).</div>
 </section>
 
 <!-- ======================= LIVE TRACK ======================= -->
@@ -737,7 +759,7 @@ async function findHl2(){
 function hl2GainReset(){ $("hl2g").value=15; gainChanged("hl2"); }
 
 /* ---------- slots: four live panadapters ---------- */
-const PAGE_VER="1.4.0g";        /* the version of this page: it must match the program version shown in the top bar */
+const PAGE_VER="1.4.0h";        /* the version of this page: it must match the program version shown in the top bar */
 const SL={logging:false,live:false,busy:false,starting:false,manualStop:false,lastTry:0,health:{},byCh:{},startErr:"",radio:"",lastSync:0,seen:{},last:{},paused:false,autoPaused:false};
 const SLH={0:[],1:[],2:[],3:[]};      // the last readings saved for each slot (for the readout shown when a slot's radio is busy mapping)
 const ONLY_SLICES=new URLSearchParams(location.search).get("view")==="slices";
@@ -2175,7 +2197,7 @@ document.querySelectorAll("input[name=gpsm]").forEach(r=>r.onchange=showGpsField
 checkBlockers();
 $("practice").onchange=()=>{ showGpsFields(); guard(async()=>{ await api("/api/config",{practice:$("practice").checked}); await slRestart(); }); };
 
-/* ===================== top bar: size, GPS line, slot line, fastest safe speed ===================== */
+/* ===================== top bar: size, GPS line, slot line, max speed ===================== */
 let BAR_Z=1.7, HWOPEN=false, HW=null;
 try{ const z=parseFloat(localStorage.getItem("rfmapBarZ")); if(z>=1&&z<=2.2) BAR_Z=z; }catch(e){}
 function barSize(d){ BAR_Z=Math.min(2.2,Math.max(1,Math.round((BAR_Z+d*0.2)*10)/10)); $("driveBar").style.setProperty("--bz",BAR_Z); try{localStorage.setItem("rfmapBarZ",String(BAR_Z));}catch(e){} fixBarTop(); }
@@ -2208,11 +2230,11 @@ function perfBar(lg,st){
   const ft=set?(+set.spacing_ft||10):(+$("spacing").value||10), byTime=set?set.sample_mode==="time":smode()==="time";
   let cyc=null, src="";
   if(lg&&st&&st.cycle_s&&!(st.sdr&&/pretend|sim/i.test(st.sdr))){ cyc=st.cycle_s; src="live now"; } else if(P.cycle_s&&!P.practice){ cyc=P.cycle_s; src="tested "+P.when; }
-  if($("practice").checked&&!(lg&&st&&st.cycle_s>0.05)){ $("hwMax").innerHTML="<b>practice</b>"; $("hwMaxN").textContent="pretend radios: test with real ones"; return; }
+  if($("practice").checked&&!(lg&&st&&st.cycle_s>0.05)){ $("hwMax").innerHTML="<b>practice</b>"; $("hwMaxN").textContent="pretend radios"; return; }
   if(byTime){ $("hwMax").innerHTML="<b>by time</b>"; $("hwMaxN").textContent="no distance limit"; return; }
-  if(!cyc){ $("hwMax").innerHTML="<b>not tested</b>"; $("hwMaxN").textContent=(P.practice?"practice timings are not real · ":"")+"press Test my setup"; return; }
+  if(!cyc){ $("hwMax").innerHTML="<b>not tested</b>"; $("hwMaxN").textContent=P.practice?"press Test my setup (practice is not real)":"press Test my setup"; return; }
   const v=ft/(cyc*1.46667), mph=(lg&&st&&st.speed_mph!=null)?st.speed_mph:null;
-  $("hwMax").innerHTML="<b"+(mph!=null&&mph>v?' style="color:#a5281b"':"")+">"+Math.floor(v)+" mph</b> <span class='sub2'>for "+ft+" ft dots</span>"; $("hwMaxN").textContent=src+" · "+cyc.toFixed(2)+" s per round"; }
+  $("hwMax").innerHTML="<b"+(mph!=null&&mph>v?' style="color:#a5281b"':"")+">"+Math.floor(v)+" mph</b> <span class='sub2'>at "+ft+" ft</span>"; $("hwMaxN").textContent=cyc.toFixed(2)+" s/round · "+(src==='live now'?'live':'tested'); }
 
 
 /* ===================== S-meters (one per slot; refreshed once per sample cycle while recording) ===================== */
@@ -2234,7 +2256,8 @@ function meterSVG(i){
   g+='<g id="mn'+i+'" style="transform-origin:150px 190px;transform:rotate(-55deg);transition:transform .35s cubic-bezier(.3,1.35,.5,1)"><line x1="150" y1="190" x2="150" y2="46" stroke="#111" stroke-width="2.8" stroke-linecap="round"/></g>';
   return '<svg viewBox="0 0 300 150" xmlns="http://www.w3.org/2000/svg" aria-label="S-meter slot '+(i+1)+'">'+g+'</svg>'; }
 function meterBuild(){ $("mGrid").innerHTML=[0,1,2,3].map(i=>'<div class="mbox off" id="mb'+i+'"><div class="mh"><b>Slot '+(i+1)+'</b><span class="mrn">&ndash;</span><span class="mfq"></span></div>'+meterSVG(i)+
-  '<div class="mr"><b class="mS">&ndash;</b><span class="mDb"></span><span class="mPk"></span></div><div class="mgrip" title="Drag to resize all four meters" onpointerdown="meterGrip(event)"></div></div>').join(""); meterLayout(); }
+  '<div class="mr"><b class="mS">&ndash;</b><span class="mDb"></span><span class="mPk"></span></div><div class="mgrip" title="Drag to resize all four meters" onpointerdown="meterGrip(event)"></div></div>').join(""); meterLayout();
+  $("mstSvg").innerHTML=meterSVG(4); alLoad(); try{ meterShow(localStorage.getItem("rfmapMeters")!=="0"); }catch(e){} masterDraw(); }
 /* meter size: one width for all four; saved in this browser */
 let MW=0, MSIDE=false;   /* 0 = standard size: two across */
 try{ const w=parseInt(localStorage.getItem("rfmapMeterW")); if(w>=200&&w<=1400) MW=w; else MW=0; MSIDE=localStorage.getItem("rfmapMeterSide")==="1"; }catch(e){}
@@ -2250,11 +2273,51 @@ function meterGrip(ev){ ev.preventDefault(); const el=ev.currentTarget, g=$("mGr
   const up=e=>{ el.removeEventListener("pointermove",mv); el.removeEventListener("pointerup",up); el.removeEventListener("pointercancel",up); try{localStorage.setItem("rfmapMeterW",String(MW));}catch(x){} };
   el.addEventListener("pointermove",mv); el.addEventListener("pointerup",up); el.addEventListener("pointercancel",up); }
 window.addEventListener("resize",meterLayout);
-function meterReset(){ for(let i=0;i<4;i++){ MT[i].peak=MT[i].v==null?null:MT[i].v; MT[i].t=null; meterDraw(i); } }
+/* ---- the "Highest now" meter: the strongest reading of the active slots, compared in S-units so 3.9 MHz and 148 MHz are fair ---- */
+const MM={v:null,m:null,i:-1,peak:null,pm:null,pi:-1,cyc:null,un:false};
+function sNum(v,m){ return 9+(v-s9(m))/6; }
+function masterUpdate(){
+  let best=null; for(let i=0;i<4;i++){ const M=MT[i]; if(M.v==null) continue; const n=sNum(M.v,M.m); if(best==null||n>best.n) best={n:n,i:i,v:M.v,m:M.m,un:M.un,t:M.t}; }
+  if(!best){ MM.v=null; MM.i=-1; masterDraw(); return; }
+  const fresh=SL.logging?(best.t!=null&&best.t!==MM.cyc):false; if(SL.logging) MM.cyc=best.t;
+  MM.v=best.v; MM.m=best.m; MM.i=best.i; MM.un=best.un;
+  if(MM.peak==null||best.n>sNum(MM.peak,MM.pm)){ MM.peak=best.v; MM.pm=best.m; MM.pi=best.i; }
+  masterDraw(); if(fresh) alCheck(best.n); }
+function mstFq(i){ const e=$("hwS"+i); const f=e&&e.querySelector(".fq"); return f?f.textContent:""; }
+function masterDraw(){ if(!$("mn4")) return; const has=MM.v!=null, t=MM.un?"~":"";
+  $("mn4").style.transform="rotate("+(has?mAng(mPos(MM.v,MM.m)):-55)+"deg)";
+  $("mp4").style.transform="rotate("+(MM.peak!=null?mAng(mPos(MM.peak,MM.pm)):-55)+"deg)";
+  $("mstS").textContent=has?t+sTxt(MM.v,MM.m):"–";
+  $("mstW").textContent=has?("slot "+(MM.i+1)+" · "+(parseFloat(mstFq(MM.i))||"")+" MHz"):"no readings";
+  $("mstP").textContent=MM.peak!=null?("peak "+(MM.un?"~":"")+sTxt(MM.peak,MM.pm)+" · slot "+(MM.pi+1)):"";
+  $("hwMst").classList.toggle("hot",has&&AL.on&&AL.thr!=null&&sNum(MM.v,MM.m)>=AL.thr); }
+/* ---- warning: sound, volume and the S-level at which it plays ---- */
+const AL={on:false,snd:"beep",vol:60,idx:7,thr:null,t:0};
+function alLabel(ix){ return ix<=0?"Off":ix<=9?"S"+ix:"S9+"+((ix-9)*10); }
+function alThr(ix){ return ix<=0?null:ix<=9?ix:9+(ix-9)*10/6; }
+function alLoad(){ try{ const g=k=>localStorage.getItem(k); AL.on=g("rfmapAlOn")==="1"; AL.snd=g("rfmapAlSnd")||"beep"; const v=parseInt(g("rfmapAlVol")); AL.vol=(v>=0&&v<=100)?v:60; const x=parseInt(g("rfmapAlIdx")); AL.idx=(x>=0&&x<=15)?x:7; }catch(e){}
+  $("alOn").checked=AL.on; $("alSnd").value=AL.snd; $("alVol").value=AL.vol; $("alIdx").value=AL.idx; alShow(); }
+function alShow(){ AL.thr=alThr(AL.idx); $("alVolV").textContent=AL.vol; $("alIdxV").textContent=alLabel(AL.idx); }
+function alSave(){ AL.on=$("alOn").checked; AL.snd=$("alSnd").value; AL.vol=+$("alVol").value; AL.idx=+$("alIdx").value; alShow();
+  try{ localStorage.setItem("rfmapAlOn",AL.on?"1":"0"); localStorage.setItem("rfmapAlSnd",AL.snd); localStorage.setItem("rfmapAlVol",String(AL.vol)); localStorage.setItem("rfmapAlIdx",String(AL.idx)); }catch(e){}
+  if(MM.v!=null) masterDraw(); }
+function alPlay(name,vol){ const a=audio(); if(!a||vol<=0) return; const g0=Math.pow(vol/100,1.6)*0.7, now=a.currentTime;
+  const tone=(f,t0,d,type,f2,gain)=>{ try{ const o=a.createOscillator(), g=a.createGain(); o.type=type||"sine"; o.frequency.setValueAtTime(f,now+t0); if(f2) o.frequency.linearRampToValueAtTime(f2,now+t0+d);
+    const pk=g0*(gain||1); g.gain.setValueAtTime(0.0001,now+t0); g.gain.linearRampToValueAtTime(pk,now+t0+0.015); g.gain.setTargetAtTime(0,now+t0+d*0.7,Math.max(0.02,d*0.12)); o.connect(g); g.connect(a.destination); o.start(now+t0); o.stop(now+t0+d+0.1); }catch(e){} };
+  if(name==="beep") tone(880,0,0.22);
+  else if(name==="double"){ tone(880,0,0.14); tone(880,0.22,0.14); }
+  else if(name==="siren"){ tone(600,0,0.35,"square",1000,0.45); tone(1000,0.35,0.35,"square",600,0.45); }
+  else if(name==="chirp"){ tone(700,0,0.09,"sine",1000); tone(900,0.12,0.09,"sine",1200); tone(1100,0.24,0.09,"sine",1500); }
+  else if(name==="bell"){ tone(1318,0,0.9,"sine",null,1); tone(2637,0,0.5,"sine",null,0.3); }
+  else if(name==="buzz") tone(140,0,0.38,"sawtooth",null,0.8); }
+function alTest(){ audio(); alPlay(AL.snd,AL.vol); }
+function alCheck(n){ if(!AL.on||AL.thr==null||n<AL.thr) return; const t=Date.now(); if(t-AL.t<900) return; AL.t=t; alPlay(AL.snd,AL.vol); }
+function meterShow(on){ $("cMeters").classList.toggle("moff",!on); const c=$("mShow"); if(c) c.checked=!!on; try{localStorage.setItem("rfmapMeters",on?"1":"0");}catch(e){} }
+function meterReset(){ MM.peak=MM.v; MM.pm=MM.m; MM.pi=MM.i; masterDraw(); for(let i=0;i<4;i++){ MT[i].peak=MT[i].v==null?null:MT[i].v; MT[i].t=null; meterDraw(i); } }
 function meterUpdate(i,v,m,t){
-  const M=MT[i]; if(v==null||isNaN(v)){ if(M.v!=null){ M.v=null; meterDraw(i); } return; }
+  const M=MT[i]; if(v==null||isNaN(v)){ if(M.v!=null){ M.v=null; meterDraw(i); masterUpdate(); } return; }
   if(SL.logging){ if(t==null||t===M.t) return; M.t=t; }          // while recording: once per sample cycle
-  M.v=v; M.m=m; M.un=calOf(i)===0; if(M.peak==null||v>M.peak) M.peak=v; meterDraw(i); }
+  M.v=v; M.m=m; M.un=calOf(i)===0; if(M.peak==null||v>M.peak) M.peak=v; meterDraw(i); masterUpdate(); }
 function meterDraw(i){
   const M=MT[i], mb=$("mb"+i), bx=$("hwS"+i); if(!mb) return; const has=M.v!=null, tilde=M.un?"~":"";
   $("mn"+i).style.transform="rotate("+(has?mAng(mPos(M.v,M.m)):-55)+"deg)";
@@ -2312,7 +2375,7 @@ function perfShow(P){
   if(P.good&&P.good.length) h+='<ul style="margin:8px 0;color:#14693a">'+P.good.map(x=>'<li>'+esc(x)+'</li>').join("")+'</ul>';
   if(P.cycle_s&&!P.practice){ h+='<div style="margin-top:6px"><b>One round of readings takes '+P.cycle_s.toFixed(2)+' s.</b> '+(P.table&&P.table.length?'The fastest you can drive and still get a dot at each spacing:':'')+'</div>';
     if(P.table&&P.table.length){ const cur=+$("spacing").value||10;
-      h+='<table class="hwt" style="width:auto;margin-top:6px"><tr><th>Dot spacing</th>'+P.table.map(r=>'<th'+(r.ft===cur?' style="background:#fff6dc"':'')+'>'+r.ft+' ft</th>').join("")+'</tr><tr><td>Fastest safe speed</td>'+P.table.map(r=>'<td'+(r.ft===cur?' style="background:#fff6dc"':'')+'><b>'+Math.floor(r.mph)+' mph</b></td>').join("")+'</tr></table>'+
+      h+='<table class="hwt" style="width:auto;margin-top:6px"><tr><th>Dot spacing</th>'+P.table.map(r=>'<th'+(r.ft===cur?' style="background:#fff6dc"':'')+'>'+r.ft+' ft</th>').join("")+'</tr><tr><td>Max speed</td>'+P.table.map(r=>'<td'+(r.ft===cur?' style="background:#fff6dc"':'')+'><b>'+Math.floor(r.mph)+' mph</b></td>').join("")+'</tr></table>'+
         '<div class="mut" style="margin-top:4px">Faster than this, the dots end up farther apart than you set. Fewer slots or a smaller measure width shortens the round.</div>'; } }
   $("perfOut").innerHTML=h; }
 /* the radio and GPS settings now live in the Hardware window: move them there (they keep working exactly as before) */
