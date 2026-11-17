@@ -23,6 +23,37 @@ main{max-width:1050px;margin:16px auto;padding:0 14px 40px}
 #driveBar .jump a{color:var(--acc);text-decoration:none;margin-left:7px}
 #barStat{font-size:13.5px;font-weight:600;color:var(--ink)}
 section.card{scroll-margin-top:130px}
+#barLive{display:none;margin-top:6px;align-items:stretch;gap:8px 12px}
+body.logging #barLive,body.car #barLive{display:flex}
+body.logging .jump,body.logging #barStat{display:none !important}
+#barLive .bbox.snd{flex-direction:row;flex-wrap:wrap;align-items:center;gap:2px 12px}
+#barLive .bbox.snd .lab{width:100%}
+#barLive .bbox{border:1px solid var(--line);border-radius:10px;padding:5px 11px;background:#fafbfd;font-size:13.5px;line-height:1.35;display:flex;flex-direction:column;justify-content:center}
+#barLive .bbox .lab{font-size:11.5px;color:var(--mut);text-transform:uppercase;letter-spacing:.04em}
+#bigSpeed{display:flex;align-items:baseline;gap:6px;border:2px solid #14233a;border-radius:12px;padding:0 16px;background:#fff;min-width:150px;justify-content:center}
+#bigSpeed b{font-size:52px;line-height:1.05;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-1px}
+#bigSpeed span{font-size:17px;color:var(--mut);font-weight:600}
+#spNow{font-size:19px}
+#spWarn{font-size:12.5px;font-weight:600;color:#a5281b}
+#spWarn.amber{color:#9a6a00}
+.hdot{display:inline-block;width:11px;height:11px;border-radius:50%;background:#aab4c0;margin-right:5px;vertical-align:-1px}
+.hdot.g{background:#2fb86a}.hdot.a{background:#f0a92d}.hdot.r{background:#e0402f}
+#alarmBar{display:none;margin-top:6px;padding:8px 12px;border-radius:8px;background:#d93025;color:#fff;font-weight:700;font-size:16px}
+#alarmBar.flash{animation:alflash .8s steps(2,start) infinite}
+@keyframes alflash{to{background:#7a0f08}}
+#cTrack{padding:10px 12px}
+#cTrack .trh{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;margin-bottom:6px;font-size:13.5px}
+#liveMap{height:330px;border-radius:8px;border:1px solid var(--line)}
+body.car{font-size:17px}
+body.car header,body.car main>section.card:not(#cTrack),body.car #staleBanner,body.car #warnBanner,body.car #blockBanner,body.car .jump,body.car .carhide{display:none !important}
+body.car #driveBar{top:0}
+body.car #driveBar button{font-size:21px;padding:12px 22px}
+body.car #driveBar button.pri,body.car #driveBar button.stop{font-size:24px;padding:14px 30px}
+body.car #bigSpeed b{font-size:104px}
+body.car #bigSpeed span{font-size:26px}
+body.car #liveMap{height:46vh}
+body.car main{max-width:none;margin:6px auto}
+
 details.filt{border:1px solid var(--line);border-radius:9px;padding:6px 12px;margin:10px 0;background:#fafbfd}
 details.filt summary{font-weight:600;color:var(--ink);font-size:14.5px}
 details.filt .row{margin:6px 0;align-items:center;gap:6px 14px}
@@ -65,7 +96,7 @@ button.slLock.on{background:#d93025;border-color:#b3261e;color:#fff;font-weight:
 .slbox .slmsg{position:absolute;inset:0;display:none;align-items:center;justify-content:center;text-align:center;color:#cfe3f3;font-size:13px;padding:10px;background:rgba(11,22,32,.9);border-radius:4px}
 .slbox.empty .slview,.slbox.empty .slctl,.slbox.empty .sltune.hideoff{display:none}
 .slbox.fb .slwf{display:none}
-body.only-slot #driveBar,body.only-slices #driveBar,body.only-slot header,body.only-slot footer,body.only-slot main>section.card:not(#cSlices),body.only-slot #cSlices>h2,body.only-slot #cSlices>p.sub,body.only-slot #bSlCompact,body.only-slot #bSlPop,body.only-slot .slPop,body.only-slot #staleBanner,body.only-slot #warnBanner,body.only-slot #blockBanner{display:none !important}
+body.only-slot #driveBar,body.only-slot #cTrack,body.only-slices #cTrack,body.only-slices #driveBar,body.only-slot header,body.only-slot footer,body.only-slot main>section.card:not(#cSlices),body.only-slot #cSlices>h2,body.only-slot #cSlices>p.sub,body.only-slot #bSlCompact,body.only-slot #bSlPop,body.only-slot .slPop,body.only-slot #staleBanner,body.only-slot #warnBanner,body.only-slot #blockBanner{display:none !important}
 body.only-slot main{max-width:none;margin:6px auto;padding:0 12px 12px}
 body.only-slot #slGrid{display:block !important}
 body.only-slot #slGrid .slbox{display:none}
@@ -157,12 +188,30 @@ body.only-slices #staleBanner,body.only-slices #warnBanner,body.only-slices #blo
   <button class="stop" id="bStop" onclick="stopLog()" style="display:none">&#9632; Stop logging</button>
   <button id="bPause" onclick="slPause()" style="display:none">&#9208; Pause recording</button>
   <button id="bApply" onclick="applyLive()" style="display:none" title="Use the frequencies and slots as they are now in the slots below">Apply frequency changes</button>
-  <span id="barStat"></span>
+  <button id="bMark" onclick="markSpot()" disabled title="Drops a flag at your current position (also the M key). It shows on the map. Type a note first if you like.">&#128681; Mark spot</button>
+  <input type="text" id="markNote" placeholder="note (optional)" style="width:150px;padding:6px 8px" class="carhide" onkeydown="if(event.key==='Enter'){markSpot();}">
+  <span id="barStat" class="carhide"></span>
   <span style="flex:1"></span>
   <label class="chk" title="When you press Stop, a map of that drive opens by itself"><input type="checkbox" id="autoMap"> <span>Map when I stop</span></label>
   <button class="dbq" onclick="quickMap()" title="One press: a map of the drive being recorded now (or your newest drive) with all slots, using the dot spacing chosen in the Drives box">&#9889; Quick map</button>
-  <button onclick="gotoCard('cDrives')" title="Choose drives and slots for a map">Make map&hellip;</button>
+  <button class="carhide" onclick="gotoCard('cDrives')" title="Choose drives and slots for a map">Make map&hellip;</button>
+  <button class="carhide" onclick="runCheck()" title="Checks the radio, GPS and software">&#10004; Check setup</button>
+  <button id="bCar" onclick="carMode()" title="Big buttons and big numbers for the passenger seat: only Start, Pause, Mark, speed, health and the live map">Car mode</button>
  </div>
+ <div class="dbrow" id="barLive">
+  <div id="bigSpeed" title="Speed from the GPS"><b id="spVal">&ndash;</b><span>mph</span></div>
+  <div class="bbox" title="The dot spacing you set, and what you are really getting at this speed. If the radio cannot keep up with your speed the dots end up farther apart than the setting."><span class="lab">Dot spacing</span>
+   <span><b id="spSet">&ndash;</b> set &middot; <b id="spNow">&ndash;</b> <span class="mut" id="spNowL">now</span></span><span id="spWarn"></span></div>
+  <div class="bbox"><span class="lab">Health</span>
+   <span><span class="hdot" id="hGps"></span><span id="hGpsT">GPS &ndash;</span> &nbsp; <span class="hdot" id="hRead"></span><span id="hReadT">last dot &ndash;</span></span>
+   <span id="hOv" style="color:#a5281b;font-weight:700"></span></div>
+  <div class="bbox carhide"><span class="lab">This drive</span><span><b id="tEl">0:00</b> &middot; <b id="tMi">0.00</b> mi &middot; <b id="tDots">0</b> dots &middot; <b id="tMarks">0</b> marks</span></div>
+  <div class="bbox carhide"><span class="lab">Spacing (ft)</span><span class="seg"><button class="sm" onclick="setSpacing(5)">5</button><button class="sm" onclick="setSpacing(10)">10</button><button class="sm" onclick="setSpacing(20)">20</button><button class="sm" onclick="setSpacing(50)">50</button></span></div>
+  <div class="bbox snd"><span class="lab">Sound</span>
+   <label class="chk" title="Beeps if the GPS is lost or no new dots are saved while you are moving"><input type="checkbox" id="alarmOn" checked> <span>Alarm</span></label>
+   <label class="chk" title="A short tone each time the chosen slot rises well above its usual level; the higher the rise, the higher the pitch"><input type="checkbox" id="toneOn" onchange="toneToggle()"> <span>Noise tone: slot <select id="toneSlot" style="font-size:12px;padding:1px 3px"><option>1</option><option>2</option><option>3</option><option>4</option></select> rise <select id="toneThr" style="font-size:12px;padding:1px 3px"><option value="4">4 dB</option><option value="6" selected>6 dB</option><option value="10">10 dB</option></select></span></label></div>
+ </div>
+ <div id="alarmBar"></div>
  <div class="dbrow jump" style="margin-top:4px">Jump to: <a href="#cCollect">Setup</a><a href="#cSlices">Live slots</a><a href="#cDrives">Drives &amp; map choices</a><a href="#cMaps">Maps</a><a href="#cTools">Tools</a></div>
  <div id="startErr" class="note err" style="display:none;margin:6px 0 0"></div>
 </div>
@@ -177,6 +226,15 @@ body.only-slices #staleBanner,body.only-slices #warnBanner,body.only-slices #blo
  <div class="mut">Only one program can use the radio or a GPS port at a time. Press the button to close them (they are asked politely first). Save your work in them first.</div>
  <button class="pri" onclick="freeDevices()">Close them for me</button> <button class="sm" onclick="$('blockBanner').style.display='none'">Ignore</button>
 </div>
+<!-- ======================= LIVE TRACK ======================= -->
+<section class="card" id="cTrack" style="display:none">
+ <div class="trh"><b>Live track</b>
+  <label>Colour by slot <select id="trSlot" onchange="trRecolor(true)"><option value="0">1</option><option value="1">2</option><option value="2">3</option><option value="3">4</option></select></label>
+  <label class="chk" style="margin:0"><input type="checkbox" id="trFollow" checked> <span>Follow me</span></label>
+  <span class="mut" id="trInfo">The dots appear as you drive, coloured like the finished map (blue weak, red strong). Streets need internet.</span></div>
+ <div id="liveMap"></div>
+</section>
+
 <!-- ======================= 1. COLLECT ======================= -->
 <section class="card" id="cCollect">
  <h2><span class="num">1</span>Collect data</h2>
@@ -490,7 +548,7 @@ const BUSY_MSG={"/api/logs/bundle":"Collecting the logs and settings into a supp
 let busyN=0, busyT=null, busyTick=null, busyStart=0, busyTxt="";
 function busyShow(){const b=document.getElementById("busy"); if(!b)return; const sec=Math.round((Date.now()-busyStart)/1000);
   b.innerHTML='<span class="sp"></span>'+busyTxt+"... "+sec+" s"; b.style.display="block";}
-function busyBegin(path){ if(path in BUSY_MSG===false && ["/api/config","/api/live","/api/state","/api/drives","/api/ports","/api/blockers","/api/pause","/api/pan/set","/api/pan/stop","/api/pan/watch","/api/spacing","/api/gain","/api/slices/stop","/api/slices/set","/api/slices/sound_mode","/api/rec/start","/api/rec/stop","/api/rec/delete","/api/reveal","/api/open_folder","/api/drive/meta"].includes(path)) return false;
+function busyBegin(path){ if(path in BUSY_MSG===false && ["/api/config","/api/live","/api/state","/api/drives","/api/ports","/api/blockers","/api/pause","/api/pan/set","/api/pan/stop","/api/pan/watch","/api/spacing","/api/gain","/api/slices/stop","/api/slices/set","/api/slices/sound_mode","/api/rec/start","/api/rec/stop","/api/rec/delete","/api/reveal","/api/open_folder","/api/drive/meta","/api/track","/api/mark"].includes(path)) return false;
   busyN++; if(busyN===1){busyStart=Date.now(); busyTxt=BUSY_MSG[path]||"Working";
     busyT=setTimeout(()=>{busyShow(); busyTick=setInterval(busyShow,1000);},500);} return true;}
 function busyEnd(){ busyN=Math.max(0,busyN-1); if(busyN===0){clearTimeout(busyT);clearInterval(busyTick);const b=document.getElementById("busy"); if(b)b.style.display="none";}}
@@ -560,7 +618,7 @@ async function findHl2(){
 function hl2GainReset(){ $("hl2g").value=15; gainChanged("hl2"); }
 
 /* ---------- slots: four live panadapters ---------- */
-const PAGE_VER="1.4.0b";        /* the version of this page: it must match the program version shown in the top bar */
+const PAGE_VER="1.4.0c";        /* the version of this page: it must match the program version shown in the top bar */
 const SL={logging:false,live:false,busy:false,starting:false,manualStop:false,lastTry:0,health:{},byCh:{},startErr:"",radio:"",lastSync:0,seen:{},last:{},paused:false,autoPaused:false};
 const SLH={0:[],1:[],2:[],3:[]};      // the last readings saved for each slot (for the readout shown when a slot's radio is busy mapping)
 const ONLY_SLICES=new URLSearchParams(location.search).get("view")==="slices";
@@ -1256,6 +1314,7 @@ async function refreshLive(){
   $("bStart").style.display=lg?"none":""; $("bStop").style.display=lg?"":"none";
   $("bApply").style.display=lg?"":"none";
   for(const id of ["practice","route"]) $(id).disabled=lg;
+  barLive(lg,st); trTick(lg);
   { const bs=$("barStat"); if(!lg) bs.innerHTML=""; else { const paused=st&&st.settings&&st.settings.paused, ap=st&&st.auto_paused;
       bs.innerHTML=(paused?"&#9208; PAUSED":(ap?"&#9208; Paused (stopped)":'<span style="color:#c0392b">&#9679;</span> Recording'))+(st&&st.rows!=null?" &middot; "+st.rows+" dots":"")+(st&&st.speed_mph!=null?" &middot; "+Math.round(st.speed_mph)+" mph":""); } }
   PAN.logging=lg; if(!PAN.on) $("bPanStart").innerHTML=lg?"&#9654; Watch a band while logging":"&#9654; Start panadapter";
@@ -1400,9 +1459,121 @@ async function quickMap(){
     if(r.live) toast("Quick map of the drive in progress ("+esc(r.drive)+"): it shows what is saved so far.",8000);
   }catch(e){ if(win)win.close(); toast("&#9888; "+esc(e.message),9000); }
 }
+/* ---------- drive bar: speed, spacing, health, alarm, mark, tone, car mode ---------- */
+let AUD=null;
+function audio(){ try{ if(!AUD) AUD=new (window.AudioContext||window.webkitAudioContext)(); if(AUD.state==="suspended") AUD.resume(); }catch(e){} return AUD; }
+document.addEventListener("click",()=>audio(),{once:false});
+function beep(freq,dur,vol){ const a=audio(); if(!a) return; try{ const o=a.createOscillator(), g=a.createGain(); o.type="sine"; o.frequency.value=freq;
+  g.gain.value=vol||0.18; o.connect(g); g.connect(a.destination); o.start(); g.gain.setTargetAtTime(0,a.currentTime+dur*0.7,0.03); o.stop(a.currentTime+dur); }catch(e){} }
+function toneToggle(){ if($("toneOn").checked){ audio(); beep(660,0.15); try{localStorage.setItem("rfmapTone","1");}catch(e){} } else { try{localStorage.setItem("rfmapTone","0");}catch(e){} } }
+function fmtDur(s){ s=Math.max(0,Math.round(s)); const h=Math.floor(s/3600), m=Math.floor(s%3600/60), x=s%60; return (h?h+":"+String(m).padStart(2,"0"):m)+":"+String(x).padStart(2,"0"); }
+const BAR={alarmT:0, toneLast:0, lastDots:-1, speedWas:0};
+function barLive(lg,st){
+  document.body.classList.toggle("logging",!!lg);
+  const car=document.body.classList.contains("car");
+  $("bMark").disabled=!lg;
+  if(!(lg&&st)){ $("spVal").textContent="\u2013"; $("alarmBar").style.display="none"; BAR.lastDots=-1; return; }
+  const set=st.settings||{}, spd=st.speed_mph, mph=(spd==null?null:spd);
+  $("spVal").textContent=mph==null?"\u2013":Math.round(mph);
+  // --- real-time dot spacing at this speed
+  const byTime=set.sample_mode==="time", setFt=+set.spacing_ft||10, cyc=st.cycle_s, fps=(mph||0)*1.46667;
+  const paused=!!set.paused||!!st.auto_paused;
+  if(byTime){ $("spSet").textContent="every "+(+set.interval_s||5)+" s"; $("spNow").textContent="by time"; $("spNowL").textContent=""; $("spWarn").textContent=""; }
+  else{
+    $("spSet").textContent=setFt+" ft";
+    let now=null, warn="", cls="";
+    if(paused){ $("spNow").textContent="paused"; $("spNowL").textContent=""; }
+    else if(mph==null||mph<1){ $("spNow").textContent="stopped"; $("spNowL").textContent=""; }
+    else{
+      now=Math.max(setFt, cyc?fps*cyc:0);
+      $("spNow").textContent="\u2248 "+(now<10?now.toFixed(1):Math.round(now))+" ft"; $("spNowL").textContent="at "+Math.round(mph)+" mph"+(st.gap_ft?" (last dots "+Math.round(st.gap_ft)+" ft apart)":"");
+      if(cyc&&now>setFt*1.25){ const vmax=setFt/(cyc*1.46667); warn="Too fast for "+setFt+" ft: the radio needs "+cyc.toFixed(2)+" s per reading. Slow to about "+Math.max(1,Math.floor(vmax))+" mph to keep "+setFt+" ft."; cls=now>setFt*2?"":"amber"; }
+    }
+    $("spWarn").className=cls; $("spWarn").textContent=warn;
+  }
+  // --- health
+  const age=(st.server_t&&st.last_dot_t)?st.server_t-st.last_dot_t:null, gps=st.gps_status||"", gpsOk=/fix OK|simulated/i.test(gps);
+  const gAge=st.gps_age_s;
+  let gcls="g", gtxt="GPS "+(st.sats!=null?st.sats+" sats":"OK");
+  if(!gpsOk){ gcls="r"; gtxt="GPS: "+gps; } else if(gAge!=null&&gAge>10){ gcls="r"; gtxt="GPS silent "+Math.round(gAge)+" s"; } else if(gAge!=null&&gAge>3||(st.sats!=null&&st.sats<4)){ gcls="a"; gtxt="GPS weak"+(st.sats!=null?" ("+st.sats+" sats)":""); }
+  $("hGps").className="hdot "+gcls; $("hGpsT").textContent=gtxt;
+  const moving=mph!=null&&mph>=3&&!paused&&!byTime;
+  let rcls="g", rtxt="last dot "+(age==null?"\u2013":(age<10?age.toFixed(1):Math.round(age))+" s ago");
+  if(paused){ rcls="a"; rtxt="not recording (paused)"; }
+  else if(moving&&age!=null&&age>8){ rcls="r"; } else if(moving&&age!=null&&age>4){ rcls="a"; }
+  $("hRead").className="hdot "+rcls; $("hReadT").textContent=rtxt;
+  const ov=$("pOv").style.display!=="none"; $("hOv").textContent=ov?"\u26A0 RADIO OVERLOAD: lower the gain":"";
+  // --- counters
+  $("tEl").textContent=st.started_t&&st.server_t?fmtDur(st.server_t-st.started_t):"0:00";
+  $("tMi").textContent=((st.dist_ft||0)/5280).toFixed(2); $("tDots").textContent=st.rows||0;
+  // --- alarm: GPS lost, or moving with no new dots
+  let alarm="";
+  if(gcls==="r") alarm=gAge!=null&&gAge>10?"GPS has gone quiet for "+Math.round(gAge)+" seconds. No dots can be saved.":"No GPS fix. No dots are being saved.";
+  else if(rcls==="r") alarm="NO NEW DOTS for "+Math.round(age)+" seconds while moving. Check the radio and the GPS.";
+  else if(ov) alarm="";
+  const ab=$("alarmBar");
+  if(alarm){ ab.style.display="block"; ab.className="flash"; ab.textContent="\u26A0 "+alarm;
+    if($("alarmOn").checked&&Date.now()-BAR.alarmT>2200){ BAR.alarmT=Date.now(); beep(880,0.25,0.3); setTimeout(()=>beep(660,0.25,0.3),300); } }
+  else ab.style.display="none";
+  // --- noise tone: follows one slot, rises when it climbs above its own recent median
+  if($("toneOn").checked&&st.rows!==BAR.lastDots&&!paused){
+    const ch=slotCh(+$("toneSlot").value-1); const h=ch>=0?SLH[+$("toneSlot").value-1]:null;
+    if(h&&h.length>=12){ const v=h[h.length-1].v, base=h.slice(0,-1).map(x=>x.v).sort((a,b)=>a-b)[Math.floor((h.length-1)/2)], rise=v-base;
+      if(rise>=+$("toneThr").value) beep(380+Math.min(rise,24)*38,0.16,0.22); }
+  }
+  BAR.lastDots=st.rows;
+}
+async function markSpot(){
+  if(!window.__logging){ toast("Start logging first: a spot can only be marked while a drive is recorded."); return; }
+  const note=$("markNote").value.trim();
+  await guard(async()=>{ const r=await api("/api/mark",{note}); $("markNote").value=""; beep(1000,0.09,0.2);
+    toast("&#128681; Spot "+r.mark.n+" marked"+(note?": "+esc(note):"")+" at "+r.mark.lat.toFixed(5)+", "+r.mark.lon.toFixed(5),4000); trPoll(true); });
+}
+document.addEventListener("keydown",e=>{ if((e.key==="m"||e.key==="M")&&!e.ctrlKey&&!e.metaKey&&!e.altKey&&!/^(INPUT|TEXTAREA|SELECT)$/.test((e.target&&e.target.tagName)||"")) { if(window.__logging){ e.preventDefault(); markSpot(); } } });
+function carMode(on){ const b=document.body; const v=(on===undefined)?!b.classList.contains("car"):on; b.classList.toggle("car",v);
+  $("bCar").textContent=v?"Exit car mode":"Car mode"; $("cTrack").style.display=(v||window.__logging)?"block":"none"; fixBarTop(); setTimeout(()=>{ if(TR.map) TR.map.invalidateSize(); },200); if(v) trInit(); }
+
+/* ---------- live track map ---------- */
+const TR={map:null,pts:[],seq:0,mk:null,layer:null,markLayer:null,lo:-100,hi:-90,loading:false,lastRecolor:0,nMarks:-1};
+function loadLeaflet(){ return new Promise((res,rej)=>{ if(window.L) return res();
+  const l=document.createElement("link"); l.rel="stylesheet"; l.href="/vendor/leaflet.css"; document.head.appendChild(l);
+  const sc=document.createElement("script"); sc.src="/vendor/leaflet.js"; sc.onload=()=>res(); sc.onerror=()=>rej(new Error("map library")); document.head.appendChild(sc); }); }
+async function trInit(){
+  if(TR.map||TR.loading) return; TR.loading=true;
+  try{ await loadLeaflet(); }catch(e){ TR.loading=false; $("trInfo").textContent="The live map could not be loaded."; return; }
+  TR.map=L.map("liveMap",{preferCanvas:true,zoomControl:true}).setView([39.77,-86.16],16);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"&copy; OpenStreetMap contributors"}).addTo(TR.map);
+  TR.layer=L.layerGroup().addTo(TR.map); TR.markLayer=L.layerGroup().addTo(TR.map); TR.loading=false;
+  setTimeout(()=>TR.map.invalidateSize(),300);
+}
+const TR_STOPS=["#313695","#4575b4","#74add1","#abd9e9","#ffffbf","#fdae61","#f46d43","#d73027","#a50026"].map(h=>[1,3,5].map(i=>parseInt(h.substr(i,2),16)));
+function trColor(v){ const f=Math.max(0,Math.min(1,(v-TR.lo)/((TR.hi-TR.lo)||1))), x=f*(TR_STOPS.length-1), i=Math.min(Math.floor(x),TR_STOPS.length-2), u=x-i;
+  return "rgb("+TR_STOPS[i].map((a,k)=>Math.round(a+(TR_STOPS[i+1][k]-a)*u)).join(",")+")"; }
+function trRange(){ const ci=+$("trSlot").value, vals=TR.pts.map(p=>p.v[ci]).filter(v=>v!=null).sort((a,b)=>a-b);
+  if(vals.length<3){ return false; } let lo=Math.floor(vals[Math.floor(0.02*(vals.length-1))]), hi=Math.ceil(vals[Math.floor(0.995*(vals.length-1))]); if(hi-lo<10) hi=lo+10;
+  const ch=(lo!==TR.lo||hi!==TR.hi); TR.lo=lo; TR.hi=hi; return ch; }
+function trRecolor(force){ if(!TR.map) return; const ci=+$("trSlot").value; if(trRange()||force){ TR.pts.forEach(p=>{ if(p.m&&p.v[ci]!=null) p.m.setStyle({fillColor:trColor(p.v[ci])}); }); }
+  $("trInfo").textContent="Slot "+(ci+1)+": "+TR.lo+" to "+TR.hi+" dB   |   "+TR.pts.length+" dots"; }
+function trAdd(e){ const ci=+$("trSlot").value, p={v:e[3]}; TR.pts.push(p);
+  p.m=L.circleMarker([e[1],e[2]],{radius:5,color:"#222",weight:0.5,fillColor:p.v[ci]!=null?trColor(p.v[ci]):"#888",fillOpacity:0.92}).addTo(TR.layer); }
+async function trPoll(marksToo){
+  if(!window.__logging||!TR.map) return;
+  let j; try{ j=await api("/api/track?after="+TR.seq); }catch(e){ return; }
+  if(j.total<TR.seq){ TR.layer.clearLayers(); TR.pts=[]; TR.seq=0; TR.nMarks=-1; return; }                 // a new drive began
+  if(j.pts.length){ j.pts.forEach(trAdd); TR.seq=j.pts[j.pts.length-1][0];
+    if(Date.now()-TR.lastRecolor>4000||TR.pts.length<30){ TR.lastRecolor=Date.now(); trRecolor(false); }
+    const l=j.pts[j.pts.length-1]; if($("trFollow").checked){ if(TR.pts.length<=j.pts.length) TR.map.setView([l[1],l[2]],17); else TR.map.panTo([l[1],l[2]]); } }
+  if(j.marks&&j.marks.length!==TR.nMarks){ TR.nMarks=j.marks.length; TR.markLayer.clearLayers(); $("tMarks").textContent=j.marks.length;
+    j.marks.forEach(m=>L.marker([m[0],m[1]],{icon:L.divIcon({className:"",html:'<div style="font-size:22px;line-height:22px;text-shadow:0 0 3px #fff">&#128681;</div>',iconSize:[22,22],iconAnchor:[4,20]})}).bindPopup("Mark "+m[2]+(m[3]?": "+esc(m[3]):"")).addTo(TR.markLayer)); }
+}
+let trWasLg=false;
+function trTick(lg){ const show=lg||document.body.classList.contains("car"); $("cTrack").style.display=show?"block":"none";
+  if(lg&&!trWasLg){ trInit().then(()=>{ if(TR.map){ TR.layer.clearLayers(); TR.pts=[]; TR.seq=0; TR.nMarks=-1; setTimeout(()=>TR.map.invalidateSize(),200);} }); }
+  trWasLg=lg; if(lg) trPoll(); }
+
 function gotoCard(id){ const c=$(id); if(c) c.scrollIntoView({behavior:"smooth",block:"start"}); }
 function fixBarTop(){ const h=document.querySelector("header"), b=$("driveBar"); if(h&&b) b.style.top=h.offsetHeight+"px"; }
-window.addEventListener("load",fixBarTop); window.addEventListener("resize",fixBarTop);
+window.addEventListener("load",()=>{ fixBarTop(); if(/[?&]view=car/.test(location.search)) carMode(true); }); window.addEventListener("resize",fixBarTop);
 const mapOne=f=>makeMap([f]);
 function mapChecked(){const f=[...document.querySelectorAll(".dsel:checked")].map(x=>x.value); if(!f.length){toast("Tick at least one drive first.");return;} makeMap(f);}
 async function doKml(f){await guard(async()=>{const r=await api("/api/kml",Object.assign({file:f,filters:mapFilters()},mapSpGet()));await refreshDrivesOnly();toast(`Google Earth file saved: <a href="/exports/${encodeURIComponent(r.file)}">${esc(r.file)}</a> (open it with Google Earth)`,9000);});}

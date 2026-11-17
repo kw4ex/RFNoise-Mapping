@@ -570,7 +570,7 @@ class App:
         out = os.path.join(self.maps_dir, base + (("_%gft" % sp) if sp else "") + make_map.filter_tag(flt) + "_map.html")
         out, counts, info = make_map.build_map(paths, out, title, sp, pick, flt)
         return {"map": os.path.basename(out), "counts": counts, "hot": len(info["hot"]),
-                "hot_places": info["hot"][:3], "flat": info["flat"], "filters": info["filters"]}
+                "hot_places": info["hot"][:3], "marks": info.get("marks", 0), "flat": info["flat"], "filters": info["filters"]}
 
     def quick_map(self, spacing_ft=None, pick="peak"):
         """One-press map: the drive being recorded right now (a map of what is saved so far), or else the newest
@@ -796,6 +796,14 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(self.full_state())
             if path == "/api/live":
                 return self._json(self.live_state())
+            if path == "/api/track":                   # the dots of the drive in progress (for the live track map)
+                after = int((q.get("after") or ["0"])[0] or 0)
+                if not APP.running():
+                    return self._json({"pts": [], "total": 0, "marks": [], "running": False})
+                try:
+                    return self._json(dict(APP.logger_call("/track?after=%d" % after, timeout=2.0), running=True))
+                except Exception:
+                    return self._json({"pts": [], "total": 0, "marks": [], "running": True})
             if path == "/api/drives":
                 return self._json({"drives": APP.drives(), "maps": APP.maps(), "exports": APP.exports()})
             if path == "/api/pan/frame":
@@ -867,6 +875,9 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(device_guard.find_blockers())
             if path == "/api/ports":
                 return self._json({"ports": check_setup.list_serial_ports()})
+            if path in ("/vendor/leaflet.js", "/vendor/leaflet.css"):        # the map library, for the live track map
+                with open(os.path.join(HERE, "vendor", path.rsplit("/", 1)[1]), "rb") as f:
+                    return self._send(200, f.read(), "text/javascript" if path.endswith(".js") else "text/css")
             if path.startswith("/maps/"):
                 name = unquote(path[len("/maps/"):])
                 p = safe_name(name, APP.maps_dir, (".html",))
@@ -1094,6 +1105,11 @@ class Handler(BaseHTTPRequestHandler):
                                          "sample_mode": APP.cfg.get("sample_mode", "distance"),
                                          "interval_s": float(APP.cfg.get("interval_s", 5))}, timeout=3)
             return {"ok": True}
+        if path == "/api/mark":                  # "Mark this spot" while driving
+            if not APP.running():
+                raise ValueError("Start logging first: a spot can only be marked while a drive is being recorded.")
+            r = APP.logger_call("/mark", {"note": str(b.get("note", ""))[:200]}, timeout=3)
+            return {"ok": True, "mark": r.get("mark")}
         if path == "/api/pause":
             upd = {}
             if "auto_pause" in b:

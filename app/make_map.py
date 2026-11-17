@@ -429,6 +429,7 @@ __LEAFLET_JS__
 </script>
 <script>
 const DATA = __DATA__;   // { "3.7": [ {lat,lon,v,t,mph,bw}, ... ], ... }
+const MARKS = __MARKS__;  // spots flagged with 'Mark this spot' while driving: [lat, lon, number, note, time, drive]
 const HOT = __HOT__;     // places where 2 or more frequencies rose together
 const MINSPAN = __MINSPAN__, FLATDB = __FLATDB__;
 const STOPS = __STOPS__;
@@ -526,6 +527,14 @@ function drawHot(){
   document.getElementById("pmulti").innerHTML=HOT.length?"<b>Same place, several frequencies:</b> "+HOT.slice(0,5).map((h,i)=>(i+1)+") "+h.n+" freq at "+h.lat.toFixed(5)+", "+h.lon.toFixed(5)+" ("+h.items.map(x=>x[0]).join(", ")+" MHz)").join(" &nbsp; "):"";
 }
 document.getElementById("hotmark").onchange=drawHot;
+// ---- flags dropped with "Mark this spot" while driving
+const markLayer=L.layerGroup().addTo(map);
+MARKS.forEach(m=>{
+  const ic=L.divIcon({className:"",html:'<div style="font-size:22px;line-height:22px;text-shadow:0 0 3px #fff,0 0 3px #fff">&#128681;</div>',iconSize:[22,22],iconAnchor:[4,20]});
+  L.marker([m[0],m[1]],{icon:ic}).bindPopup("<b>Mark "+m[2]+"</b>"+(m[3]?"<br>"+m[3].replace(/</g,"&lt;"):"")+"<br>"+(m[4]||"").replace("T"," ").replace("Z"," UTC")+(m[5]?"<br>"+m[5]:"")).addTo(markLayer);
+});
+if(MARKS.length){ const mb=document.createElement("div"); mb.style.marginTop="4px"; mb.innerHTML="&#128681; "+MARKS.length+" spot"+(MARKS.length>1?"s":"")+" marked while driving"; document.getElementById("info").after(mb);
+  document.getElementById("phot").insertAdjacentHTML("afterend","<div id='pmarks'><b>Marked spots:</b> "+MARKS.slice(0,8).map(m=>m[2]+") "+(m[3]||"(no note)").replace(/</g,"&lt;")+" at "+m[0].toFixed(5)+", "+m[1].toFixed(5)).join(" &nbsp; ")+"</div>"); }
 sel.onchange=()=>{autoRange();draw();};
 mn.onchange=mx.onchange=document.getElementById("sz").oninput=draw;
 document.getElementById("auto").onclick=()=>{autoRange();draw();};
@@ -567,6 +576,14 @@ def build_map(paths, out, title=None, spacing_ft=None, pick="peak", filters=None
         title += "  (one dot per %g ft, %s)" % (float(spacing_ft), "strongest" if pick != "average" else "average")
     if flt:
         title += "  [only: %s]" % describe_filters(flt)
+    marks = []
+    for pth in paths:
+        nm = (_meta_for(pth).get("name") or "") if len(paths) > 1 else ""
+        for mk in _meta_for(pth).get("marks") or []:
+            try:
+                marks.append([float(mk["lat"]), float(mk["lon"]), len(marks) + 1, str(mk.get("note", "")), str(mk.get("t_utc", "")), nm])
+            except (KeyError, ValueError, TypeError):
+                continue
     hot = find_hotspots(groups)
     flat = sorted((k for k, v in groups.items() if max(r["v"] for r in v) - min(r["v"] for r in v) < FLAT_DB), key=key_mhz)
     css = read_vendor("leaflet.css")
@@ -580,12 +597,13 @@ def build_map(paths, out, title=None, spacing_ft=None, pick="peak", filters=None
                 .replace("__LEAFLET_CSS__", css)
                 .replace("__LEAFLET_JS__", js.replace("</script>", "<\\/script>"))
                 .replace("__STOPS__", json.dumps(STOPS))
+                .replace("__MARKS__", json.dumps(marks, separators=(",", ":")).replace("</", "<\\/"))
                 .replace("__HOT__", json.dumps(hot, separators=(",", ":")).replace("</", "<\\/"))
                 .replace("__MINSPAN__", repr(MIN_SPAN_DB)).replace("__FLATDB__", repr(FLAT_DB))
                 .replace("__DATA__", json.dumps(groups, separators=(",", ":")).replace("</", "<\\/")))
     with open(out, "w", encoding="utf-8") as f:
         f.write(html)
-    return out, {k: len(v) for k, v in groups.items()}, {"hot": hot, "flat": flat, "filters": describe_filters(flt)}
+    return out, {k: len(v) for k, v in groups.items()}, {"hot": hot, "flat": flat, "filters": describe_filters(flt), "marks": len(marks)}
 
 
 # ----------------------------------------------------------------------------

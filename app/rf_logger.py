@@ -1002,7 +1002,17 @@ def make_handler(settings, state, stop_event, sdr=None):
 
         def do_GET(self):
             if self.path.startswith("/status"):
-                self._send(200, json.dumps(dict(state, settings=settings.get())))
+                st = {k: v for k, v in state.items() if k != "track"}
+                self._send(200, json.dumps(dict(st, settings=settings.get(), server_t=time.time())))
+            elif self.path.startswith("/track"):
+                try:
+                    after = int(self.path.split("after=")[1].split("&")[0])
+                except Exception:
+                    after = 0
+                tr = state.get("track", [])
+                self._send(200, json.dumps({"pts": [e for e in tr[-1500:] if e[0] > after], "total": state.get("rows", 0),
+                                            "marks": [[m["lat"], m["lon"], m["n"], m["note"]] for m in
+                                                      ((META_STATE["meta"] or {}).get("marks") or [])]}))
             elif self.path.startswith("/slices"):
                 import hl2_audio
                 with PAN_FRAME["lock"]:
@@ -1043,6 +1053,14 @@ def make_handler(settings, state, stop_event, sdr=None):
             try:
                 if self.path == "/stop":
                     stop_event.set()
+                elif self.path == "/mark":
+                    req = json.loads(body or "{}")
+                    pos = state.get("pos")
+                    if not pos:
+                        raise ValueError("There is no GPS position yet, so the spot cannot be marked.")
+                    mk = meta_add_mark(pos, str(req.get("note", "")).strip()[:200], state.get("rows", 0))
+                    self._send(200, json.dumps({"ok": True, "mark": mk}))
+                    return
                 elif self.path == "/slice_listen":
                     import hl2_audio
                     req = json.loads(body)
@@ -1145,6 +1163,19 @@ def meta_save():
             json.dump(old, mf, indent=2)
     except Exception:
         pass
+
+
+def meta_add_mark(pos, note, dot_no):
+    """'Mark this spot': a flag at the current position, saved at once in the drive's info file."""
+    st = META_STATE
+    if st["meta"] is None:
+        raise ValueError("No drive is being recorded.")
+    marks = st["meta"].setdefault("marks", [])
+    mk = {"n": len(marks) + 1, "t_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+          "lat": round(pos[0], 7), "lon": round(pos[1], 7), "note": note, "dot": dot_no}
+    marks.append(mk)
+    meta_save()
+    return mk
 
 
 def meta_note_change(before, upd):
@@ -1356,6 +1387,9 @@ def main():
     dots = 0
     last_print = 0.0
     still_since, auto_paused = None, False
+    gaps = []
+    dist_ft = 0.0
+    state["started_t"] = time.time()
     try:
         while not stop_event.is_set():
             cfg = settings.get()
@@ -1363,6 +1397,12 @@ def main():
             if args.gps == "sim" and args.sim_speed > 0:
                 time.sleep(0.1 / args.sim_speed)
             state["gps_status"] = getattr(gps, "status", "")
+            if fix is not None:                     # live speed, satellites and position, even while waiting for the next dot
+                state["speed_mph"] = fix.speed_mps * MPH_PER_MPS
+                state["sats"], state["hdop"] = fix.sats, fix.hdop
+                state["gps_age_s"] = 0.0 if args.gps == "sim" else round(max(0.0, time.time() - fix.t_rx), 1)
+                state["pos"] = ([fix.lat, fix.lon] if (args.gps == "sim" or args.no_extrapolate)
+                                else list(extrapolate(fix, time.time())))
             if getattr(gps, "finished", False):
                 print("Simulated route finished.")
                 break
@@ -1405,6 +1445,7 @@ def main():
 
             # --- one measurement cycle: every frequency in turn
             pos_iso = _iso_ms()
+            t_cycle0 = time.time()
             last = []
             chans = cfg["channels"][:MAX_CHANNELS]
             if getattr(sdr, "multi", False):
@@ -1438,11 +1479,27 @@ def main():
             if hasattr(sdr, "health"):
                 state["radio_health"] = sdr.health()
             fh.flush()
+            cyc = time.time() - t_cycle0                      # how long one round of readings took
+            state["cycle_s"] = round(cyc if state.get("cycle_s") is None else 0.7 * state["cycle_s"] + 0.3 * cyc, 3)
+            if moved < 1e8:                                    # the real distance since the previous dot
+                dist_ft += moved
+                state["dist_ft"] = round(dist_ft, 1)
+                gaps.append(moved)
+                del gaps[:-5]
+                state["gap_ft"] = round(sorted(gaps)[len(gaps) // 2], 1)
             last_lat, last_lon = lat, lon
             last_t = time.time()
             dots += 1
+            lv = [None] * len(chans)
+            for x in last:
+                if 0 <= x["ch"] < len(lv):
+                    lv[x["ch"]] = round(x["level"], 1)
+            track = state.setdefault("track", [])
+            track.append([dots, round(lat, 6), round(lon, 6), lv])
+            if len(track) > 30000:
+                del track[:5000]
             state.update(rows=dots, speed_mph=fix.speed_mps * MPH_PER_MPS,
-                         sats=fix.sats, last=last)
+                         sats=fix.sats, last=last, last_dot_t=time.time())
             if time.time() - last_print > 2:
                 last_print = time.time()
                 txt = "  ".join(f"{x['mhz']:g}MHz={x['level']:.1f}" for x in last)
