@@ -282,7 +282,7 @@ function Move-LooseFiles($dir) {
     foreach ($f in @(Get-ChildItem -LiteralPath $dir -File -Force -ErrorAction SilentlyContinue)) {
         $nm = $f.Name; $to = $null
         if ($nm -match '^(full_test_report|hl2_test_report|switch_test_report|gps_check|gps_speed|diag_radio|diag_radio_console|install_log)\.txt$') { $to = $rep }
-        elseif ($nm -match '\.bak$' -or $nm -match '^(Check_GPS|Diagnose_Radio|GPS_Speed_Test|Open_Panel|Test_Everything|Find_GPS|Make_Support_File|Open_Logs|Switch_Test|HL2_Test|ANAN_Read_Test)\.bat$' -or $nm -eq 'Uninstall_RFNoise.ps1') { $to = $old }
+        elseif ($nm -match '\.bak$' -or $nm -match '^(Check_GPS|Diagnose_Radio|GPS_Speed_Test|Open_Panel|Test_Everything|Find_GPS|Make_Support_File|Open_Logs|Switch_Test|HL2_Test|ANAN_Read_Test|Allow_ANAN_Firewall)\.bat$' -or $nm -eq 'Uninstall_RFNoise.ps1') { $to = $old }
         if (-not $to) { continue }
         try {
             New-Item -ItemType Directory -Force -Path $to | Out-Null
@@ -563,7 +563,7 @@ foreach ($f in @('README_RFNoise.txt', 'RFNoise_Help.html', 'RFNoise_User_Guide.
 foreach ($f in @('Open_Panel.bat', 'Uninstall_RFNoise.ps1')) { Copy-Item -LiteralPath (Join-Path $pk $f) -Destination (Join-Path $toolsDir $f) -Force }
 # the start, stop, uninstall, test and GPS-finder files carry the Python command found in step 1
 # Start, Stop and Uninstall stay in the main folder; the test and helper files go in Tools
-foreach ($nm in @('Start_RFNoise', 'Stop_RFNoise', 'Uninstall_RFNoise', 'Test_Everything', 'Find_GPS', 'Make_Support_File', 'Open_Logs', 'Switch_Test', 'HL2_Test', 'ANAN_Read_Test')) {
+foreach ($nm in @('Start_RFNoise', 'Stop_RFNoise', 'Uninstall_RFNoise', 'Test_Everything', 'Find_GPS', 'Make_Support_File', 'Open_Logs', 'Switch_Test', 'HL2_Test', 'ANAN_Read_Test', 'Allow_ANAN_Firewall')) {
     $bt = [IO.File]::ReadAllText((Join-Path $pk ($nm + '.template.bat'))).Replace('@@PYCMD@@', $script:PyCmd)
     $where = if (@('Start_RFNoise', 'Stop_RFNoise', 'Uninstall_RFNoise') -contains $nm) { $dir } else { $toolsDir }
     [IO.File]::WriteAllText((Join-Path $where ($nm + '.bat')), $bt)

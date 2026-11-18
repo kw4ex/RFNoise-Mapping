@@ -294,7 +294,9 @@ def read_test(ip, freq_mhz=10.0, seconds=2.0, rate_khz=192, modes=("phase", "hz"
         a["other_datagrams"] = other
         results[m] = a
         if a["packets"] == 0:
-            say("  No signal data came back (%d other packets). The radio may need its Protocol 2 firmware, or a firewall is blocking UDP port %d." % (other, base + 11))
+            say("  No signal data came back (%d other packets)." % other)
+            say("  Most likely cause: the Windows Firewall is blocking UDP port %d for Python. Fix: run Tools\\Allow_ANAN_Firewall.bat once (it asks Windows for permission), then run this test again." % (base + 11))
+            say("  Other possible causes: another program is using the radio, or the radio's Protocol 2 firmware.")
         else:
             say("  Received %d packets (%d samples), %d lost. Level %.1f dBFS." % (a["packets"], a["samples"], a["lost"], a["level_dbfs"]))
             if "peak_offset_khz" in a:

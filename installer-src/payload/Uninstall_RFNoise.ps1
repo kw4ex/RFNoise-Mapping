@@ -168,6 +168,7 @@ try {
     Head 'What was NOT removed (on purpose)'
     Say '  - Python, numpy and pyserial (other programs may use them)'
     Say '  - the SDRplay driver and PothosSDR (remove them in Windows "Apps & features" if you want)'
+    Say '  - the Windows Firewall rule "RF Noise Map - ANAN radio data (Python)", if you added it (remove it with Allow_ANAN_Firewall.bat remove, BEFORE uninstalling, or in Windows Defender Firewall)'
     Say "  - the uninstall record:  $log"
     if ($failed.Count) {
         Say ''
