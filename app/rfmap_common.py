@@ -10,7 +10,7 @@ import re
 import sys
 
 APP_NAME = "RF Noise Map"
-VERSION = "1.4.0m"
+VERSION = "1.4.0n"
 IS_MAC = sys.platform == "darwin"
 IS_WIN = sys.platform.startswith("win")
 

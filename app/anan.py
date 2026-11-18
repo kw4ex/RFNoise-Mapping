@@ -303,7 +303,106 @@ def read_test(ip, freq_mhz=10.0, seconds=2.0, rate_khz=192, modes=("phase", "hz"
                 say("  Strongest signal: %+.2f kHz from the tuned frequency, %.1f dB above the typical noise." % (a["peak_offset_khz"], a["peak_over_median_db"]))
         time.sleep(1.0)
     say("The radio was told to stop.")
+    if results and all(v.get("packets", 0) == 0 for v in results.values()):
+        diagnose(ip, freq_mhz, base, say)
     return results
+
+
+RULE_NAME = "RF Noise Map - ANAN radio data (Python)"
+
+
+def _run(cmd):
+    import subprocess
+    try:
+        return subprocess.run(cmd, capture_output=True, text=True, timeout=15).stdout
+    except Exception as e:
+        return "(could not run: %s)" % e
+
+
+def diagnose(ip, freq_mhz, base=PORT, say=print):
+    """Used when nothing came back: checks this PC's side and listens on EVERY port the radio might use."""
+    say("")
+    say("--- Extra checks (nothing came back, so let us look closer) ---")
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect((ip, base))
+        local = s.getsockname()[0]
+        s.close()
+        say("This PC reaches the radio from its address %s." % local)
+    except OSError as e:
+        local = ""
+        say("Could not work out this PC's address towards the radio: %s" % e)
+    if sys.platform == "win32":
+        out = _run(["netsh", "advfirewall", "firewall", "show", "rule", "name=" + RULE_NAME])
+        if "Rule Name" in out:
+            enabled = [l.strip() for l in out.splitlines() if l.strip().startswith(("Enabled", "Program", "Profiles", "RemoteIP"))]
+            say("Firewall rule FOUND: " + " | ".join(enabled))
+        else:
+            say("Firewall rule NOT found (%s). Run Tools\\Allow_ANAN_Firewall.bat and press Y." % RULE_NAME)
+        st = [l.strip() for l in _run(["netsh", "advfirewall", "show", "allprofiles", "state"]).splitlines() if l.strip().startswith(("Domain", "Private", "Public", "State"))]
+        say("Windows Firewall state: " + " | ".join(st))
+        say("Python program used: " + sys.executable)
+    socks = {}
+    for port in list(range(base + 1, base + 11)) + list(range(base + 11, base + 19)):
+        try:
+            x = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            x.bind(("", port))
+            x.settimeout(0.01)
+            socks[port] = x
+        except OSError:
+            pass
+    say("Listening on %d ports (%d to %d) while the radio is started..." % (len(socks), base + 1, base + 18))
+    got = {}
+    r = AnanReader(ip, base, 192, True)
+    try:
+        for p, x in socks.items():                       # a self-test: can this PC receive on those ports at all?
+            if local:
+                try:
+                    r_tx = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                    r_tx.sendto(b"selftest", (local, p))
+                    r_tx.close()
+                except OSError:
+                    pass
+        time.sleep(0.2)
+        for p, x in list(socks.items()):
+            try:
+                d, a = x.recvfrom(100)
+                if d == b"selftest":
+                    got.setdefault("self", []).append(p)
+            except (socket.timeout, OSError):
+                pass
+        if len(got.get("self", [])) < len(socks):
+            say("Self-test: this PC could receive on %d of %d ports from itself." % (len(got.get("self", [])), len(socks)))
+        r.rx = None
+        r.tx = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        r._send("gen", general_packet(r.seq["gen"], base, True), base)
+        time.sleep(0.05)
+        r._send("ddc", ddc_packet(r.seq["ddc"], 192), base + 1)
+        time.sleep(0.05)
+        r._send("hp", high_priority_packet(r.seq["hp"], True, freq_mhz * 1e6, True), base + 3)
+        end = time.time() + 2.5
+        seen = {}
+        last = time.time()
+        while time.time() < end:
+            if time.time() - last > 0.2:
+                r._send("hp", high_priority_packet(r.seq["hp"], True, freq_mhz * 1e6, True), base + 3)
+                last = time.time()
+            for p, x in socks.items():
+                try:
+                    d, a = x.recvfrom(4096)
+                except (socket.timeout, OSError):
+                    continue
+                e = seen.setdefault(p, [0, a, d[:16].hex(" "), len(d)])
+                e[0] += 1
+    finally:
+        r.stop()
+        for x in socks.values():
+            x.close()
+    if not seen:
+        say("Nothing arrived on ANY port from the radio. The radio did not answer the start request, or Windows is blocking all of it.")
+    for p, (n, a, h, ln) in sorted(seen.items()):
+        say("Port %d: %d packets of %d bytes from %s:%d, starting %s" % (p, n, ln, a[0], a[1], h))
+    say("The radio was told to stop.")
 
 
 def main(argv):
