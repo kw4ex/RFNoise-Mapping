@@ -156,7 +156,7 @@ def ddc_packet(seq, rate_khz):
     return bytes(b)
 
 
-def high_priority_packet(seq, run, freq_hz, phase=True):
+def high_priority_packet(seq, run, freq_hz, phase=True, alex=True):
     """High Priority (1444 bytes like Thetis): run bit and the receive frequency. PTT never set, drive level 0."""
     b = bytearray(PKT)
     struct.pack_into(">I", b, 0, seq)
@@ -165,9 +165,10 @@ def high_priority_packet(seq, run, freq_hz, phase=True):
     for off in (9, 13, 17, 21):             # DDC1..DDC4, as Thetis does (DDC0 stays 0)
         struct.pack_into(">I", b, off, w)
     b[345] = 0                              # TX drive level (Thetis sends 0x22; we send none)
-    b[1400] = 0x02
-    for i, v in ((1428, 0x01), (1429, 0x40), (1431, 0x20), (1432, 0x01), (1433, 0x40), (1434, 0x10)):
-        b[i] = v                            # filter / relay bytes copied from Thetis
+    if alex:
+        b[1400] = 0x02
+        for i, v in ((1428, 0x01), (1429, 0x40), (1431, 0x20), (1432, 0x01), (1433, 0x40), (1434, 0x10)):
+            b[i] = v                        # filter / relay bytes copied from Thetis (they were set for 80 m)
     return bytes(b)
 
 
@@ -200,8 +201,8 @@ class AnanReader:
     """Starts one receiver for a while and collects its samples. Always stops the radio (see stop()).
     One socket does everything: the radio sends its answers back to the port the requests came from."""
 
-    def __init__(self, ip, base=PORT, rate_khz=192, phase=True, streams=False):
-        self.ip, self.base, self.rate_khz, self.phase, self.streams = ip, base, rate_khz, phase, streams
+    def __init__(self, ip, base=PORT, rate_khz=192, phase=True, streams=False, alex=True):
+        self.ip, self.base, self.rate_khz, self.phase, self.streams, self.alex = ip, base, rate_khz, phase, streams, alex
         self.sock = None
         self.seq = {"gen": 0, "ddc": 0, "hp": 0, "duc": 0, "iq": 0, "aud": 0}
         self.freq = 0.0
@@ -217,7 +218,7 @@ class AnanReader:
         self.seq[kind] += 1
 
     def _hp(self, run):
-        self._send("hp", high_priority_packet(self.seq["hp"], run, self.freq, self.phase), self.base + 3)
+        self._send("hp", high_priority_packet(self.seq["hp"], run, self.freq, self.phase, self.alex), self.base + 3)
 
     def start(self, freq_hz):
         self.freq = float(freq_hz)
@@ -298,7 +299,7 @@ class AnanReader:
         self.sock = None
 
 
-def analyse(pkts, rate_khz):
+def analyse(pkts, rate_khz, targets=()):
     """Level and strongest signals of what was received. The DC offset is removed, the band edges (filter skirts)
     and the middle 1.5 kHz are ignored, and peaks are measured against the typical noise of the usable part."""
     import numpy as np
@@ -333,19 +334,23 @@ def analyse(pkts, rate_khz):
             if len(peaks) == 5:
                 break
         res["floor_dbfs_per_bin"] = floor
+        res["targets"] = {}
+        for t in targets:                                   # level at a wanted offset (kHz), +-0.3 kHz
+            m = np.abs(f - t * 1000.0) < 300.0
+            res["targets"][t] = float(np.max(sp[m]) - floor) if m.any() else None
         res["peaks"] = [(round(o / 1000.0, 3), round(d, 1)) for o, d in peaks]
         res.update(peak_offset_khz=peaks[0][0] / 1000.0, peak_over_median_db=peaks[0][1])
     return res
 
 
-def read_test(ip, freq_mhz=10.0, seconds=2.0, rate_khz=192, modes=("basic", "streams"), base=PORT, say=print):
+def read_test(ip, freq_mhz=10.0, seconds=2.0, rate_khz=192, modes=("basic", "streams"), base=PORT, say=print, alex=True, targets=()):
     """Tunes the receiver to freq_mhz and reads for `seconds`, once per way of starting. Receive only.
     basic = General + DDC-Specific + High Priority. streams = the same plus silent transmit streams like Thetis sends."""
     results = {}
     for m in modes:
         say("What I am doing: starting a receiver at %.4f MHz (%s start) for %.0f seconds..." %
             (freq_mhz, "Thetis-like, with silent transmit streams" if m == "streams" else "basic", seconds))
-        r = AnanReader(ip, base, rate_khz, True, streams=(m == "streams"))
+        r = AnanReader(ip, base, rate_khz, True, streams=(m == "streams"), alex=alex)
         try:
             r.start(freq_mhz * 1e6)
             pkts, other = r.collect(seconds)
@@ -354,7 +359,7 @@ def read_test(ip, freq_mhz=10.0, seconds=2.0, rate_khz=192, modes=("basic", "str
             return results
         finally:
             r.stop()                                            # always tell the radio to stop
-        a = analyse(pkts, rate_khz)
+        a = analyse(pkts, rate_khz, targets)
         a["other_datagrams"] = other
         results[m] = a
         if a["packets"] == 0:
@@ -364,6 +369,8 @@ def read_test(ip, freq_mhz=10.0, seconds=2.0, rate_khz=192, modes=("basic", "str
             say("  DC offset (the radio's own constant) %.1f dBFS - removed before measuring." % a["dc_dbfs"])
             for off, db in a.get("peaks", []):
                 say("  Peak %+8.3f kHz from the tuned frequency (%.4f MHz): %.1f dB above the typical noise." % (off, freq_mhz + off / 1000.0, db))
+            for t, db in (a.get("targets") or {}).items():
+                say("  At the wanted offset %+.1f kHz: %s." % (t, "%.1f dB above the typical noise" % db if db is not None else "outside the band"))
             time.sleep(0.5)
             break                                               # the first way that works is enough
         time.sleep(1.0)
@@ -470,28 +477,14 @@ def main(argv):
         if d[0]["busy"]:
             open(rep, "w", encoding="utf-8").write("\n".join(lines) + "\n")
             return 1
-    two = mhz is None
-    freqs = [10.0, 10.1] if two else [mhz]
-    say("Tuned frequency: %s MHz. Tip: put a known steady signal here (for example 10.000 MHz WWV or an AM broadcast carrier) if an antenna is connected." %
-        " then ".join("%.4f" % f for f in freqs))
+    say("Known-signal check: WWV is on 10.000 MHz. The radio is tuned 10 kHz below and 10 kHz above it, so WWV should show up")
+    say("at +10 kHz and at -10 kHz, once with the filter bytes copied from Thetis (set for 80 m) and once with them cleared.")
     try:
-        found = []
-        for f in freqs:
-            res = read_test(ip, f, say=say, modes=("basic", "streams"))
-            for v in res.values():
-                if v.get("peaks"):
-                    found.append((f, v["peaks"][0][0], v["peaks"][0][1]))
-        if two and len(found) == 2:
-            a, b = found
-            ra, rb = a[0] + a[1] / 1000.0, b[0] + b[1] / 1000.0
-            say("")
-            say("Comparison: strongest peak at %.4f MHz when tuned to %.1f, and at %.4f MHz when tuned to %.1f." % (ra, a[0], rb, b[0]))
-            if abs(ra - rb) < 0.002:
-                say("RESULT: it stayed at the same real frequency, so it is a real signal on the antenna.")
-            elif abs(a[1] - b[1]) < 2.0:
-                say("RESULT: it stayed at the same offset from the tuned frequency, so it is made inside the radio (not a signal).")
-            else:
-                say("RESULT: unclear - send this report to Claude.")
+        for alex in (True, False):
+            for f, want in ((9.990, 10.0), (10.010, -10.0)):
+                say("")
+                say("--- filter bytes %s ---" % ("copied from Thetis" if alex else "cleared"))
+                read_test(ip, f, say=say, modes=("basic",), alex=alex, targets=(want,))
     finally:
         try:
             open(rep, "w", encoding="utf-8").write("\n".join(lines) + "\n")
