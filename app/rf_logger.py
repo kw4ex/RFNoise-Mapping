@@ -789,11 +789,60 @@ class HermesLite2:
             pass
 
 
+class AnanRadio(HermesLite2):
+    """ANAN (OpenHPSDR Protocol 2) over the network, see anan.py. Like the Hermes Lite 2, its receivers run at the
+    same time, each on its own frequency, so all channels are read at the SAME instant. Levels are in dBFS
+    (not yet calibrated to dBm)."""
+
+    name = "ANAN"
+
+    def __init__(self, settings, ip="", rate=192000):
+        import anan
+        self.anan = anan
+        self.hl2 = anan                                    # HermesLite2.measure_all catches self.hl2.Hl2Error: give it the same name
+        ip = ip or os.environ.get("RFMAP_ANAN_IP", "")
+        found = []
+        for _try in range(3):
+            found = anan.discover(ip or None, timeout=3.0)
+            if found:
+                break
+        if not found:
+            L.error("no ANAN found (ip=%r)" % ip)
+            raise RuntimeError("No ANAN answered. Check the network cable and the radio's power, and that nothing else "
+                               "(Thetis, SDR Console) is using the radio.")
+        d = found[0]
+        if d.get("busy"):
+            raise RuntimeError("The ANAN at %s is being used by another program (Thetis?). Close it and try again." % d["ip"])
+        self.info = {"ip": d["ip"], "nrx": 4}
+        self.rate = int(rate)
+        self.nrx = 4
+        self.name = "ANAN (%s)" % d["ip"]
+        self.client = anan.AnanClient(d["ip"], anan.PORT, rate=self.rate, nrx=self.nrx)
+        chans = settings.get("channels") or []
+        for i in range(self.nrx):
+            mhz = chans[i]["mhz"] if i < len(chans) else (chans[0]["mhz"] if chans else 7.0)
+            self.client.freq[i] = int(float(mhz) * 1e6)
+        try:
+            self.client.start()
+        except anan.AnanError as e:
+            L.error(str(e))
+            raise RuntimeError(str(e))
+        self.window = np.hanning(self.FFT_N).astype(np.float32)
+        self.win_pow = float(np.sum(self.window ** 2))
+        self.nseg = max(1, int(round(0.064 * self.rate / self.FFT_N)))
+        self._gain = 0
+        self.frames = {}
+
+    def apply_gain(self, settings):
+        pass                                              # the ANAN's attenuator / preamp come with the calibration step
+
+
 # Radio types known to this program. Adding a third radio later = one new class with the same
 # functions (measure or measure_all, last_frame, close) and one line here.
 RADIO_TYPES = {
     "sdrplay": "SDRplay (USB, one receiver - frequencies take turns)",
     "hl2": "Hermes Lite 2 (network, several receivers at once)",
+    "anan": "ANAN (network, several receivers at once)",
 }
 
 
@@ -813,6 +862,10 @@ class MultiRadio:
                 hset = dict(settings)
                 hset["channels"] = [c for c in chans if (c.get("radio") or "sdrplay") == "hl2"]
                 self.radios["hl2"] = HermesLite2(hset, hl2_ip, hl2_rate, hl2_port)
+            if "anan" in names:
+                aset = dict(settings)
+                aset["channels"] = [c for c in chans if (c.get("radio") or "sdrplay") == "anan"]
+                self.radios["anan"] = AnanRadio(aset)
             if "sdrplay" in names:
                 self.radios["sdrplay"] = SoapySdr(settings)
             for rid in RTL_IDS:
@@ -831,12 +884,14 @@ class MultiRadio:
         """One reading per channel, each from its own radio. The Hermes Lite 2 slots are all read
         at the same instant; the SDRplay slots take turns on its single receiver."""
         out = [None] * len(chans)
-        hl2 = self.radios.get("hl2")
-        if hl2 is not None:
-            idx = [i for i, c in enumerate(chans) if (c.get("radio") or "sdrplay") == "hl2"]
+        for rid in ("hl2", "anan"):                      # network radios: all their slots are read at the same instant
+            net = self.radios.get(rid)
+            if net is None:
+                continue
+            idx = [i for i, c in enumerate(chans) if (c.get("radio") or "sdrplay") == rid]
             if idx:
                 try:
-                    res = hl2.measure_all([chans[i] for i in idx], settings)
+                    res = net.measure_all([chans[i] for i in idx], settings)
                 except Exception:
                     res = [(float("nan"), time.time(), None)] * len(idx)
                 for k, i in enumerate(idx):
@@ -848,7 +903,7 @@ class MultiRadio:
         groups = {}
         for i, c in enumerate(chans):
             rn = c.get("radio") or "sdrplay"
-            if rn == "hl2" or c.get("skip") or rn not in self.radios:
+            if rn in ("hl2", "anan") or c.get("skip") or rn not in self.radios:
                 continue
             groups.setdefault(rn, []).append(i)
 
@@ -882,6 +937,8 @@ class MultiRadio:
         h = {"radios": sorted(self.radios)}
         if "hl2" in self.radios:
             h.update(self.radios["hl2"].health())
+        elif "anan" in self.radios:
+            h.update(self.radios["anan"].health())
         return h
 
     def last_frame(self):
@@ -1106,7 +1163,7 @@ def make_handler(settings, state, stop_event, sdr=None):
                                           "bw_khz": max(0.5, float(c.get("bw_khz", 5))),
                                           "cal_db": float(c.get("cal_db", 0)),
                                           "mode": str(c.get("mode") or "AM").upper() if str(c.get("mode") or "AM").upper() in ("AM", "SAM", "USB", "LSB", "NFM") else "AM",
-                                          "radio": c.get("radio") if c.get("radio") in ("hl2", "sdrplay") + RTL_IDS else "sdrplay",
+                                          "radio": c.get("radio") if c.get("radio") in ("hl2", "anan", "sdrplay") + RTL_IDS else "sdrplay",
                                           "slot": int(c.get("slot") or (len(chans) + 1))})
                         if not chans:
                             raise ValueError("need at least one frequency")

@@ -68,10 +68,11 @@ DEFAULT_CONFIG = {
     "rf_gain_state": 0,
     "use_sdrplay": True,             # the radios you have; each frequency slot picks one of them
     "use_hl2": False,
+    "use_anan": False,               # ANAN radio (OpenHPSDR Protocol 2); testing in 1.4.0
     "use_rtl": False,                # RTL-SDR dongles (up to 4, untested on real dongles in 1.4.0)
     "rtl_gain_db": {},               # tuner gain per dongle, 0 to 49 dB, e.g. {"rtl1": 30}
     "hl2_ip": "",                    # empty = search the network
-    "anan_ip": "",                   # ANAN radio: empty = search the network (finding only in 1.4.0j)
+    "anan_ip": "",                   # ANAN radio: empty = search the network (1.4.0u: used for slots)
     "browser": "chrome",             # chrome = open the program in Google Chrome (if it is installed) | default = your normal browser
     "hl2_speed": "normal",           # how often the Hermes slot pictures refresh: smooth | normal | light
     "hl2_rate": 96000,               # samples per second per receiver: 48000, 96000, 192000 or 384000
@@ -211,6 +212,7 @@ class App:
             self.cfg["use_sdrplay"] = (old != "hl2")
         for ch in self.cfg.get("channels", []):
             ch.setdefault("radio", "auto")
+        os.environ["RFMAP_ANAN_IP"] = str(self.cfg.get("anan_ip", "") or "")
         if not self.cfg.get("token"):
             self.cfg["token"] = secrets.token_urlsafe(12)
         self.save_cfg()
@@ -252,6 +254,7 @@ class App:
                 if k in allowed:
                     self.cfg[k] = v
             self.save_cfg()
+        os.environ["RFMAP_ANAN_IP"] = str(self.cfg.get("anan_ip", "") or "")     # the logger and the live view read it
 
     # ---- logger process control
     def running(self):
@@ -270,22 +273,32 @@ class App:
         return f"tcp:{c['gps_host']}:{int(c['gps_port'])}"
 
     HL2_MAX_MHZ = 38.0
+    ANAN_MAX_MHZ = 55.0
 
     def resolve_radio(self, mhz, want, practice=False):
         """Which radio measures this frequency slot. want = auto | hl2 | sdrplay (the slot's choice)."""
         if practice:
-            return want if want in ("hl2", "sdrplay") + RTL_IDS else "sdrplay"      # practice mode simulates everything anyway
+            return want if want in ("hl2", "anan", "sdrplay") + RTL_IDS else "sdrplay"      # practice mode simulates everything anyway
         use_s = bool(self.cfg.get("use_sdrplay", True))
         use_h = bool(self.cfg.get("use_hl2", False))
         use_r = bool(self.cfg.get("use_rtl", False))
-        if not use_s and not use_h and not use_r:
+        use_a = bool(self.cfg.get("use_anan", False))
+        if not use_s and not use_h and not use_r and not use_a:
             raise ValueError("Tick at least one radio in 'Your radios' (or tick Practice mode).")
-        w = want if want in ("hl2", "sdrplay") + RTL_IDS else "auto"
+        w = want if want in ("hl2", "anan", "sdrplay") + RTL_IDS else "auto"
         if w in RTL_IDS:
             if not use_r:
                 raise ValueError(f"The {mhz:g} MHz slot is set to RTL-SDR {w[-1]}, but RTL-SDR dongles are not "
                                  "ticked in 'Your radios'. Tick them, or set the slot's Radio to Auto.")
             return w
+        if w == "anan":
+            if not use_a:
+                raise ValueError(f"The {mhz:g} MHz slot is set to the ANAN, but that radio is not "
+                                 "ticked in 'Your radios'. Tick it, or set the slot's Radio to Auto.")
+            if mhz > self.ANAN_MAX_MHZ:
+                raise ValueError(f"{mhz:g} MHz is above what the ANAN can receive (about {self.ANAN_MAX_MHZ:g} MHz). "
+                                 "Set that slot's Radio to SDRplay or Auto.")
+            return "anan"
         if w == "hl2":
             if not use_h:
                 raise ValueError(f"The {mhz:g} MHz slot is set to the Hermes Lite 2, but that radio is not "
@@ -303,6 +316,8 @@ class App:
         # the SDRplay takes the rest.
         if use_h and mhz <= self.HL2_MAX_MHZ:
             return "hl2"
+        if use_a and mhz <= self.ANAN_MAX_MHZ:
+            return "anan"
         if use_s:
             return "sdrplay"
         if use_r:
@@ -452,7 +467,7 @@ class App:
         return csv_name
 
     # ---- hardware: the radio list, slot summary and the "Test my setup" measurement
-    RADIO_LABELS = {"hl2": "Hermes Lite 2", "sdrplay": "SDRplay", "off": "Off"}
+    RADIO_LABELS = {"hl2": "Hermes Lite 2", "anan": "ANAN", "sdrplay": "SDRplay", "off": "Off"}
 
     def radio_label(self, rid):
         if rid in self.RADIO_LABELS:

@@ -32,6 +32,9 @@ class AnanError(Exception):
     pass
 
 
+Hl2Error = AnanError                      # the shared reading code (rf_logger) catches this name
+
+
 def packet():
     """The discovery request: 4 bytes of sequence number (0), the command 0x02, padding to 60 bytes."""
     return bytes(4) + b"\x02" + bytes(55)
@@ -143,32 +146,42 @@ def general_packet(seq, base=PORT, phase=True):
     return bytes(b)
 
 
-def ddc_packet(seq, rate_khz):
-    """DDC-Specific: copied from Thetis, with only DDC2 switched on (ADC0) at rate_khz, 24 bits per sample."""
+def ddc_packet(seq, rate_khz, ddcs=None):
+    """DDC-Specific: copied from Thetis, with the receivers in `ddcs` switched on (all on ADC0) at rate_khz,
+    24 bits per sample. Default: only DDC2, like Thetis."""
+    ddcs = tuple(ddcs) if ddcs else (DDC_N,)
     b = bytearray(PKT)
     struct.pack_into(">I", b, 0, seq)
-    for i, v in ((4, 2), (5, 7), (6, 7), (7, 1 << DDC_N), (22, 24), (23, 1), (28, 24), (34, 24), (35, 1), (40, 24), (43, 0x30),
+    for i, v in ((4, 2), (5, 7), (6, 7), (22, 24), (23, 1), (28, 24), (34, 24), (35, 1), (40, 24), (43, 0x30),
                  (46, 24), (49, 0x30), (52, 24), (55, 0x30), (58, 24)):
         b[i] = v
-    b[17 + 6 * DDC_N] = 0                   # this DDC takes ADC0
-    struct.pack_into(">H", b, 18 + 6 * DDC_N, int(rate_khz))
-    b[17 + 6 * DDC_N + 5] = 24
+    mask = 0
+    for d in ddcs:
+        mask |= 1 << d
+        row = 17 + 6 * d
+        b[row] = 0                          # this DDC takes ADC0
+        struct.pack_into(">H", b, row + 1, int(rate_khz))
+        b[row + 3] = b[row + 4] = 0
+        b[row + 5] = 24
+    b[7] = mask
     return bytes(b)
 
 
 def high_priority_packet(seq, run, freq_hz, phase=True, alex=True):
-    """High Priority (1444 bytes like Thetis): run bit and the receive frequency. PTT never set, drive level 0."""
+    """High Priority (1444 bytes like Thetis): run bit and the receive frequencies. freq_hz is one number
+    (DDC1 to DDC4 all get it, as Thetis does) or a dict {ddc number: Hz}. PTT never set, drive level 0."""
     b = bytearray(PKT)
     struct.pack_into(">I", b, 0, seq)
     b[4] = 0x01 if run else 0x00            # bit 0 run; bit 1 (PTT) is never set
-    w = phase_word(freq_hz) if phase else int(freq_hz) & 0xFFFFFFFF
-    for off in (9, 13, 17, 21):             # DDC1..DDC4, as Thetis does (DDC0 stays 0)
-        struct.pack_into(">I", b, off, w)
-    b[345] = 0                              # TX drive level (Thetis sends 0x22; we send none)
+    items = freq_hz.items() if isinstance(freq_hz, dict) else [(d, freq_hz) for d in (1, 2, 3, 4)]
+    for d, hz in items:
+        w = phase_word(hz) if phase else int(hz) & 0xFFFFFFFF
+        struct.pack_into(">I", b, 5 + 4 * int(d), w)
+    b[345] = 0                              # TX drive level (Thetis sends 0x22 or more; we send none)
     if alex:
         b[1400] = 0x02
-        for i, v in ((1428, 0x01), (1429, 0x40), (1431, 0x20), (1432, 0x01), (1433, 0x40), (1434, 0x10)):
-            b[i] = v                        # filter / relay bytes copied from Thetis (they were set for 80 m)
+        for i, v in ((1428, 0x01), (1429, 0x10), (1431, 0x20), (1432, 0x01), (1433, 0x10), (1434, 0x10)):
+            b[i] = v                        # filter / relay bytes as Thetis sends them at 10 MHz (at 3.7 MHz only byte 1429/1433 differ: a transmit filter)
     return bytes(b)
 
 
@@ -299,6 +312,184 @@ class AnanReader:
         self.sock = None
 
 
+class AnanClient:
+    """Runs several receivers at once and keeps one ring of samples per receiver (same idea as Hl2Client).
+    The radio sends receiver n from its port base+11+n back to the port we sent from, so one socket does it all."""
+
+    RING = 1 << 18
+    SETTLE_S = 0.08                       # after a retune, ignore this long (old-frequency samples still in the pipeline)
+
+    def __init__(self, ip, base=PORT, rate=192000, nrx=4, ddcs=(2, 3, 4, 5)):
+        if rate not in (48000, 96000, 192000, 384000):
+            raise AnanError("Sample rate must be one of 48000, 96000, 192000 or 384000.")
+        self.ip, self.base, self.rate = ip, int(base), int(rate)
+        self.ddcs = tuple(ddcs)[:max(1, min(len(ddcs), int(nrx)))]
+        self.nrx = len(self.ddcs)
+        self.freq = [7_000_000] * self.nrx
+        self.sock = None
+        self.lock = threading.Lock()
+        self.ring = [np_zeros(self.RING) for _ in range(self.nrx)]
+        self.count = [0] * self.nrx
+        self.t_last = [0.0] * self.nrx
+        self.retune_t = [0.0] * self.nrx
+        self.packets = 0
+        self.lost = 0
+        self.overload = False
+        self._seq_in = {}
+        self.seq = {"gen": 0, "ddc": 0, "hp": 0}
+        self._stop = threading.Event()
+        self._rx_thread = self._tx_thread = None
+
+    # ---- commands ----
+    def _send(self, kind, pkt, port):
+        try:
+            self.sock.sendto(pkt, (self.ip, port))
+        except OSError:
+            return
+        self.seq[kind] += 1
+
+    def _hp(self, run):
+        with self.lock:
+            fr = {d: self.freq[i] for i, d in enumerate(self.ddcs)}
+        self._send("hp", high_priority_packet(self.seq["hp"], run, fr), self.base + 3)
+
+    def _tx_loop(self):
+        t_next = time.time()
+        while not self._stop.is_set():
+            self._hp(True)
+            self._send("gen", general_packet(self.seq["gen"], self.base, True), self.base)
+            t_next += 0.2
+            time.sleep(max(0.0, t_next - time.time()))
+
+    # ---- receiving ----
+    def _rx_loop(self):
+        import numpy as np
+        s = self.sock
+        lo = self.base + 11
+        while not self._stop.is_set():
+            try:
+                data, a = s.recvfrom(2048)
+            except socket.timeout:
+                continue
+            except OSError:
+                break
+            if len(data) == 60 and a[1] == self.base + 1:           # the radio's status packet
+                if data[5] & 1:                                     # ADC0 overload bit (as the protocol describes it)
+                    self.overload = True
+                continue
+            if len(data) != PKT or not (lo <= a[1] < lo + 16):
+                continue
+            ddc = a[1] - lo
+            if ddc not in self.ddcs:
+                continue
+            r = self.ddcs.index(ddc)
+            p = parse_ddc(data)
+            if not p:
+                continue
+            seq, z = p
+            prev = self._seq_in.get(ddc)
+            if prev is not None and seq != ((prev + 1) & 0xFFFFFFFF):
+                self.lost += (seq - prev - 1) & 0xFFFFFFFF
+            self._seq_in[ddc] = seq
+            self.packets += 1
+            z = z.astype(np.complex64)
+            c = self.count[r]
+            pos = c % self.RING
+            k = len(z)
+            if pos + k <= self.RING:
+                self.ring[r][pos:pos + k] = z
+            else:
+                h = self.RING - pos
+                self.ring[r][pos:] = z[:h]
+                self.ring[r][:k - h] = z[h:]
+            self.count[r] = c + k
+            self.t_last[r] = time.time()
+
+    # ---- life cycle ----
+    def start(self):
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 4 * 1024 * 1024)
+        self.sock.bind(("", 0))
+        self.sock.settimeout(0.25)
+        self._stop.clear()
+        self._send("gen", general_packet(self.seq["gen"], self.base, True), self.base)
+        time.sleep(0.05)
+        self._send("ddc", ddc_packet(self.seq["ddc"], self.rate // 1000, self.ddcs), self.base + 1)
+        time.sleep(0.05)
+        self._hp(True)
+        self._tx_thread = threading.Thread(target=self._tx_loop, daemon=True)
+        self._rx_thread = threading.Thread(target=self._rx_loop, daemon=True)
+        self._tx_thread.start()
+        self._rx_thread.start()
+        t0 = time.time()
+        while time.time() - t0 < 3.0:
+            if all(c > 0 for c in self.count):
+                return
+            time.sleep(0.02)
+        got = [d for d, c in zip(self.ddcs, self.count) if c > 0]
+        self.stop()
+        if got:
+            raise AnanError("Only some of the ANAN receivers sent samples (receivers %s of %s)." % (got, list(self.ddcs)))
+        raise AnanError("The ANAN did not send any samples. Check the network cable and power, that no other program "
+                        "(Thetis, SDR Console) is using the radio, and the Windows Firewall rule (Tools\\Allow_ANAN_Firewall.bat).")
+
+    def stop(self):
+        """Always tells the radio to stop (run bit off, three times)."""
+        self._stop.set()
+        for t in (self._rx_thread, self._tx_thread):
+            if t:
+                t.join(timeout=1.0)
+        if self.sock is not None:
+            for _ in range(3):
+                self._hp(False)
+                time.sleep(0.05)
+            try:
+                self.sock.close()
+            except OSError:
+                pass
+        self.sock = None
+
+    # ---- settings and samples ----
+    def set_freq(self, rx, hz):
+        hz = int(round(hz))
+        with self.lock:
+            if self.freq[rx] == hz:
+                return False
+            self.freq[rx] = hz
+            self.retune_t[rx] = time.time()
+        self._hp(True)                                              # tell the radio at once
+        return True
+
+    def take(self, rx, n, timeout=1.0):
+        """The newest n samples of receiver rx and the time of their middle (like Hl2Client.take)."""
+        import numpy as np
+        if self.retune_t[rx]:
+            t_ok = self.retune_t[rx] + self.SETTLE_S
+            while time.time() < t_ok:
+                time.sleep(0.002)
+            c0 = self.count[rx]
+            t_end = time.time() + timeout + n / float(self.rate)
+            while self.count[rx] < c0 + n and time.time() < t_end:
+                time.sleep(0.002)
+            self.retune_t[rx] = 0.0
+        t_end = time.time() + timeout
+        while self.count[rx] < n and time.time() < t_end:
+            time.sleep(0.002)
+        if self.count[rx] < n:
+            raise AnanError("Not enough samples arrived from the radio.")
+        c = self.count[rx]
+        tl = self.t_last[rx]
+        x = self.ring[rx][np.arange(c - n, c) % self.RING].copy()
+        if self.count[rx] - c > self.RING - n:
+            raise AnanError("Samples were lost while reading.")
+        return x, tl - 0.5 * n / self.rate
+
+
+def np_zeros(n):
+    import numpy as np
+    return np.zeros(n, np.complex64)
+
+
 def analyse(pkts, rate_khz, targets=()):
     """Level and strongest signals of what was received. The DC offset is removed, the band edges (filter skirts)
     and the middle 1.5 kHz are ignored, and peaks are measured against the typical noise of the usable part."""
@@ -381,6 +572,50 @@ def read_test(ip, freq_mhz=10.0, seconds=2.0, rate_khz=192, modes=("basic", "str
 
 
 RULE_NAME = "RF Noise Map - ANAN radio data (Python)"
+
+
+def multi_test(ip, say=print, base=PORT, ddcs=(2, 3, 4, 5), seconds=2.0):
+    """Four receivers at once on WWV's 5, 10 and 15 MHz and on 2.5 MHz, each tuned 5 kHz below the carrier, so the
+    carrier should show up at +5 kHz in each. Receive only. Returns how many receivers found their carrier."""
+    import numpy as np
+    plan = [(4.995e6, "WWV 5 MHz"), (9.995e6, "WWV 10 MHz"), (14.995e6, "WWV 15 MHz"), (2.495e6, "WWV 2.5 MHz")]
+    say("What I am doing: starting four receivers at once (receivers %s) for %.0f seconds..." % (list(ddcs), seconds))
+    c = AnanClient(ip, base, 192000, 4, ddcs)
+    for i, (hz, _n) in enumerate(plan):
+        c.freq[i] = hz
+    found = 0
+    try:
+        c.start()
+        time.sleep(seconds)
+        for i, (hz, name) in enumerate(plan):
+            x, _t = c.take(i, 32768)
+            x = x - np.mean(x)
+            n = 8192
+            w = np.hanning(n)
+            acc = np.zeros(n)
+            k = 0
+            for j in range(0, len(x) - n + 1, n):
+                acc += np.abs(np.fft.fftshift(np.fft.fft(x[j:j + n] * w))) ** 2
+                k += 1
+            sp = 10 * np.log10(acc / k + 1e-30)
+            f = (np.arange(n) - n // 2) * (192000.0 / n)
+            use = (np.abs(f) < 76800.0) & (np.abs(f) > 750.0)
+            floor = float(np.median(sp[use]))
+            m = np.abs(f - 5000.0) < 300.0
+            db = float(np.max(sp[m]) - floor)
+            j = int(np.argmax(np.where(use, sp, -1e9)))
+            ok = db >= 15.0
+            found += 1 if ok else 0
+            say("  Receiver %d, tuned %.4f MHz (%s): carrier at +5 kHz is %.1f dB above the typical noise - %s. Level %.1f dBFS. Strongest anywhere: %+.1f kHz." %
+                (ddcs[i], hz / 1e6, name, db, "FOUND" if ok else "not seen (it may simply be weak right now)",
+                 10 * np.log10(float(np.mean(np.abs(x) ** 2)) + 1e-30), f[j] / 1000.0))
+        say("  %d packets, %d lost." % (c.packets, c.lost))
+    except AnanError as e:
+        say("  " + str(e))
+    finally:
+        c.stop()
+        say("The radio was told to stop.")
+    return found
 
 
 def _run(cmd):
@@ -489,12 +724,16 @@ def main(argv):
                 if db is not None and db >= 15.0:
                     ok += 1
         say("")
+        say("--- Four receivers at once ---")
+        nf = multi_test(ip, say=say)
+        say("")
         if ok == 2:
             say("RESULT: WWV was found at the right place both times, so frequencies and the spectrum direction are correct.")
         elif ok == 1:
             say("RESULT: WWV was found once. WWV may be weak right now, or one reading is wrong - send this report to Claude.")
         else:
             say("RESULT: WWV was not found. It may be too weak at this time of day, or something is still wrong - send this report to Claude.")
+        say("RESULT (four receivers): %d of 4 receivers found their WWV carrier." % nf)
     finally:
         try:
             open(rep, "w", encoding="utf-8").write("\n".join(lines) + "\n")
@@ -510,21 +749,21 @@ def main(argv):
 # ----------------------------------------------------------------------------
 class AnanSim:
     """A pretend ANAN on 127.0.0.1. port = the "discovery/General" port (0 = any, discovery only). With a fixed
-    port it also does the Protocol 2 handshake and streams DDC0 I/Q like the real radio would: noise plus one
-    carrier at carrier_hz. It follows the same reading of the frequency fields as the program does, so it
-    proves the program is consistent with itself, not with the real radio."""
+    port it also does the Protocol 2 handshake and streams every switched-on receiver like the real radio:
+    from its own port (port+11+n) back to the port the requests came from, noise plus carriers at the given
+    absolute frequencies. It proves the program is consistent with itself, not with the real radio."""
 
     def __init__(self, busy=False, port=0, board=5, protocol=43, firmware=22, carrier_hz=10010200.0,
-                 carrier_dbfs=-50.0, noise_dbfs=-95.0):
+                 carrier_dbfs=-50.0, noise_dbfs=-95.0, carriers=None):
         self.busy, self.board, self.protocol, self.firmware = busy, board, protocol, firmware
-        self.carrier_hz, self.carrier_dbfs, self.noise_dbfs = carrier_hz, carrier_dbfs, noise_dbfs
+        self.carriers = list(carriers) if carriers else [(carrier_hz, carrier_dbfs)]
+        self.noise_dbfs = noise_dbfs
         self.requests = 0
         self.run = False
-        self.freq = 0.0
-        self.rate_khz = 192
-        self.ddc_on = False
+        self.freq = {}                                  # ddc number -> Hz
+        self.rate = {}                                  # ddc number -> kHz
+        self.mask = 0
         self.client = None
-        self.pc_ddc_port = 0
         self.ptt_seen = False
         self.max_hp_byte_nonzero = False
         self.phase = True
@@ -535,13 +774,22 @@ class AnanSim:
                 continue
             s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             s.bind(("127.0.0.1", port + off))
-            s.settimeout(0.02)
+            s.settimeout(0.01)
             self.socks[k] = s
         self.port = self.socks["gen"].getsockname()[1]
-        self.out = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.outs = {}
+        if port:
+            for n in range(8):
+                o = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                o.bind(("127.0.0.1", port + 11 + n))
+                self.outs[n] = o
         self._stop = threading.Event()
         self.th = threading.Thread(target=self._loop, daemon=True)
         self.th.start()
+
+    @property
+    def ddc_on(self):
+        return bool(self.mask)
 
     def _handle(self, kind, data, addr):
         if kind == "gen":
@@ -555,8 +803,9 @@ class AnanSim:
             elif len(data) == 60 and data[4] == 0:
                 self.phase = bool(data[37] & 0x08)
         elif kind == "ddc" and len(data) == PKT:
-            self.ddc_on = bool(data[7] & (1 << DDC_N))
-            self.rate_khz = struct.unpack(">H", data[18 + 6 * DDC_N:20 + 6 * DDC_N])[0] or 192
+            self.mask = data[7]
+            for n in range(8):
+                self.rate[n] = struct.unpack(">H", data[18 + 6 * n:20 + 6 * n])[0] or 192
         elif kind == "hp" and len(data) == PKT:
             self.run = bool(data[4] & 1)
             self.client = addr                          # like the real radio: answers go back to the sender's port
@@ -564,16 +813,17 @@ class AnanSim:
                 self.ptt_seen = True
             if data[345] or any(data[329:345]):
                 self.max_hp_byte_nonzero = True         # drive level / TX frequency must stay zero
-            w = struct.unpack(">I", data[13:17])[0]
-            self.freq = w / 4294967296.0 * ADC_CLOCK if self.phase else float(w)
+            for n in range(8):
+                w = struct.unpack(">I", data[5 + 4 * n:9 + 4 * n])[0]
+                self.freq[n] = w / 4294967296.0 * ADC_CLOCK if self.phase else float(w)
 
     def _loop(self):
         import numpy as np
         rng = np.random.default_rng(1)
         n = 238
-        t = 0
+        t = [0] * 8
+        seq = [0] * 8
         nxt = time.time()
-        seq = 0
         while not self._stop.is_set():
             for k, s in self.socks.items():
                 try:
@@ -583,40 +833,45 @@ class AnanSim:
                 except OSError:
                     return
                 self._handle(k, d, a)
-            if self.run and self.ddc_on and self.client:
+            if self.run and self.mask and self.client and self.outs:
                 now = time.time()
-                step = n / (self.rate_khz * 1000.0)
+                rate = (self.rate.get(2) or 192)
+                step = n / (rate * 1000.0)
                 while nxt <= now:
-                    idx = np.arange(t, t + n)
-                    fs = self.rate_khz * 1000.0
-                    amp_n = 10 ** (self.noise_dbfs / 20.0) / np.sqrt(2)
-                    x = amp_n * (rng.standard_normal(n) + 1j * rng.standard_normal(n))
-                    off = self.carrier_hz - self.freq
-                    if abs(off) < fs / 2:
-                        x = x + 10 ** (self.carrier_dbfs / 20.0) * np.exp(2j * np.pi * off * idx / fs)
-                    qi = np.clip(np.round(np.real(x) * (1 << 23)), -(1 << 23), (1 << 23) - 1).astype(np.int64) & 0xFFFFFF
-                    qq = np.clip(np.round(np.imag(x) * (1 << 23)), -(1 << 23), (1 << 23) - 1).astype(np.int64) & 0xFFFFFF
-                    arr = np.empty((n, 6), dtype=np.uint8)
-                    for j, v in enumerate((qq, qi)):
-                        arr[:, 3 * j] = (v >> 16) & 255
-                        arr[:, 3 * j + 1] = (v >> 8) & 255
-                        arr[:, 3 * j + 2] = v & 255
-                    pkt = struct.pack(">IQHH", seq, 0, 24, n) + arr.tobytes()
-                    try:
-                        self.out.sendto(pkt, self.client)
-                    except OSError:
-                        pass
-                    seq += 1
-                    t += n
+                    for ddc in range(8):
+                        if not self.mask & (1 << ddc):
+                            continue
+                        fs = (self.rate.get(ddc) or 192) * 1000.0
+                        idx = np.arange(t[ddc], t[ddc] + n)
+                        amp_n = 10 ** (self.noise_dbfs / 20.0) / np.sqrt(2)
+                        x = amp_n * (rng.standard_normal(n) + 1j * rng.standard_normal(n))
+                        for chz, cdb in self.carriers:
+                            off = chz - self.freq.get(ddc, 0.0)
+                            if abs(off) < fs / 2:
+                                x = x + 10 ** (cdb / 20.0) * np.exp(2j * np.pi * off * idx / fs)
+                        qi = np.clip(np.round(np.real(x) * (1 << 23)), -(1 << 23), (1 << 23) - 1).astype(np.int64) & 0xFFFFFF
+                        qq = np.clip(np.round(np.imag(x) * (1 << 23)), -(1 << 23), (1 << 23) - 1).astype(np.int64) & 0xFFFFFF
+                        arr = np.empty((n, 6), dtype=np.uint8)
+                        for j, v in enumerate((qq, qi)):          # the real radio sends the pair this way round
+                            arr[:, 3 * j] = (v >> 16) & 255
+                            arr[:, 3 * j + 1] = (v >> 8) & 255
+                            arr[:, 3 * j + 2] = v & 255
+                        pkt = struct.pack(">IQHH", seq[ddc], 0, 24, n) + arr.tobytes()
+                        try:
+                            self.outs[ddc].sendto(pkt, self.client)
+                        except OSError:
+                            pass
+                        seq[ddc] += 1
+                        t[ddc] += n
                     nxt += step
             else:
                 nxt = time.time()
-                time.sleep(0.005)
+                time.sleep(0.003)
 
     def close(self):
         self._stop.set()
         self.th.join(timeout=1.0)
-        for s in list(self.socks.values()) + [self.out]:
+        for s in list(self.socks.values()) + list(self.outs.values()):
             s.close()
 
 

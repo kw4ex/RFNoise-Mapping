@@ -378,6 +378,7 @@ body.only-slices #staleBanner,body.only-slices #warnBanner,body.only-slices #blo
   <div class="row" style="align-items:flex-start;gap:22px;margin-top:4px">
    <label class="chk"><input type="checkbox" id="useSdr" onchange="radioChanged()"> <span><b>SDRplay RSP1</b> (USB cable)<br><span class="mut">One receiver: its frequencies take turns. Covers VHF, airband and the FM band too.</span></span></label>
    <label class="chk"><input type="checkbox" id="useHl2" onchange="radioChanged()"> <span><b>Hermes Lite 2</b> (network cable)<br><span class="mut">Several receivers at once: its frequencies are all read at the same instant. HF only (about 0.1&ndash;38&nbsp;MHz).</span></span></label>
+   <label class="chk"><input type="checkbox" id="useAnan" onchange="radioChanged()"> <span><b>ANAN</b> (Apache Labs / OpenHPSDR Protocol 2, network cable) <span class="mut">&mdash; new, testing</span><br><span class="mut">Four receivers read at the same instant, like the Hermes Lite 2. Close Thetis first (one program at a time). Levels are shown in dBFS, not yet calibrated to dBm. Run Tools\Allow_ANAN_Firewall.bat once on Windows.</span></span></label>
    <label class="chk"><input type="checkbox" id="useRtl" onchange="radioChanged()"> <span><b>RTL-SDR dongles</b> (USB, up to four) <span class="mut">&mdash; new, not yet tried on real dongles</span><br><span class="mut">Low price. Each dongle is one receiver and works on its own, so several dongles read at the same time. Pick <b>RTL-SDR 1</b> to <b>4</b> in any slot's Radio chooser.</span></span></label>
   </div>
   <div id="hl2Box" class="row" style="margin-top:8px;display:none;align-items:flex-end">
@@ -707,7 +708,7 @@ function toast(html,ms=6000){const t=$("toast");t.innerHTML=html;t.style.display
 async function guard(fn){try{return await fn();}catch(e){toast("&#9888; "+esc(e.message),9000);}}
 
 /* ---------- form <-> config ---------- */
-function radNorm(c){ const r=c.radio||"auto"; if(String(c.mhz===undefined?"":c.mhz).trim()==="") return "off"; if(r==="hl2"||r==="sdrplay"||r==="off"||/^rtl[1-4]$/.test(r)) return r;
+function radNorm(c){ const r=c.radio||"auto"; if(String(c.mhz===undefined?"":c.mhz).trim()==="") return "off"; if(r==="hl2"||r==="anan"||r==="sdrplay"||r==="off"||/^rtl[1-4]$/.test(r)) return r;
   return ((+c.mhz>38)||!($("useHl2")&&$("useHl2").checked))?"sdrplay":"hl2"; }
 function chRow(c,i){const r=radNorm(c), md=(c.mode||"AM").toUpperCase();
  const opt=(v,t)=>`<option value="${v}" ${r===v?"selected":""}>${t}</option>`;
@@ -715,13 +716,14 @@ function chRow(c,i){const r=radNorm(c), md=(c.mode||"AM").toUpperCase();
  <td><input type="number" step="any" class="cb" value="${esc(c.bw_khz)}" onchange="chEdited()"></td>
  <td><select class="cmd" onchange="chEdited()" title="Sets which side of the frequency is measured: below for LSB, above for USB, both sides for AM / SAM / NFM. Also the listening mode.">${["AM","SAM","USB","LSB","NFM"].map(m=>`<option ${m===md?"selected":""}>${m}</option>`).join("")}</select></td>
  <td><input type="number" step="any" class="cc" value="${esc(c.cal_db)}" onchange="chEdited()"></td>
- <td class="radcol"><select class="cr" onchange="chEdited()">${opt("off","Off (skip)")}${opt("hl2","Hermes")}${opt("sdrplay","SDRplay")}${(($("useRtl")&&$("useRtl").checked)||/^rtl/.test(r))?[1,2,3,4].map(k=>opt("rtl"+k,"RTL-SDR "+k)).join(""):""}</select></td>
+ <td class="radcol"><select class="cr" onchange="chEdited()">${opt("off","Off (skip)")}${opt("hl2","Hermes")}${opt("sdrplay","SDRplay")}${(($("useAnan")&&$("useAnan").checked)||r==="anan")?opt("anan","ANAN"):""}${(($("useRtl")&&$("useRtl").checked)||/^rtl/.test(r))?[1,2,3,4].map(k=>opt("rtl"+k,"RTL-SDR "+k)).join(""):""}</select></td>
  <td class="lvlcell" id="lvl${i}" style="min-width:215px;white-space:nowrap"><span class="mut">&ndash;</span></td>
  <td id="lt${i}" class="mut" style="min-width:84px">&ndash;</td></tr>`;}
 function $$cm(i){ const e=document.querySelectorAll(".cm")[i]; return e?e.value:0; }
 function useSdr(){ return $("useSdr").checked; }
 function useHl2(){ return $("useHl2").checked; }
 function useRtl(){ return $("useRtl").checked; }
+function useAnan(){ return $("useAnan").checked; }
 const RTL_RE=/^rtl[1-4]$/;
 function showRadioFields(){ const hl=useHl2(), sd=useSdr(); $("rtlBox").style.display=useRtl()?"flex":"none";
   $("hl2Box").style.display=hl?"flex":"none"; $("hl2Help").style.display=hl?"block":"none";
@@ -730,13 +732,16 @@ function showRadioFields(){ const hl=useHl2(), sd=useSdr(); $("rtlBox").style.di
   document.querySelectorAll(".radcol").forEach(e=>{e.style.display="";});
   document.querySelectorAll(".cr").forEach(sel=>{ const has=!!sel.querySelector('option[value="rtl1"]');      // RTL-SDR 1..4 appear in each slot's Radio chooser while the box is ticked
     if(useRtl()&&!has){ [1,2,3,4].forEach(k=>{ const o=document.createElement("option"); o.value="rtl"+k; o.textContent="RTL-SDR "+k; sel.appendChild(o); }); }
-    else if(!useRtl()&&has&&!RTL_RE.test(sel.value)){ sel.querySelectorAll('option[value^="rtl"]').forEach(o=>o.remove()); } });
+    else if(!useRtl()&&has&&!RTL_RE.test(sel.value)){ sel.querySelectorAll('option[value^="rtl"]').forEach(o=>o.remove()); }
+    const ha=!!sel.querySelector('option[value="anan"]');                      // the ANAN choice follows its tick box
+    if(useAnan()&&!ha){ const o=document.createElement("option"); o.value="anan"; o.textContent="ANAN"; const r1=sel.querySelector('option[value="rtl1"]'); sel.insertBefore(o,r1||null); }
+    else if(!useAnan()&&ha&&sel.value!=="anan"){ sel.querySelector('option[value="anan"]').remove(); } });
 }
 function radioChanged(){ showRadioFields();
-  if(!useSdr()&&!useHl2()&&!useRtl()) toast("&#9888; No radio is ticked. Tick at least one (or use Practice mode).",7000);
+  if(!useSdr()&&!useHl2()&&!useRtl()&&!useAnan()) toast("&#9888; No radio is ticked. Tick at least one (or use Practice mode).",7000);
   else if(useHl2()&&!useSdr()){ const hi=[...document.querySelectorAll(".cm")].map(x=>+x.value).filter(v=>v>38);
     if(hi.length) toast("&#9888; "+hi[0]+" MHz is above what the Hermes Lite 2 can receive (about 38 MHz). Change that frequency, or tick the SDRplay too.",9000); }
-  guard(async()=>{ await api("/api/config",{use_sdrplay:useSdr(),use_hl2:useHl2(),use_rtl:useRtl(),hl2_ip:$("hl2ip").value.trim(),hl2_rate:+$("hl2rate").value}); await slRestart(); }); }
+  guard(async()=>{ await api("/api/config",{use_sdrplay:useSdr(),use_hl2:useHl2(),use_rtl:useRtl(),use_anan:useAnan(),hl2_ip:$("hl2ip").value.trim(),hl2_rate:+$("hl2rate").value}); await slRestart(); }); }
 async function findRtl(){
   const b=$("btnFindRtl"); b.disabled=true; const old=b.textContent; b.textContent="Looking for dongles... (a few seconds)"; $("rtlMsg").textContent="";
   try{
@@ -759,7 +764,7 @@ async function findHl2(){
 function hl2GainReset(){ $("hl2g").value=15; gainChanged("hl2"); }
 
 /* ---------- slots: four live panadapters ---------- */
-const PAGE_VER="1.4.0t";        /* the version of this page: it must match the program version shown in the top bar */
+const PAGE_VER="1.4.0u";        /* the version of this page: it must match the program version shown in the top bar */
 const SL={logging:false,live:false,busy:false,starting:false,manualStop:false,lastTry:0,health:{},byCh:{},startErr:"",radio:"",lastSync:0,seen:{},last:{},paused:false,autoPaused:false};
 const SLH={0:[],1:[],2:[],3:[]};      // the last readings saved for each slot (for the readout shown when a slot's radio is busy mapping)
 const ONLY_SLICES=new URLSearchParams(location.search).get("view")==="slices";
@@ -787,12 +792,12 @@ const rowEl=(cls,i)=>document.querySelectorAll("."+cls)[i];
 const slotEl=i=>$("slGrid").children[i];
 function rowFilled(i){ const m=rowEl("cm",i); return !!m && String(m.value).trim()!=="" && (rowEl("cr",i)||{}).value!=="off"; }
 function slotCh(i){ if(!rowFilled(i)) return -1; let n=0; for(let k=0;k<i;k++) if(rowFilled(k)) n++; return n; }   // number the radio uses for this slot
-function slRadioFor(i,f){ const sel=(rowEl("cr",i)||{}).value||"auto"; if(sel==="hl2"||sel==="sdrplay"||RTL_RE.test(sel)) return sel; if(f&&f.radio) return f.radio; if($("practice").checked) return "sdrplay";
+function slRadioFor(i,f){ const sel=(rowEl("cr",i)||{}).value||"auto"; if(sel==="hl2"||sel==="anan"||sel==="sdrplay"||RTL_RE.test(sel)) return sel; if(f&&f.radio) return f.radio; if($("practice").checked) return "sdrplay";
   const hl=useHl2(), sd=useSdr(), mhz=+((rowEl("cm",i)||{}).value)||0;
   if(hl&&!sd) return "hl2"; if(sd&&!hl) return "sdrplay"; return mhz<=38?"hl2":"sdrplay"; }
 
 /* ----- building the four panels ----- */
-function slotHTML(i){ return '<div class="slh"><span><b class="slt">Slot '+(i+1)+'</b> <span class="slf"></span></span><span class="slhr"><span class="slv"></span><span class="bar slbar"><i></i></span> <label>Radio</label><select class="sm slR" title="Which radio measures this slot. Off skips the slot. Pick a radio to switch a slot on."><option value="off">Off (skip this slot)</option><option value="hl2">Hermes</option><option value="sdrplay">SDRplay</option></select>'+
+function slotHTML(i){ return '<div class="slh"><span><b class="slt">Slot '+(i+1)+'</b> <span class="slf"></span></span><span class="slhr"><span class="slv"></span><span class="bar slbar"><i></i></span> <label>Radio</label><select class="sm slR" title="Which radio measures this slot. Off skips the slot. Pick a radio to switch a slot on."><option value="off">Off (skip this slot)</option><option value="hl2">Hermes</option><option value="anan">ANAN</option><option value="sdrplay">SDRplay</option></select>'+
  '<button class="sm slLive" style="display:none" title="The SDRplay has one tuner, so only one SDRplay slot can be live (kept on its frequency, with a fast picture). The other SDRplay slots refresh slowly until you press their Live button.">Live</button>'+
  ' <button class="sm slPop" title="Open this slot in its own browser tab, as big as you like (up to four tabs)" onclick="slPopOut('+i+')">&#10064; Pop out</button></span></div>'+
  '<div class="slview"><canvas class="slsp"></canvas><canvas class="slwf"></canvas><div class="slmsg"></div></div>'+
@@ -840,15 +845,16 @@ function slotHTML(i){ return '<div class="slh"><span><b class="slt">Slot '+(i+1)
 function ensureSlots(){ const grid=$("slGrid"); if(grid.children.length===4) return;
   grid.innerHTML=""; for(let i=0;i<4;i++){ const d=document.createElement("div"); d.className="slbox empty"; d.innerHTML=slotHTML(i); if(POPSLOT===i+1) d.classList.add("me"); grid.appendChild(d); slotInit(i,d); }
   if(localStorage.getItem("rfmapSlCompact")==="1"){ grid.classList.add("compact"); $("bSlCompact").textContent="Full-size view"; } }
-const SL_DEF={hl2:["7.2","LSB"],sdrplay:["146.52","NFM"]};
+const SL_DEF={hl2:["7.2","LSB"],anan:["7.2","LSB"],sdrplay:["146.52","NFM"]};
 const SLMODE={CW:"USB",WFM:"NFM"};
 function slotTune(i,p,delay){ const cm=rowEl("cm",i); if(!cm) return;
   if(p.mhz!==undefined&&slp(i).lock&&String(cm.value).trim()!==""){ toast("&#128274; Slot "+(i+1)+" is locked. Press its Lock button to unlock it first.",4000); const fi=slotEl(i).querySelector(".slF"); if(fi) fi.value=cm.value; return; }
   if(p.mhz!==undefined){ if(String(p.mhz).trim()==="") p.radio="off";
     else if(rowEl("cr",i).value==="off"&&p.radio===undefined) p.radio=((+p.mhz<=38&&useHl2())||!useSdr())?"hl2":"sdrplay"; }
   if(p.radio==="hl2"&&!useHl2()){ $("useHl2").checked=true; showRadioFields(); toast("Hermes Lite 2 ticked in 'Your radios' for you.",4000); }
+  if(p.radio==="anan"&&!useAnan()){ $("useAnan").checked=true; showRadioFields(); toast("ANAN ticked in 'Your radios' for you.",4000); }
   if(p.radio==="sdrplay"&&!useSdr()){ $("useSdr").checked=true; showRadioFields(); toast("SDRplay ticked in 'Your radios' for you.",4000); }
-  if((p.radio==="hl2"||p.radio==="sdrplay")&&p.mhz===undefined&&String(cm.value).trim()===""){ p.mhz=SL_DEF[p.radio][0]; if(p.mode===undefined) p.mode=SL_DEF[p.radio][1]; }
+  if((p.radio==="hl2"||p.radio==="anan"||p.radio==="sdrplay")&&p.mhz===undefined&&String(cm.value).trim()===""){ p.mhz=SL_DEF[p.radio][0]; if(p.mode===undefined) p.mode=SL_DEF[p.radio][1]; }
   if(!slUndo) slUndo=[...document.querySelectorAll(".cm")].map((_,k)=>({m:rowEl("cm",k).value,b:rowEl("cb",k).value,r:rowEl("cr",k).value,d:(rowEl("cmd",k)||{}).value}));
   if(p.mhz!==undefined){ cm.value=p.mhz; if(String(p.mhz).trim()!==""&&!(+rowEl("cb",i).value>0)) rowEl("cb",i).value=5; }
   if(p.bw!==undefined) rowEl("cb",i).value=p.bw;
@@ -1169,7 +1175,7 @@ function slRender(j){
         if(document.activeElement!==ga) ga.checked=!!p.autoGain; q(".gIfS").disabled=q(".gRfS").disabled=!!p.autoGain; } }
     const cal=+((calEls[i]||{}).value||0);
     const isSd=filled&&rad==="sdrplay", isLive=isSd&&liveI===i;
-    q(".slf").textContent=filled?((+cm.value).toFixed(4)+" MHz"+(rad==="hl2"?" (Hermes)":rad==="sdrplay"?" (SDRplay)":RTL_RE.test(rad)?" (RTL-SDR "+rad.slice(3)+")":"")+(isSd&&!isLive&&!SL.logging?" - not live, picture frozen. Press Live":"")):"- off. Pick a radio on the right (or type a frequency) to use this slot.";
+    q(".slf").textContent=filled?((+cm.value).toFixed(4)+" MHz"+(rad==="hl2"?" (Hermes)":rad==="anan"?" (ANAN)":rad==="sdrplay"?" (SDRplay)":RTL_RE.test(rad)?" (RTL-SDR "+rad.slice(3)+")":"")+(isSd&&!isLive&&!SL.logging?" - not live, picture frozen. Press Live":"")):"- off. Pick a radio on the right (or type a frequency) to use this slot.";
     const lb=q(".slLive"); lb.style.display=isSd?"inline-block":"none"; lb.classList.toggle("on",isLive); lb.textContent=isLive?"\u25cf Live":"Live";
     d.classList.toggle("notlive",isSd&&!isLive&&!SL.logging);
     { const lk=q(".slLock"); lk.classList.toggle("on",!!p.lock); lk.innerHTML=p.lock?"&#128274; Locked":"&#128275; Lock"; }
@@ -1332,7 +1338,7 @@ function slSyncCfg(j){ const c=j&&j.cfg; if(!c||slTuneTimer||slUndo||SL.pushing|
   if(c.hl2_speed&&c.hl2_speed!==SL.speed&&document.activeElement!==$("viewSpd")){ SL.speed=c.hl2_speed; $("viewSpd").value=c.hl2_speed; }
   const g=(id,v)=>{ const el=$(id); if(el&&!mine(el)&&!slGainT&&String(el.value)!==String(v)) el.value=v; };
   g("hl2g",c.hl2_gain_db); g("ifgr",c.if_gain_db); g("rfgr",c.rf_gain_state); gainSync(); }
-function slWanted(){ if(!formFilled) return false; if(!$("practice").checked&&!useSdr()&&!useHl2()&&!useRtl()) return false; return [0,1,2,3].some(k=>rowFilled(k)&&rowEl("cr",k).value!=="sdrplay"); }
+function slWanted(){ if(!formFilled) return false; if(!$("practice").checked&&!useSdr()&&!useHl2()&&!useRtl()&&!useAnan()) return false; return [0,1,2,3].some(k=>rowFilled(k)&&rowEl("cr",k).value!=="sdrplay"); }
 async function slAuto(j){
   if(j.logging||j.running||SL.manualStop||SL.starting||(typeof PAN!=="undefined"&&(PAN.on||PAN.viewOnly))||!slWanted()) return;
   if(Date.now()-SL.lastTry<15000) return;
@@ -1354,7 +1360,7 @@ function fillForm(cfg){
   (document.querySelector(`input[name=gpsm][value=${cfg.gps_mode}]`)||document.querySelector("input[name=gpsm][value=usb]")).checked=true;
   $("gHost").value=cfg.gps_host; $("gPort").value=cfg.gps_port; $("gBaud").value=cfg.gps_baud;
   $("autoMap").checked=!!cfg.auto_map; $("apOn").checked=!!cfg.auto_pause; $("apSec").value=cfg.auto_pause_s||10; $("spacing").value=cfg.spacing_ft; $("interval").value=cfg.interval_s||5; (document.querySelector(`input[name=smode][value=${cfg.sample_mode==="time"?"time":"distance"}]`)).checked=true; spacingNote(); $("ifgr").value=cfg.if_gain_db; $("rfgr").value=cfg.rf_gain_state; gainSync();
-  $("useSdr").checked=(cfg.use_sdrplay!==false); $("useHl2").checked=!!cfg.use_hl2; $("useRtl").checked=!!cfg.use_rtl; SL.rtlGain=Object.assign({},cfg.rtl_gain_db||{}); $("hl2ip").value=cfg.hl2_ip||""; $("brSel").value=(cfg.browser==="default"?"default":"chrome"); $("hl2rate").value=String(cfg.hl2_rate||96000); $("hl2g").value=(cfg.hl2_gain_db===undefined?15:cfg.hl2_gain_db);
+  $("useSdr").checked=(cfg.use_sdrplay!==false); $("useHl2").checked=!!cfg.use_hl2; $("useRtl").checked=!!cfg.use_rtl; $("useAnan").checked=!!cfg.use_anan; SL.rtlGain=Object.assign({},cfg.rtl_gain_db||{}); $("hl2ip").value=cfg.hl2_ip||""; $("brSel").value=(cfg.browser==="default"?"default":"chrome"); $("hl2rate").value=String(cfg.hl2_rate||96000); $("hl2g").value=(cfg.hl2_gain_db===undefined?15:cfg.hl2_gain_db);
   let h="<tr><th>Slot</th><th title='Type a frequency here and its slot panel below changes at once'>MHz</th><th title='The signal power inside this width is what is logged and mapped'>Measure width (kHz)</th><th title='LSB measures below the frequency, USB above, the others both sides'>Mode</th><th>Calibration (dB)</th><th class=radcol title='Which radio measures this slot. Auto: the Hermes Lite 2 takes what it can hear; the SDRplay takes the rest.'>Radio</th><th>Level now (dB, S-units)</th><th title='The time of the last reading saved to the drive. While you are not logging it shows that the slot is live.'>Last reading</th></tr>";
   for(let i=0;i<4;i++) h+=chRow(cfg.channels[i]||{mhz:"",bw_khz:5,cal_db:0},i);
   $("chTable").innerHTML=h; showRadioFields(); $("phoneAccess").checked=!!cfg.phone_access; panMemLoad(cfg);
@@ -1365,7 +1371,7 @@ function readForm(){
     gps_mode:(document.querySelector("input[name=gpsm]:checked")||{value:"usb"}).value, gps_host:$("gHost").value.trim(),
     gps_port:+$("gPort").value||11123, gps_serial:$("gSerial").value, gps_baud:+$("gBaud").value,
     auto_map:$("autoMap").checked, auto_pause:$("apOn").checked, auto_pause_s:Math.min(600,Math.max(3,+$("apSec").value||10)), spacing_ft:+$("spacing").value||10, sample_mode:smode(), interval_s:+$("interval").value||5, if_gain_db:+$("ifgr").value||40, rf_gain_state:+$("rfgr").value||0,
-    use_sdrplay:useSdr(), use_hl2:useHl2(), use_rtl:useRtl(), hl2_ip:$("hl2ip").value.trim(), hl2_rate:+$("hl2rate").value||96000, hl2_gain_db:Math.round(+$("hl2g").value||0),
+    use_sdrplay:useSdr(), use_hl2:useHl2(), use_rtl:useRtl(), use_anan:useAnan(), hl2_ip:$("hl2ip").value.trim(), hl2_rate:+$("hl2rate").value||96000, hl2_gain_db:Math.round(+$("hl2g").value||0),
     channels:m.map((x,i)=>({mhz:x.value, bw_khz:b[i].value||5, cal_db:c[i].value||0, radio:(rr[i]||{value:"auto"}).value, mode:(md[i]||{value:"AM"}).value}))};
 }
 function showGpsFields(){

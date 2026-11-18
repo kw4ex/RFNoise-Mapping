@@ -110,13 +110,12 @@ class RtlDriver(RadioDriver):
 
 class AnanDriver(RadioDriver):
     id, name, kind = "anan", "ANAN (Apache / OpenHPSDR, e.g. ANAN-7000)", "iq"
-    accuracy = "Same family as the Hermes Lite 2: raw radio signal, several receivers (slices) at once."
-    multi = True
-    scan_only = True
-    note = "Finding only (1.4.0j): the radio can be found and identified. Reading its signal comes in a later version."
+    accuracy = "Raw radio signal, four receivers read at the same instant (like the Hermes Lite 2). Levels in dBFS, not yet calibrated to dBm."
+    multi, max_mhz, cfg_flag = True, 55.0, "use_anan"
+    note = "Testing (1.4.0u): readings work in slots; no sound or calibration yet. Close Thetis first."
 
     def slot_values(self, found):
-        return []                           # cannot be picked for a slot yet
+        return [(self.id, "ANAN")]
 
     def detect(self, cfg, practice=False):
         if practice:
