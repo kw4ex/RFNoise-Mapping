@@ -15,7 +15,14 @@ REM
 net session >nul 2>&1
 if errorlevel 1 (
   echo This needs administrator permission. Windows will ask you; choose Yes.
-  powershell -NoProfile -Command "Start-Process -FilePath '%~f0' -ArgumentList '%*' -Verb RunAs"
+  echo If no question appears, close this window, right-click Allow_ANAN_Firewall.bat and choose "Run as administrator".
+  if "%~1"=="" (
+    powershell -NoProfile -Command "Start-Process -FilePath '%~f0' -Verb RunAs"
+  ) else (
+    powershell -NoProfile -Command "Start-Process -FilePath '%~f0' -ArgumentList '%~1' -Verb RunAs"
+  )
+  if errorlevel 1 ( echo Could not ask Windows for permission. & pause )
+  timeout /t 4 >nul
   exit /b
 )
 set "PYEXE="
