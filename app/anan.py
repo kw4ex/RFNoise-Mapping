@@ -319,7 +319,7 @@ class AnanClient:
     RING = 1 << 18
     SETTLE_S = 0.08                       # after a retune, ignore this long (old-frequency samples still in the pipeline)
 
-    def __init__(self, ip, base=PORT, rate=192000, nrx=4, ddcs=(2, 3, 4, 5)):
+    def __init__(self, ip, base=PORT, rate=192000, nrx=4, ddcs=(0, 1, 2, 3)):
         if rate not in (48000, 96000, 192000, 384000):
             raise AnanError("Sample rate must be one of 48000, 96000, 192000 or 384000.")
         self.ip, self.base, self.rate = ip, int(base), int(rate)
@@ -574,25 +574,57 @@ def read_test(ip, freq_mhz=10.0, seconds=2.0, rate_khz=192, modes=("basic", "str
 RULE_NAME = "RF Noise Map - ANAN radio data (Python)"
 
 
+def _spec_report(x, rate, target_khz):
+    """(level dBFS, dB above the typical noise at target_khz, strongest offset kHz) of a block of samples."""
+    import numpy as np
+    x = x - np.mean(x)
+    n = 8192
+    w = np.hanning(n)
+    acc = np.zeros(n)
+    k = 0
+    for j in range(0, len(x) - n + 1, n):
+        acc += np.abs(np.fft.fftshift(np.fft.fft(x[j:j + n] * w))) ** 2
+        k += 1
+    sp = 10 * np.log10(acc / max(k, 1) + 1e-30)
+    f = (np.arange(n) - n // 2) * (float(rate) / n)
+    use = (np.abs(f) < rate * 0.4) & (np.abs(f) > 750.0)
+    floor = float(np.median(sp[use]))
+    m = np.abs(f - target_khz * 1000.0) < 300.0
+    j = int(np.argmax(np.where(use, sp, -1e9)))
+    return (10 * np.log10(float(np.mean(np.abs(x) ** 2)) + 1e-30), float(np.max(sp[m]) - floor), f[j] / 1000.0)
+
+
 def ddc_probe(ip, say=print, base=PORT):
-    """Which receiver numbers (DDCs) does this radio really send data for? Tries a few sets and rates.
-    Returns the first set of four that all delivered, as (ddcs, rate_hz), or None."""
-    sets = [((2, 3, 4, 5), 192000), ((0, 1, 2, 3), 192000), ((1, 2, 3, 4), 192000), ((2, 3, 4, 5), 48000),
-            ((0, 1, 2, 3, 4, 5, 6), 192000), ((2, 3), 192000), ((4,), 192000), ((5,), 192000), ((6,), 192000)]
+    """Which receiver numbers (DDCs) does this radio really send data for, and how strong is what each hears?
+    All are tuned 10 kHz below WWV (9.990 MHz). Returns the first set of four that all delivered, as (ddcs, rate_hz)."""
+    sets = [((0, 1, 2, 3), 192000), ((2,), 192000), ((0,), 192000), ((1,), 192000), ((3,), 192000),
+            ((0, 1, 2, 3), 96000), ((2, 3, 4, 5), 192000), ((4,), 192000)]
     good = None
     for ddcs, rate in sets:
         c = AnanClient(ip, base, rate, len(ddcs), ddcs)
         for i in range(len(ddcs)):
-            c.freq[i] = 10.0e6 + 1000 * i
+            c.freq[i] = 9.99e6
+        rep = []
         try:
             c.start()
+            time.sleep(1.5)
         except AnanError:
             pass
         finally:
             got = [d for d, n in zip(ddcs, c.count) if n > 0]
+            for i, d in enumerate(ddcs):
+                if c.count[i] >= 32768:
+                    try:
+                        x, _t = c.take(i, 32768, timeout=0.2)
+                        lv, db, st = _spec_report(x, rate, 10.0)
+                        rep.append("receiver %d: level %.1f dBFS, WWV +10 kHz %.1f dB over noise, strongest %+.1f kHz" % (d, lv, db, st))
+                    except AnanError:
+                        pass
             c.stop()
         say("  Receivers %s at %d kHz: data from %s%s." % (list(ddcs), rate // 1000, got or "none",
                                                             "  <- all of them" if len(got) == len(ddcs) else ""))
+        for r in rep:
+            say("      " + r)
         if good is None and len(ddcs) == 4 and len(got) == 4:
             good = (ddcs, rate)
         time.sleep(0.5)
