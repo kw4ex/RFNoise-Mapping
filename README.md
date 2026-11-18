@@ -4,6 +4,8 @@ Find power-line and other radio noise by driving a route.
 
 Up to four software-defined radios (an **SDRplay RSP1**, a **Hermes Lite 2**, and low-price **RTL-SDR dongles**, in any mix) and a **GPS** log the signal level on up to four frequencies about every 10 feet. The program then draws a **street map of colored dots, blue (weak) to red (strong)**, so you can see where the noise is loudest and drive straight to it. Live panadapters, one per frequency, let you see and hear the noise as you drive.
 
+> **Testing status (1.4.0i):** some testing is done, but **not all features have been confirmed as field ready**. The new Windows install layout (folder RFNoise_Mapping) has been tested on a Windows 11 PC. Not yet confirmed in real drives: the USB GPS puck, the S-meters and Warning sounds with real radios, and **Test my setup** with every radio type. Please treat this as a testing version. It is shared as is, with **no warranty. Use at your own risk.** Design and on-air testing by KW4EX.
+>
 > **Latest version: 1.4.0 (testing version).** Tested with simulated hardware, and on a Windows 11 PC and a Mac with a real SDRplay RSP1, a real Hermes Lite 2 and a GPS. A long real drive with every radio has **not** been done yet, and the new **RTL-SDR dongle support has only been tried with simulated dongles**. The Mac version is experimental. Please report what you find.
 >
 > **Latest test build (1.4.0i):** a bigger top bar with a hardware line (GPS, slot radios, max speed), a separate **Hardware setup** window, **Test my setup**, **S-units** next to every dB value, and four large **S-meters**. See [the release notes](docs/release-notes/v1.4.0.md).
