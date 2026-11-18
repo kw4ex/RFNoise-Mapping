@@ -764,7 +764,7 @@ async function findHl2(){
 function hl2GainReset(){ $("hl2g").value=15; gainChanged("hl2"); }
 
 /* ---------- slots: four live panadapters ---------- */
-const PAGE_VER="1.4.0z";        /* the version of this page: it must match the program version shown in the top bar */
+const PAGE_VER="1.4.0za";        /* the version of this page: it must match the program version shown in the top bar */
 const SL={logging:false,live:false,busy:false,starting:false,manualStop:false,lastTry:0,health:{},byCh:{},startErr:"",radio:"",lastSync:0,seen:{},last:{},paused:false,autoPaused:false};
 const SLH={0:[],1:[],2:[],3:[]};      // the last readings saved for each slot (for the readout shown when a slot's radio is busy mapping)
 const ONLY_SLICES=new URLSearchParams(location.search).get("view")==="slices";
@@ -794,6 +794,7 @@ function rowFilled(i){ const m=rowEl("cm",i); return !!m && String(m.value).trim
 function slotCh(i){ if(!rowFilled(i)) return -1; let n=0; for(let k=0;k<i;k++) if(rowFilled(k)) n++; return n; }   // number the radio uses for this slot
 function slRadioFor(i,f){ const sel=(rowEl("cr",i)||{}).value||"auto"; if(sel==="hl2"||sel==="anan"||sel==="sdrplay"||RTL_RE.test(sel)) return sel; if(f&&f.radio) return f.radio; if($("practice").checked) return "sdrplay";
   const hl=useHl2(), sd=useSdr(), mhz=+((rowEl("cm",i)||{}).value)||0;
+  if(useAnan()&&mhz<=55&&!(hl&&mhz<=38)) return "anan";
   if(hl&&!sd) return "hl2"; if(sd&&!hl) return "sdrplay"; return mhz<=38?"hl2":"sdrplay"; }
 
 /* ----- building the four panels ----- */
@@ -845,12 +846,17 @@ function slotHTML(i){ return '<div class="slh"><span><b class="slt">Slot '+(i+1)
 function ensureSlots(){ const grid=$("slGrid"); if(grid.children.length===4) return;
   grid.innerHTML=""; for(let i=0;i<4;i++){ const d=document.createElement("div"); d.className="slbox empty"; d.innerHTML=slotHTML(i); if(POPSLOT===i+1) d.classList.add("me"); grid.appendChild(d); slotInit(i,d); }
   if(localStorage.getItem("rfmapSlCompact")==="1"){ grid.classList.add("compact"); $("bSlCompact").textContent="Full-size view"; } }
+const RADIO_MAX={hl2:38,anan:55};            /* highest MHz each radio can hear */
+const RADIO_NAME={hl2:"the Hermes Lite 2",anan:"the ANAN"};
 const SL_DEF={hl2:["7.2","LSB"],anan:["7.2","LSB"],sdrplay:["146.52","NFM"]};
 const SLMODE={CW:"USB",WFM:"NFM"};
 function slotTune(i,p,delay){ const cm=rowEl("cm",i); if(!cm) return;
   if(p.mhz!==undefined&&slp(i).lock&&String(cm.value).trim()!==""){ toast("&#128274; Slot "+(i+1)+" is locked. Press its Lock button to unlock it first.",4000); const fi=slotEl(i).querySelector(".slF"); if(fi) fi.value=cm.value; return; }
+  { const radN=(p.radio!==undefined?p.radio:rowEl("cr",i).value), mhzN=(p.mhz!==undefined?parseFloat(p.mhz):parseFloat(cm.value));       // a change the radio cannot do is turned down here, so the slot always stays usable
+    if(RADIO_MAX[radN]&&mhzN>RADIO_MAX[radN]){ const el=slotEl(i); const f2=el.querySelector(".slF"), r2=el.querySelector(".slR"); if(f2) f2.value=cm.value; if(r2) r2.value=rowEl("cr",i).value;
+      toast("&#9888; "+mhzN+" MHz is above what "+RADIO_NAME[radN]+" can hear (about "+RADIO_MAX[radN]+" MHz). Nothing was changed. Pick another radio for this slot, or a lower frequency.",8000); return; } }
   if(p.mhz!==undefined){ if(String(p.mhz).trim()==="") p.radio="off";
-    else if(rowEl("cr",i).value==="off"&&p.radio===undefined) p.radio=((+p.mhz<=38&&useHl2())||!useSdr())?"hl2":"sdrplay"; }
+    else if(rowEl("cr",i).value==="off"&&p.radio===undefined) p.radio=(+p.mhz<=38&&useHl2())?"hl2":((+p.mhz<=55&&useAnan())?"anan":(!useSdr()?"hl2":"sdrplay")); }
   if(p.radio==="hl2"&&!useHl2()){ $("useHl2").checked=true; showRadioFields(); toast("Hermes Lite 2 ticked in 'Your radios' for you.",4000); }
   if(p.radio==="anan"&&!useAnan()){ $("useAnan").checked=true; showRadioFields(); toast("ANAN ticked in 'Your radios' for you.",4000); }
   if(p.radio==="sdrplay"&&!useSdr()){ $("useSdr").checked=true; showRadioFields(); toast("SDRplay ticked in 'Your radios' for you.",4000); }
@@ -1134,8 +1140,8 @@ function slDraw(i,f,force){
 function slMsg(){ if(SL.manualStop) return "Live view is stopped. Press <b>Start live view</b> (above) to use the radio again.";
   if(SL.starting) return "Starting the radio... (a few seconds)";
   if(PAN&&PAN.on) return "The wide panadapter below is using the radio. Press its Stop button and this slot comes back.";
-  if(!$("practice").checked&&!useSdr()&&!useHl2()) return "Tick a radio under <b>Your radios</b> in box 1 above (or use Practice mode).";
-  if(SL.startErr) return "The radio is not available: "+esc(SL.startErr)+"<br><span style='font-size:12px'>Trying again every 15 seconds.</span>";
+  if(!$("practice").checked&&!useSdr()&&!useHl2()&&!useRtl()&&!useAnan()) return "Tick a radio under <b>Your radios</b> in box 1 above (or use Practice mode).";
+  if(SL.startErr) return "The radio is not available: "+esc(SL.startErr)+"<br><span style='font-size:12px'>Change the slot's frequency or Radio in the slot's header (above) to fix this. Trying again every 15 seconds.</span>";
   return "Waiting for the radio..."; }
 function slRender(j){
   if(!formFilled) return;
