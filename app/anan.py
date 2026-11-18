@@ -194,7 +194,7 @@ def parse_ddc(data):
     raw = np.frombuffer(data, dtype=np.uint8, count=6 * n, offset=16).reshape(n, 2, 3).astype(np.int32)
     v = (raw[:, :, 0] << 16) | (raw[:, :, 1] << 8) | raw[:, :, 2]
     v = np.where(v >= 1 << 23, v - (1 << 24), v) / float(1 << 23)
-    return seq, v[:, 0] + 1j * v[:, 1]
+    return seq, v[:, 1] + 1j * v[:, 0]          # the ANAN sends the pair the other way round: swapping keeps the spectrum the right way up (checked with WWV)
 
 
 class AnanReader:
@@ -478,13 +478,23 @@ def main(argv):
             open(rep, "w", encoding="utf-8").write("\n".join(lines) + "\n")
             return 1
     say("Known-signal check: WWV is on 10.000 MHz. The radio is tuned 10 kHz below and 10 kHz above it, so WWV should show up")
-    say("at +10 kHz and at -10 kHz, once with the filter bytes copied from Thetis (set for 80 m) and once with them cleared.")
+    say("at +10 kHz and at -10 kHz (at 10.000 MHz in both cases).")
     try:
-        for alex in (True, False):
-            for f, want in ((9.990, 10.0), (10.010, -10.0)):
-                say("")
-                say("--- filter bytes %s ---" % ("copied from Thetis" if alex else "cleared"))
-                read_test(ip, f, say=say, modes=("basic",), alex=alex, targets=(want,))
+        ok = 0
+        for f, want in ((9.990, 10.0), (10.010, -10.0)):
+            say("")
+            res = read_test(ip, f, say=say, modes=("basic",), targets=(want,))
+            for v in res.values():
+                db = (v.get("targets") or {}).get(want)
+                if db is not None and db >= 15.0:
+                    ok += 1
+        say("")
+        if ok == 2:
+            say("RESULT: WWV was found at the right place both times, so frequencies and the spectrum direction are correct.")
+        elif ok == 1:
+            say("RESULT: WWV was found once. WWV may be weak right now, or one reading is wrong - send this report to Claude.")
+        else:
+            say("RESULT: WWV was not found. It may be too weak at this time of day, or something is still wrong - send this report to Claude.")
     finally:
         try:
             open(rep, "w", encoding="utf-8").write("\n".join(lines) + "\n")
@@ -587,7 +597,7 @@ class AnanSim:
                     qi = np.clip(np.round(np.real(x) * (1 << 23)), -(1 << 23), (1 << 23) - 1).astype(np.int64) & 0xFFFFFF
                     qq = np.clip(np.round(np.imag(x) * (1 << 23)), -(1 << 23), (1 << 23) - 1).astype(np.int64) & 0xFFFFFF
                     arr = np.empty((n, 6), dtype=np.uint8)
-                    for j, v in enumerate((qi, qq)):
+                    for j, v in enumerate((qq, qi)):
                         arr[:, 3 * j] = (v >> 16) & 255
                         arr[:, 3 * j + 1] = (v >> 8) & 255
                         arr[:, 3 * j + 2] = v & 255
