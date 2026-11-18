@@ -126,36 +126,58 @@ def phase_word(hz):
     return int(round(float(hz) / ADC_CLOCK * 4294967296.0)) & 0xFFFFFFFF
 
 
+DDC_N = 2                                   # Thetis receives on DDC2 (data comes back from port base+11+2)
+PORT_LIST = (PORT + 1, PORT + 2, PORT + 3, PORT + 1, PORT + 4, PORT + 5, PORT + 11, PORT + 2, PORT + 3)
+
+
 def general_packet(seq, base=PORT, phase=True):
-    """Tells the radio which ports the PC listens on. Everything that could switch on transmit stays zero."""
+    """General: copied from what Thetis sends (recorded on the real ANAN-7000DLE MkIII). Nothing here switches on transmit."""
     b = bytearray(60)
     struct.pack_into(">I", b, 0, seq)
-    b[4] = 0x00
-    for off, port in ((5, base + 1), (7, base + 2), (9, base + 3), (11, base + 1), (13, base + 4), (15, base + 11),
-                      (17, base + 5), (19, base + 2), (21, base + 3)):
+    for off, port in zip((5, 7, 9, 11, 13, 15, 17, 19, 21), (base + 1, base + 2, base + 3, base + 1, base + 4, base + 5,
+                                                              base + 11, base + 2, base + 3)):
         struct.pack_into(">H", b, off, port)
-    b[37] = 0x08 if phase else 0x00         # bit 3: the frequency is sent as a phase word (1) or in Hz (0)
+    for i, v in ((24, 0x02), (26, 0x10), (27, 0x46), (28, 0x20), (33, 0x03), (34, 0x20), (36, 0x64), (37, 0x08 if phase else 0x00),
+                 (38, 0x01), (58, 0x01), (59, 0x03)):
+        b[i] = v
     return bytes(b)
 
 
 def ddc_packet(seq, rate_khz):
-    """DDC-Specific: switch on DDC0 only, taking ADC0, at rate_khz, 24 bits per sample."""
+    """DDC-Specific: copied from Thetis, with only DDC2 switched on (ADC0) at rate_khz, 24 bits per sample."""
     b = bytearray(PKT)
     struct.pack_into(">I", b, 0, seq)
-    b[4] = 2                                # number of ADCs on the board
-    b[7] = 0x01                             # DDC0 enabled
-    b[17] = 0                               # DDC0 uses ADC0
-    struct.pack_into(">H", b, 18, int(rate_khz))
-    b[22] = 24
+    for i, v in ((4, 2), (5, 7), (6, 7), (7, 1 << DDC_N), (22, 24), (23, 1), (28, 24), (34, 24), (35, 1), (40, 24), (43, 0x30),
+                 (46, 24), (49, 0x30), (52, 24), (55, 0x30), (58, 24)):
+        b[i] = v
+    b[17 + 6 * DDC_N] = 0                   # this DDC takes ADC0
+    struct.pack_into(">H", b, 18 + 6 * DDC_N, int(rate_khz))
+    b[17 + 6 * DDC_N + 5] = 24
     return bytes(b)
 
 
 def high_priority_packet(seq, run, freq_hz, phase=True):
-    """High Priority: run bit, DDC0 frequency. PTT stays 0 and the drive level stays 0 (all other bytes zero)."""
+    """High Priority (1444 bytes like Thetis): run bit and the receive frequency. PTT never set, drive level 0."""
     b = bytearray(PKT)
     struct.pack_into(">I", b, 0, seq)
     b[4] = 0x01 if run else 0x00            # bit 0 run; bit 1 (PTT) is never set
-    struct.pack_into(">I", b, 5, phase_word(freq_hz) if phase else int(freq_hz) & 0xFFFFFFFF)
+    w = phase_word(freq_hz) if phase else int(freq_hz) & 0xFFFFFFFF
+    for off in (9, 13, 17, 21):             # DDC1..DDC4, as Thetis does (DDC0 stays 0)
+        struct.pack_into(">I", b, off, w)
+    b[345] = 0                              # TX drive level (Thetis sends 0x22; we send none)
+    b[1400] = 0x02
+    for i, v in ((1428, 0x01), (1429, 0x40), (1431, 0x20), (1432, 0x01), (1433, 0x40), (1434, 0x10)):
+        b[i] = v                            # filter / relay bytes copied from Thetis
+    return bytes(b)
+
+
+def duc_packet(seq):
+    """DUC-Specific (60 bytes) as Thetis sends it. Only used by the 'streams' way of starting."""
+    b = bytearray(60)
+    struct.pack_into(">I", b, 0, seq)
+    for i, v in ((4, 1), (5, 0xAA), (7, 2), (8, 0x58), (9, 0x19), (10, 0x32), (11, 1), (12, 0x36), (13, 7), (15, 0xC0), (17, 9),
+                 (50, 6), (51, 0x17), (57, 0x1F), (58, 0x1F), (59, 0x1F)):
+        b[i] = v
     return bytes(b)
 
 
@@ -175,54 +197,81 @@ def parse_ddc(data):
 
 
 class AnanReader:
-    """Starts DDC0 for a while and collects its samples. Always stops the radio (see stop())."""
+    """Starts one receiver for a while and collects its samples. Always stops the radio (see stop()).
+    One socket does everything: the radio sends its answers back to the port the requests came from."""
 
-    def __init__(self, ip, base=PORT, rate_khz=192, phase=True):
-        self.ip, self.base, self.rate_khz, self.phase = ip, base, rate_khz, phase
-        self.tx = None
-        self.rx = None
-        self.seq = {"gen": 0, "ddc": 0, "hp": 0}
+    def __init__(self, ip, base=PORT, rate_khz=192, phase=True, streams=False):
+        self.ip, self.base, self.rate_khz, self.phase, self.streams = ip, base, rate_khz, phase, streams
+        self.sock = None
+        self.seq = {"gen": 0, "ddc": 0, "hp": 0, "duc": 0, "iq": 0, "aud": 0}
         self.freq = 0.0
         self.started = False
+        self._tx_t = 0.0
+
+    @property
+    def tx(self):
+        return self.sock
 
     def _send(self, kind, pkt, port):
-        self.tx.sendto(pkt, (self.ip, port))
+        self.sock.sendto(pkt, (self.ip, port))
         self.seq[kind] += 1
+
+    def _hp(self, run):
+        self._send("hp", high_priority_packet(self.seq["hp"], run, self.freq, self.phase), self.base + 3)
 
     def start(self, freq_hz):
         self.freq = float(freq_hz)
         try:
-            self.rx = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            self.rx.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 4 * 1024 * 1024)
-            self.rx.bind(("", self.base + 11))
+            self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 4 * 1024 * 1024)
+            self.sock.bind(("", 0))
         except OSError as e:
             self.close()
-            raise AnanError("Could not listen on port %d (%s). Another program, such as Thetis, is probably using the radio. Close it and try again." % (self.base + 11, e))
-        self.rx.settimeout(0.2)
-        self.tx = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            raise AnanError("Could not open a network port (%s)." % e)
+        self.sock.settimeout(0.05)
         self._send("gen", general_packet(self.seq["gen"], self.base, self.phase), self.base)
         time.sleep(0.05)
         self._send("ddc", ddc_packet(self.seq["ddc"], self.rate_khz), self.base + 1)
+        if self.streams:
+            self._send("duc", duc_packet(self.seq["duc"]), self.base + 2)
         time.sleep(0.05)
-        self._send("hp", high_priority_packet(self.seq["hp"], True, self.freq, self.phase), self.base + 3)
+        self._hp(True)
+        self._tx_t = time.time()
         self.started = True
+
+    def _keepalive(self):
+        """Every 0.2 s: High Priority (and General). In 'streams' mode also silent TX I/Q and audio like Thetis."""
+        self._hp(True)
+        self._send("gen", general_packet(self.seq["gen"], self.base, self.phase), self.base)
+
+    def _pump_streams(self, now):
+        if not self.streams:
+            return
+        due = int((now - self._tx_t) * 200)
+        for _ in range(min(due, 50)):
+            self._send("iq", struct.pack(">I", self.seq["iq"]) + bytes(PKT - 4), self.base + 5)
+            self._send("aud", struct.pack(">I", self.seq["aud"]) + bytes(256), self.base + 4)
+        if due:
+            self._tx_t = now
 
     def collect(self, seconds):
         """Returns (list of (seq, samples), number of datagrams that were not DDC data)."""
         out, other = [], 0
         end = time.time() + seconds
-        last_hp = time.time()
+        last = time.time()
         while time.time() < end:
-            if time.time() - last_hp > 0.2:                    # keep the radio's watchdog happy
-                self._send("hp", high_priority_packet(self.seq["hp"], True, self.freq, self.phase), self.base + 3)
-                last_hp = time.time()
+            now = time.time()
+            if now - last > 0.2:                                # keep the radio's watchdog happy
+                self._keepalive()
+                last = now
+            self._pump_streams(now)
             try:
-                data, addr = self.rx.recvfrom(4096)
+                data, addr = self.sock.recvfrom(4096)
             except socket.timeout:
                 continue
             except OSError:
                 break
-            p = parse_ddc(data)
+            p = parse_ddc(data) if len(data) == PKT else None
             if p:
                 out.append(p)
             else:
@@ -230,10 +279,10 @@ class AnanReader:
         return out, other
 
     def stop(self):
-        if self.tx is not None:
+        if self.sock is not None:
             for _ in range(3):
                 try:
-                    self._send("hp", high_priority_packet(self.seq["hp"], False, self.freq, self.phase), self.base + 3)
+                    self._hp(False)
                 except OSError:
                     pass
                 time.sleep(0.05)
@@ -241,13 +290,12 @@ class AnanReader:
         self.close()
 
     def close(self):
-        for s in (self.rx, self.tx):
-            try:
-                if s:
-                    s.close()
-            except OSError:
-                pass
-        self.rx = self.tx = None
+        try:
+            if self.sock:
+                self.sock.close()
+        except OSError:
+            pass
+        self.sock = None
 
 
 def analyse(pkts, rate_khz):
@@ -275,13 +323,14 @@ def analyse(pkts, rate_khz):
     return res
 
 
-def read_test(ip, freq_mhz=10.0, seconds=2.0, rate_khz=192, modes=("phase", "hz"), base=PORT, say=print):
-    """Tunes DDC0 to freq_mhz and reads for `seconds`, once per way of sending the frequency. Receive only."""
+def read_test(ip, freq_mhz=10.0, seconds=2.0, rate_khz=192, modes=("basic", "streams"), base=PORT, say=print):
+    """Tunes the receiver to freq_mhz and reads for `seconds`, once per way of starting. Receive only.
+    basic = General + DDC-Specific + High Priority. streams = the same plus silent transmit streams like Thetis sends."""
     results = {}
     for m in modes:
-        say("What I am doing: starting receiver 0 at %.4f MHz (frequency sent as %s) for %.0f seconds..." %
-            (freq_mhz, "a phase word" if m == "phase" else "Hz", seconds))
-        r = AnanReader(ip, base, rate_khz, m == "phase")
+        say("What I am doing: starting a receiver at %.4f MHz (%s start) for %.0f seconds..." %
+            (freq_mhz, "Thetis-like, with silent transmit streams" if m == "streams" else "basic", seconds))
+        r = AnanReader(ip, base, rate_khz, True, streams=(m == "streams"))
         try:
             r.start(freq_mhz * 1e6)
             pkts, other = r.collect(seconds)
@@ -295,12 +344,12 @@ def read_test(ip, freq_mhz=10.0, seconds=2.0, rate_khz=192, modes=("phase", "hz"
         results[m] = a
         if a["packets"] == 0:
             say("  No signal data came back (%d other packets)." % other)
-            say("  Most likely cause: the Windows Firewall is blocking UDP port %d for Python. Fix: run Tools\\Allow_ANAN_Firewall.bat once (it asks Windows for permission), then run this test again." % (base + 11))
-            say("  Other possible causes: another program is using the radio, or the radio's Protocol 2 firmware.")
         else:
             say("  Received %d packets (%d samples), %d lost. Level %.1f dBFS." % (a["packets"], a["samples"], a["lost"], a["level_dbfs"]))
             if "peak_offset_khz" in a:
                 say("  Strongest signal: %+.2f kHz from the tuned frequency, %.1f dB above the typical noise." % (a["peak_offset_khz"], a["peak_over_median_db"]))
+            time.sleep(0.5)
+            break                                               # the first way that works is enough
         time.sleep(1.0)
     say("The radio was told to stop.")
     if results and all(v.get("packets", 0) == 0 for v in results.values()):
@@ -342,66 +391,31 @@ def diagnose(ip, freq_mhz, base=PORT, say=print):
         st = [l.strip() for l in _run(["netsh", "advfirewall", "show", "allprofiles", "state"]).splitlines() if l.strip().startswith(("Domain", "Private", "Public", "State"))]
         say("Windows Firewall state: " + " | ".join(st))
         say("Python program used: " + sys.executable)
-    socks = {}
-    for port in list(range(base + 1, base + 11)) + list(range(base + 11, base + 19)):
-        try:
-            x = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            x.bind(("", port))
-            x.settimeout(0.01)
-            socks[port] = x
-        except OSError:
-            pass
-    say("Listening on %d ports (%d to %d) while the radio is started..." % (len(socks), base + 1, base + 18))
-    got = {}
-    r = AnanReader(ip, base, 192, True)
+    say("Listening for anything the radio sends back, on the same port the requests leave from...")
+    r = AnanReader(ip, base, 192, True, streams=True)
+    seen = {}
     try:
-        for p, x in socks.items():                       # a self-test: can this PC receive on those ports at all?
-            if local:
-                try:
-                    r_tx = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-                    r_tx.sendto(b"selftest", (local, p))
-                    r_tx.close()
-                except OSError:
-                    pass
-        time.sleep(0.2)
-        for p, x in list(socks.items()):
-            try:
-                d, a = x.recvfrom(100)
-                if d == b"selftest":
-                    got.setdefault("self", []).append(p)
-            except (socket.timeout, OSError):
-                pass
-        if len(got.get("self", [])) < len(socks):
-            say("Self-test: this PC could receive on %d of %d ports from itself." % (len(got.get("self", [])), len(socks)))
-        r.rx = None
-        r.tx = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        r._send("gen", general_packet(r.seq["gen"], base, True), base)
-        time.sleep(0.05)
-        r._send("ddc", ddc_packet(r.seq["ddc"], 192), base + 1)
-        time.sleep(0.05)
-        r._send("hp", high_priority_packet(r.seq["hp"], True, freq_mhz * 1e6, True), base + 3)
+        r.start(freq_mhz * 1e6)
         end = time.time() + 2.5
-        seen = {}
         last = time.time()
         while time.time() < end:
-            if time.time() - last > 0.2:
-                r._send("hp", high_priority_packet(r.seq["hp"], True, freq_mhz * 1e6, True), base + 3)
-                last = time.time()
-            for p, x in socks.items():
-                try:
-                    d, a = x.recvfrom(4096)
-                except (socket.timeout, OSError):
-                    continue
-                e = seen.setdefault(p, [0, a, d[:16].hex(" "), len(d)])
-                e[0] += 1
+            now = time.time()
+            if now - last > 0.2:
+                r._keepalive()
+                last = now
+            r._pump_streams(now)
+            try:
+                d, a = r.sock.recvfrom(4096)
+            except (socket.timeout, OSError):
+                continue
+            e = seen.setdefault((a[0], a[1]), [0, len(d), d[:16].hex(" ")])
+            e[0] += 1
     finally:
         r.stop()
-        for x in socks.values():
-            x.close()
     if not seen:
-        say("Nothing arrived on ANY port from the radio. The radio did not answer the start request, or Windows is blocking all of it.")
-    for p, (n, a, h, ln) in sorted(seen.items()):
-        say("Port %d: %d packets of %d bytes from %s:%d, starting %s" % (p, n, ln, a[0], a[1], h))
+        say("Nothing at all came back from the radio. It did not answer the start request, or Windows is blocking it.")
+    for (ip_, p), (n, ln, h) in sorted(seen.items()):
+        say("From %s port %d: %d packets of %d bytes, starting %s" % (ip_, p, n, ln, h))
     say("The radio was told to stop.")
 
 
@@ -502,20 +516,19 @@ class AnanSim:
                 r[5:11] = bytes([0x68, 0x27, 0x19, 0x96, 0x8E, 0x44])
                 r[11], r[12], r[13] = self.board, self.protocol, self.firmware
                 self.socks["gen"].sendto(bytes(r), addr)
-            elif len(data) >= 38 and data[4] == 0:
-                self.client = addr[0]
-                self.pc_ddc_port = struct.unpack(">H", data[15:17])[0]
+            elif len(data) == 60 and data[4] == 0:
                 self.phase = bool(data[37] & 0x08)
-        elif kind == "ddc" and len(data) >= 23:
-            self.ddc_on = bool(data[7] & 1)
-            self.rate_khz = struct.unpack(">H", data[18:20])[0] or 192
-        elif kind == "hp" and len(data) >= 9:
+        elif kind == "ddc" and len(data) == PKT:
+            self.ddc_on = bool(data[7] & (1 << DDC_N))
+            self.rate_khz = struct.unpack(">H", data[18 + 6 * DDC_N:20 + 6 * DDC_N])[0] or 192
+        elif kind == "hp" and len(data) == PKT:
             self.run = bool(data[4] & 1)
+            self.client = addr                          # like the real radio: answers go back to the sender's port
             if data[4] & 2:
                 self.ptt_seen = True
-            if any(data[9:]):
-                self.max_hp_byte_nonzero = True            # anything else (drive, TX frequency...) must stay zero
-            w = struct.unpack(">I", data[5:9])[0]
+            if data[345] or any(data[329:345]):
+                self.max_hp_byte_nonzero = True         # drive level / TX frequency must stay zero
+            w = struct.unpack(">I", data[13:17])[0]
             self.freq = w / 4294967296.0 * ADC_CLOCK if self.phase else float(w)
 
     def _loop(self):
@@ -534,7 +547,7 @@ class AnanSim:
                 except OSError:
                     return
                 self._handle(k, d, a)
-            if self.run and self.ddc_on and self.client and self.pc_ddc_port:
+            if self.run and self.ddc_on and self.client:
                 now = time.time()
                 step = n / (self.rate_khz * 1000.0)
                 while nxt <= now:
@@ -554,7 +567,7 @@ class AnanSim:
                         arr[:, 3 * j + 2] = v & 255
                     pkt = struct.pack(">IQHH", seq, 0, 24, n) + arr.tobytes()
                     try:
-                        self.out.sendto(pkt, (self.client, self.pc_ddc_port))
+                        self.out.sendto(pkt, self.client)
                     except OSError:
                         pass
                     seq += 1
