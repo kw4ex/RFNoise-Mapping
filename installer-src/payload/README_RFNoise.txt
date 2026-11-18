@@ -23,6 +23,7 @@ WHAT IT IS
             Test_Everything.bat       checks the radio, the GPS and a pretend drive
             Find_GPS.bat              finds a USB GPS puck
             HL2_Test.bat              tests a Hermes Lite 2
+            ANAN_Read_Test.bat        starts one receiver of an ANAN for a few seconds (receive only)
             Switch_Test.bat           tests switching between frequencies
             Make_Support_File.bat     packs the logs into ONE zip to send for help
             Open_Logs.bat             opens the Logs folder
