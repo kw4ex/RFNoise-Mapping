@@ -299,16 +299,20 @@ class AnanReader:
 
 
 def analyse(pkts, rate_khz):
-    """Level and strongest signal of what was received."""
+    """Level and strongest signals of what was received. The DC offset is removed, the band edges (filter skirts)
+    and the middle 1.5 kHz are ignored, and peaks are measured against the typical noise of the usable part."""
     import numpy as np
     if not pkts:
         return {"packets": 0}
     seqs = [p[0] for p in pkts]
     lost = sum(max(0, (b - a - 1)) for a, b in zip(seqs, seqs[1:]))
     x = np.concatenate([p[1] for p in pkts])
+    dc = complex(np.mean(x))
+    x = x - dc
     pw = float(np.mean(np.abs(x) ** 2)) or 1e-30
     n = 8192
-    res = {"packets": len(pkts), "lost": lost, "samples": len(x), "level_dbfs": 10 * np.log10(pw)}
+    res = {"packets": len(pkts), "lost": lost, "samples": len(x), "level_dbfs": 10 * np.log10(pw),
+           "dc_dbfs": 20 * np.log10(abs(dc) + 1e-30)}
     if len(x) >= n:
         w = np.hanning(n)
         acc = np.zeros(n)
@@ -318,8 +322,19 @@ def analyse(pkts, rate_khz):
             k += 1
         sp = 10 * np.log10(acc / k + 1e-30)
         f = (np.arange(n) - n // 2) * (rate_khz * 1000.0 / n)
-        j = int(np.argmax(sp))
-        res.update(peak_offset_khz=float(f[j] / 1000.0), peak_over_median_db=float(sp[j] - np.median(sp)))
+        use = (np.abs(f) < rate_khz * 1000.0 * 0.4) & (np.abs(f) > 750.0)
+        floor = float(np.median(sp[use]))
+        idx = np.where(use)[0]
+        order = idx[np.argsort(sp[idx])[::-1]]
+        peaks = []
+        for j in order:
+            if all(abs(f[j] - p[0]) > 1500.0 for p in peaks):
+                peaks.append((float(f[j]), float(sp[j] - floor)))
+            if len(peaks) == 5:
+                break
+        res["floor_dbfs_per_bin"] = floor
+        res["peaks"] = [(round(o / 1000.0, 3), round(d, 1)) for o, d in peaks]
+        res.update(peak_offset_khz=peaks[0][0] / 1000.0, peak_over_median_db=peaks[0][1])
     return res
 
 
@@ -346,8 +361,9 @@ def read_test(ip, freq_mhz=10.0, seconds=2.0, rate_khz=192, modes=("basic", "str
             say("  No signal data came back (%d other packets)." % other)
         else:
             say("  Received %d packets (%d samples), %d lost. Level %.1f dBFS." % (a["packets"], a["samples"], a["lost"], a["level_dbfs"]))
-            if "peak_offset_khz" in a:
-                say("  Strongest signal: %+.2f kHz from the tuned frequency, %.1f dB above the typical noise." % (a["peak_offset_khz"], a["peak_over_median_db"]))
+            say("  DC offset (the radio's own constant) %.1f dBFS - removed before measuring." % a["dc_dbfs"])
+            for off, db in a.get("peaks", []):
+                say("  Peak %+8.3f kHz from the tuned frequency (%.4f MHz): %.1f dB above the typical noise." % (off, freq_mhz + off / 1000.0, db))
             time.sleep(0.5)
             break                                               # the first way that works is enough
         time.sleep(1.0)
