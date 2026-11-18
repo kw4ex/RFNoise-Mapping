@@ -574,13 +574,38 @@ def read_test(ip, freq_mhz=10.0, seconds=2.0, rate_khz=192, modes=("basic", "str
 RULE_NAME = "RF Noise Map - ANAN radio data (Python)"
 
 
-def multi_test(ip, say=print, base=PORT, ddcs=(2, 3, 4, 5), seconds=2.0):
+def ddc_probe(ip, say=print, base=PORT):
+    """Which receiver numbers (DDCs) does this radio really send data for? Tries a few sets and rates.
+    Returns the first set of four that all delivered, as (ddcs, rate_hz), or None."""
+    sets = [((2, 3, 4, 5), 192000), ((0, 1, 2, 3), 192000), ((1, 2, 3, 4), 192000), ((2, 3, 4, 5), 48000),
+            ((0, 1, 2, 3, 4, 5, 6), 192000), ((2, 3), 192000), ((4,), 192000), ((5,), 192000), ((6,), 192000)]
+    good = None
+    for ddcs, rate in sets:
+        c = AnanClient(ip, base, rate, len(ddcs), ddcs)
+        for i in range(len(ddcs)):
+            c.freq[i] = 10.0e6 + 1000 * i
+        try:
+            c.start()
+        except AnanError:
+            pass
+        finally:
+            got = [d for d, n in zip(ddcs, c.count) if n > 0]
+            c.stop()
+        say("  Receivers %s at %d kHz: data from %s%s." % (list(ddcs), rate // 1000, got or "none",
+                                                            "  <- all of them" if len(got) == len(ddcs) else ""))
+        if good is None and len(ddcs) == 4 and len(got) == 4:
+            good = (ddcs, rate)
+        time.sleep(0.5)
+    return good
+
+
+def multi_test(ip, say=print, base=PORT, ddcs=(2, 3, 4, 5), seconds=2.0, rate=192000):
     """Four receivers at once on WWV's 5, 10 and 15 MHz and on 2.5 MHz, each tuned 5 kHz below the carrier, so the
     carrier should show up at +5 kHz in each. Receive only. Returns how many receivers found their carrier."""
     import numpy as np
     plan = [(4.995e6, "WWV 5 MHz"), (9.995e6, "WWV 10 MHz"), (14.995e6, "WWV 15 MHz"), (2.495e6, "WWV 2.5 MHz")]
     say("What I am doing: starting four receivers at once (receivers %s) for %.0f seconds..." % (list(ddcs), seconds))
-    c = AnanClient(ip, base, 192000, 4, ddcs)
+    c = AnanClient(ip, base, rate, 4, ddcs)
     for i, (hz, _n) in enumerate(plan):
         c.freq[i] = hz
     found = 0
@@ -724,8 +749,13 @@ def main(argv):
                 if db is not None and db >= 15.0:
                     ok += 1
         say("")
+        say("--- Which receivers does the radio send? ---")
+        good = ddc_probe(ip, say=say)
+        say("")
         say("--- Four receivers at once ---")
-        nf = multi_test(ip, say=say)
+        nf = multi_test(ip, say=say, ddcs=good[0], rate=good[1]) if good else 0
+        if not good:
+            say("No set of four receivers delivered. Send this report to Claude.")
         say("")
         if ok == 2:
             say("RESULT: WWV was found at the right place both times, so frequencies and the spectrum direction are correct.")
