@@ -169,14 +169,14 @@ def ddc_packet(seq, rate_khz, ddcs=None):
 
 def high_priority_packet(seq, run, freq_hz, phase=True, alex=True):
     """High Priority (1444 bytes like Thetis): run bit and the receive frequencies. freq_hz is one number
-    (DDC1 to DDC4 all get it, as Thetis does) or a dict {ddc number: Hz}. PTT never set, drive level 0."""
+    (DDC0 to DDC3 all get it, which is what Thetis sends) or a dict {ddc number: Hz}. PTT never set, drive level 0."""
     b = bytearray(PKT)
     struct.pack_into(">I", b, 0, seq)
     b[4] = 0x01 if run else 0x00            # bit 0 run; bit 1 (PTT) is never set
-    items = freq_hz.items() if isinstance(freq_hz, dict) else [(d, freq_hz) for d in (1, 2, 3, 4)]
+    items = freq_hz.items() if isinstance(freq_hz, dict) else [(d, freq_hz) for d in (0, 1, 2, 3)]
     for d, hz in items:
         w = phase_word(hz) if phase else int(hz) & 0xFFFFFFFF
-        struct.pack_into(">I", b, 5 + 4 * int(d), w)
+        struct.pack_into(">I", b, 9 + 4 * int(d), w)       # receiver n's frequency is the word at 9 + 4n (found with WWV on the real radio)
     b[345] = 0                              # TX drive level (Thetis sends 0x22 or more; we send none)
     if alex:
         b[1400] = 0x02
@@ -597,8 +597,8 @@ def _spec_report(x, rate, target_khz):
     return (10 * np.log10(float(np.mean(np.abs(x) ** 2)) + 1e-30), float(np.max(sp[m]) - floor), f[j] / 1000.0)
 
 
-PROBE_SETS = [((2,), {}), ((2,), {3: 0}), ((2,), {1: 0}), ((2,), {1: 0, 3: 0}), ((2,), {3: 0, 4: 0}), ((2,), {1: 0, 3: 0, 4: 0}),
-              ((2, 3), {}), ((2, 3), {4: 0}), ((2, 3), {1: 0, 4: 0}), ((1, 2, 3), {4: 0}), ((0, 2, 3), {4: 0}), ((0, 1, 2, 3), {})]
+PROBE_SETS = [((2,), {}), ((0,), {}), ((1,), {}), ((3,), {}), ((2, 3), {}), ((1, 2, 3), {}), ((0, 1), {}), ((0, 1, 2), {}),
+              ((0, 1, 2, 3), {}), ((0, 1, 2, 3, 4), {}), ((2, 3, 4, 5), {})]
 
 
 def ddc_probe(ip, say=print, base=PORT):
@@ -637,7 +637,7 @@ def ddc_probe(ip, say=print, base=PORT):
         if okn and (best is None or okn > best[0]):
             best = (okn, ddcs, dict(mirror))
         time.sleep(0.4)
-    return (best[1], 192000, best[2]) if best else None
+    return (tuple(best[1][:4]), 192000, best[2]) if best else None
 
 
 def multi_test(ip, say=print, base=PORT, ddcs=(2, 3, 4, 5), seconds=2.0, rate=192000, mirror=None):
@@ -887,7 +887,7 @@ class AnanSim:
             if data[345] or any(data[329:345]):
                 self.max_hp_byte_nonzero = True         # drive level / TX frequency must stay zero
             for n in range(8):
-                w = struct.unpack(">I", data[5 + 4 * n:9 + 4 * n])[0]
+                w = struct.unpack(">I", data[9 + 4 * n:13 + 4 * n])[0]
                 self.freq[n] = w / 4294967296.0 * ADC_CLOCK if self.phase else float(w)
 
     def _loop(self):
