@@ -597,19 +597,21 @@ def _spec_report(x, rate, target_khz):
     return (10 * np.log10(float(np.mean(np.abs(x) ** 2)) + 1e-30), float(np.max(sp[m]) - floor), f[j] / 1000.0)
 
 
+PROBE_SETS = [((2,), {}), ((2,), {3: 0}), ((2,), {1: 0}), ((2,), {1: 0, 3: 0}), ((2,), {3: 0, 4: 0}), ((2,), {1: 0, 3: 0, 4: 0}),
+              ((2, 3), {}), ((2, 3), {4: 0}), ((2, 3), {1: 0, 4: 0}), ((1, 2, 3), {4: 0}), ((0, 2, 3), {4: 0}), ((0, 1, 2, 3), {})]
+
+
 def ddc_probe(ip, say=print, base=PORT):
-    """Which receiver numbers (DDCs) does this radio really send data for, and how strong is what each hears?
-    All are tuned 10 kHz below WWV (9.990 MHz). Returns the first set of four that all delivered, as (ddcs, rate_hz)."""
-    sets = [((2, 3, 4, 5), 192000, {}), ((0, 1, 2, 3), 192000, {4: 0}), ((0, 1, 2, 3), 192000, {4: 0, 5: 0}),
-            ((2,), 192000, {4: 0}), ((2,), 192000, {1: 0, 3: 0, 4: 0}), ((0,), 192000, {4: 0}), ((0, 1), 192000, {4: 0}),
-            ((0, 1, 2, 3), 192000, {})]
-    good = None
-    for ddcs, rate, mirror in sets:
-        c = AnanClient(ip, base, rate, len(ddcs), ddcs)
+    """Which receiver numbers (DDCs), and which extra frequency words, give a proper signal on this radio?
+    Receiver i is tuned (10 + 20 i) kHz below... i.e. 9.990 MHz minus 20 kHz per receiver, so WWV shows up at +10, +30, +50 kHz.
+    Returns the best arrangement found as (ddcs, rate_hz, mirror), where a proper signal means a level above -80 dBFS."""
+    best = None
+    for ddcs, mirror in PROBE_SETS:
+        c = AnanClient(ip, base, 192000, len(ddcs), ddcs)
         c.mirror = dict(mirror)
         for i in range(len(ddcs)):
-            c.freq[i] = 9.99e6
-        rep = []
+            c.freq[i] = 9.99e6 - 20000.0 * i
+        rep, okn = [], 0
         try:
             c.start()
             time.sleep(1.5)
@@ -621,20 +623,21 @@ def ddc_probe(ip, say=print, base=PORT):
                 if c.count[i] >= 32768:
                     try:
                         x, _t = c.take(i, 32768, timeout=0.2)
-                        lv, db, st = _spec_report(x, rate, 10.0)
-                        rep.append("receiver %d: level %.1f dBFS, WWV +10 kHz %.1f dB over noise, strongest %+.1f kHz" % (d, lv, db, st))
+                        lv, db, st = _spec_report(x, 192000, 10.0 + 20.0 * i)
+                        okn += 1 if lv > -80 else 0
+                        rep.append("receiver %d (tuned %.3f): level %.1f dBFS, WWV %.1f dB over noise, strongest %+.1f kHz" %
+                                   (d, c.freq[i] / 1e6, lv, db, st))
                     except AnanError:
                         pass
             c.stop()
-        say("  Receivers %s at %d kHz%s: data from %s%s." % (list(ddcs), rate // 1000,
-                                                       (", also sending the frequency of receivers %s" % sorted(mirror)) if mirror else "", got or "none",
-                                                            "  <- all of them" if len(got) == len(ddcs) else ""))
+        say("  Receivers %s%s: data from %s; %d with a proper signal." % (
+            list(ddcs), (", also sending frequency words %s" % sorted(mirror)) if mirror else "", got or "none", okn))
         for r in rep:
             say("      " + r)
-        if good is None and len(ddcs) == 4 and len(got) == 4 and rep and all(float(r.split('level ')[1].split(' dBFS')[0]) > -80 for r in rep):
-            good = (ddcs, rate, dict(mirror))
-        time.sleep(0.5)
-    return good
+        if okn and (best is None or okn > best[0]):
+            best = (okn, ddcs, dict(mirror))
+        time.sleep(0.4)
+    return (best[1], 192000, best[2]) if best else None
 
 
 def multi_test(ip, say=print, base=PORT, ddcs=(2, 3, 4, 5), seconds=2.0, rate=192000, mirror=None):
@@ -642,8 +645,9 @@ def multi_test(ip, say=print, base=PORT, ddcs=(2, 3, 4, 5), seconds=2.0, rate=19
     carrier should show up at +5 kHz in each. Receive only. Returns how many receivers found their carrier."""
     import numpy as np
     plan = [(4.995e6, "WWV 5 MHz"), (9.995e6, "WWV 10 MHz"), (14.995e6, "WWV 15 MHz"), (2.495e6, "WWV 2.5 MHz")]
-    say("What I am doing: starting four receivers at once (receivers %s) for %.0f seconds..." % (list(ddcs), seconds))
-    c = AnanClient(ip, base, rate, 4, ddcs)
+    say("What I am doing: starting %d receivers at once (receivers %s, extra frequency words %s) for %.0f seconds..." % (len(ddcs), list(ddcs), sorted(mirror or {}), seconds))
+    plan = plan[:len(ddcs)]
+    c = AnanClient(ip, base, rate, len(ddcs), ddcs)
     c.mirror = dict(mirror or {})
     for i, (hz, _n) in enumerate(plan):
         c.freq[i] = hz
@@ -791,7 +795,7 @@ def main(argv):
         say("--- Which receivers does the radio send? ---")
         good = ddc_probe(ip, say=say)
         say("")
-        say("--- Four receivers at once ---")
+        say("--- The best arrangement found, on WWV 5, 10, 15 and 2.5 MHz ---")
         nf = multi_test(ip, say=say, ddcs=good[0], rate=good[1], mirror=good[2]) if good else 0
         if not good:
             say("No set of four receivers delivered a proper signal. Send this report to Claude.")
@@ -802,7 +806,7 @@ def main(argv):
             say("RESULT: WWV was found once. WWV may be weak right now, or one reading is wrong - send this report to Claude.")
         else:
             say("RESULT: WWV was not found. It may be too weak at this time of day, or something is still wrong - send this report to Claude.")
-        say("RESULT (four receivers): %d of 4 receivers found their WWV carrier." % nf)
+        say("RESULT (best arrangement): %d receivers found their WWV carrier." % nf)
     finally:
         try:
             open(rep, "w", encoding="utf-8").write("\n".join(lines) + "\n")
