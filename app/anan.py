@@ -470,11 +470,28 @@ def main(argv):
         if d[0]["busy"]:
             open(rep, "w", encoding="utf-8").write("\n".join(lines) + "\n")
             return 1
-    if mhz is None:
-        mhz = 10.0
-    say("Tuned frequency: %.4f MHz. Tip: put a known steady signal here (for example 10.000 MHz WWV or an AM broadcast carrier) if an antenna is connected." % mhz)
+    two = mhz is None
+    freqs = [10.0, 10.1] if two else [mhz]
+    say("Tuned frequency: %s MHz. Tip: put a known steady signal here (for example 10.000 MHz WWV or an AM broadcast carrier) if an antenna is connected." %
+        " then ".join("%.4f" % f for f in freqs))
     try:
-        read_test(ip, mhz, say=say)
+        found = []
+        for f in freqs:
+            res = read_test(ip, f, say=say, modes=("basic", "streams"))
+            for v in res.values():
+                if v.get("peaks"):
+                    found.append((f, v["peaks"][0][0], v["peaks"][0][1]))
+        if two and len(found) == 2:
+            a, b = found
+            ra, rb = a[0] + a[1] / 1000.0, b[0] + b[1] / 1000.0
+            say("")
+            say("Comparison: strongest peak at %.4f MHz when tuned to %.1f, and at %.4f MHz when tuned to %.1f." % (ra, a[0], rb, b[0]))
+            if abs(ra - rb) < 0.002:
+                say("RESULT: it stayed at the same real frequency, so it is a real signal on the antenna.")
+            elif abs(a[1] - b[1]) < 2.0:
+                say("RESULT: it stayed at the same offset from the tuned frequency, so it is made inside the radio (not a signal).")
+            else:
+                say("RESULT: unclear - send this report to Claude.")
     finally:
         try:
             open(rep, "w", encoding="utf-8").write("\n".join(lines) + "\n")
