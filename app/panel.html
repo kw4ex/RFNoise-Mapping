@@ -759,7 +759,7 @@ async function findHl2(){
 function hl2GainReset(){ $("hl2g").value=15; gainChanged("hl2"); }
 
 /* ---------- slots: four live panadapters ---------- */
-const PAGE_VER="1.4.0i";        /* the version of this page: it must match the program version shown in the top bar */
+const PAGE_VER="1.4.0j";        /* the version of this page: it must match the program version shown in the top bar */
 const SL={logging:false,live:false,busy:false,starting:false,manualStop:false,lastTry:0,health:{},byCh:{},startErr:"",radio:"",lastSync:0,seen:{},last:{},paused:false,autoPaused:false};
 const SLH={0:[],1:[],2:[],3:[]};      // the last readings saved for each slot (for the readout shown when a slot's radio is busy mapping)
 const ONLY_SLICES=new URLSearchParams(location.search).get("view")==="slices";
@@ -2336,7 +2336,7 @@ function hwRender(){
   if(!HW) return; const lg=!!window.__logging;
   $("hwRadList").innerHTML=HW.drivers.filter(d=>!d.planned).map(d=>{ const sc=d.scan, n=sc?sc.found.length:0;
     const dot=!sc?"":(n?"g":"r");
-    return '<div class="hwdev"><span class="hdot '+dot+'"></span><b>'+esc(d.name)+'</b> <span class="mut">'+(d.ticked?"ticked: in use":"not ticked")+(d.multi?" · all slots read at the same instant":"")+(d.max_mhz?" · up to about "+d.max_mhz+" MHz":"")+'</span><br>'+
+    return '<div class="hwdev"><span class="hdot '+dot+'"></span><b>'+esc(d.name)+'</b> <span class="mut">'+(d.scan_only?"finding only for now, not usable in a slot yet":(d.ticked?"ticked: in use":"not ticked"))+(d.multi?" · all slots read at the same instant":"")+(d.max_mhz?" · up to about "+d.max_mhz+" MHz":"")+'</span><br>'+
       '<span class="mut">'+esc(d.accuracy)+'</span><br>'+
       (sc?(n?sc.found.map(f=>'✔ '+esc(f.label)+' <span class="mut">'+esc(f.detail)+'</span>').join("<br>"):'<span style="color:#a5281b">Not found.</span> <span class="mut">'+esc(sc.note||"")+'</span>')+' <span class="mut">(scanned '+esc(sc.when)+')</span>':'<span class="mut">Not scanned yet. Press Scan for radios.</span>')+'</div>'; }).join("");
   $("hwPlanned").innerHTML=HW.drivers.filter(d=>d.planned).map(d=>'<div class="hwplan">&#9675; <b>'+esc(d.name)+'</b> &mdash; '+esc(d.accuracy)+' <i>'+esc(d.note)+'</i></div>').join("");

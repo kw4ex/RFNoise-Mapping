@@ -27,6 +27,7 @@ class RadioDriver:
     multi = False           # True = several frequencies are read at the same instant
     max_mhz = None          # highest frequency it can hear (None = no limit worth mentioning)
     planned = False
+    scan_only = False       # True = can be found but not yet used for readings
     note = ""
     cfg_flag = ""           # the "tick box" in config.json that switches it on
 
@@ -40,7 +41,7 @@ class RadioDriver:
 
     def describe(self):
         return {"id": self.id, "name": self.name, "kind": self.kind, "accuracy": self.accuracy,
-                "multi": self.multi, "max_mhz": self.max_mhz, "planned": self.planned, "note": self.note}
+                "multi": self.multi, "max_mhz": self.max_mhz, "planned": self.planned, "scan_only": self.scan_only, "note": self.note}
 
 
 class Hl2Driver(RadioDriver):
@@ -110,8 +111,31 @@ class RtlDriver(RadioDriver):
 class AnanDriver(RadioDriver):
     id, name, kind = "anan", "ANAN (Apache / OpenHPSDR, e.g. ANAN-7000)", "iq"
     accuracy = "Same family as the Hermes Lite 2: raw radio signal, several receivers (slices) at once."
-    multi, planned = True, True
-    note = "Planned: next after this version."
+    multi = True
+    scan_only = True
+    note = "Finding only (1.4.0j): the radio can be found and identified. Reading its signal comes in a later version."
+
+    def slot_values(self, found):
+        return []                           # cannot be picked for a slot yet
+
+    def detect(self, cfg, practice=False):
+        if practice:
+            return {"found": [{"label": "Pretend ANAN", "detail": "practice mode"}], "note": "Practice mode."}
+        import anan
+        ip = str(cfg.get("anan_ip", "")).strip()
+        try:
+            devs = anan.discover(ip or None, timeout=3.0)
+        except Exception as e:
+            return {"found": [], "note": "Could not search the network: %s" % e}
+        out = []
+        for d in devs:
+            det = "%s, protocol %s, firmware %d, board type %d" % (d["ip"], d["protocol_text"], d["firmware"], d["board"])
+            if d["board_note"]:
+                det += " (" + d["board_note"] + ")"
+            det += " - free" if not d["busy"] else " (another program, such as Thetis, is using it)"
+            out.append({"label": "ANAN / openHPSDR radio", "detail": det})
+        return {"found": out, "note": "" if out else
+                "No radio answered" + (" at " + ip if ip else " on the network") + ". Check the network cable and power. The radio needs its Protocol 2 firmware."}
 
 
 class FlexDriver(RadioDriver):

@@ -71,6 +71,7 @@ DEFAULT_CONFIG = {
     "use_rtl": False,                # RTL-SDR dongles (up to 4, untested on real dongles in 1.4.0)
     "rtl_gain_db": {},               # tuner gain per dongle, 0 to 49 dB, e.g. {"rtl1": 30}
     "hl2_ip": "",                    # empty = search the network
+    "anan_ip": "",                   # ANAN radio: empty = search the network (finding only in 1.4.0j)
     "browser": "chrome",             # chrome = open the program in Google Chrome (if it is installed) | default = your normal browser
     "hl2_speed": "normal",           # how often the Hermes slot pictures refresh: smooth | normal | light
     "hl2_rate": 96000,               # samples per second per receiver: 48000, 96000, 192000 or 384000
