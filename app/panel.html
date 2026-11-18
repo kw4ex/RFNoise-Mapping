@@ -12,7 +12,7 @@ header h1{font-size:19px;margin:0;font-weight:650}
 .dot{width:10px;height:10px;border-radius:50%;background:#7b8794;display:inline-block}
 .dot.on{background:#35d07f}.dot.bad{background:#ff6b5c}.dot.warn{background:#f3b64a}
 header .sp{flex:1}
-main{max-width:1050px;margin:16px auto;padding:0 14px 40px}
+main{max-width:2000px;margin:12px auto;padding:0 12px 40px}
 #driveBar{position:sticky;top:50px;z-index:9;background:#fff;border-bottom:2px solid #c9d3df;box-shadow:0 2px 6px rgba(20,35,58,.15);padding:8px 18px}
 #driveBar .dbrow{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center}
 #driveBar button.pri,#driveBar button.stop{font-size:16px;padding:9px 20px}
@@ -28,10 +28,10 @@ body.logging #driveBar #barLive,body.car #driveBar #barLive{display:flex}
 body.logging .jump,body.logging #barStat{display:none !important}
 #barLive .bbox.snd,#barLive .bbox.sp2{font-size:14px;flex-direction:row;flex-wrap:wrap;align-items:center;gap:2px 12px}
 #barLive .bbox.snd .lab{width:100%}
-#driveBar{--bz:1.7;--bz2:calc(var(--bz)*.66)}
+#driveBar{--bz:1.4;--bz2:max(.85,calc(var(--bz)*.66))}
 #barLive .bbox,#barHw .bbox{border:1px solid var(--line);border-radius:10px;padding:5px 11px;background:#fafbfd;font-size:calc(13.5px*var(--bz2));line-height:1.25;display:flex;flex-direction:column;justify-content:center}
 #barLive .bbox .lab,#barHw .bbox .lab{font-size:calc(11.5px*var(--bz2)*.85);color:var(--mut);text-transform:uppercase;letter-spacing:.04em}
-#driveBar #barHw{display:grid;grid-template-columns:minmax(0,.95fr) repeat(4,minmax(0,1.12fr)) minmax(0,.8fr) minmax(0,1.55fr) minmax(0,1.7fr);margin-top:6px;align-items:stretch;gap:8px}
+#driveBar #barHw{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,.8fr) minmax(0,1.5fr) minmax(0,1.9fr);margin-top:6px;align-items:stretch;gap:8px}
 #barHw .bbox{min-width:0;white-space:nowrap;overflow:hidden}
 #barHw .bbox .lab,#barHw .bbox .fq,#barHw .bbox .hwl{overflow:hidden;text-overflow:ellipsis}
 #barHw .slb .fq{font-weight:700;font-variant-numeric:tabular-nums}
@@ -40,7 +40,7 @@ body.logging .jump,body.logging #barStat{display:none !important}
 #barHw .slb .sr{display:flex;align-items:baseline;gap:4px;justify-content:space-between}
 #barHw .slb .sx{display:inline-block;width:6.2ch;white-space:nowrap;font-size:1.25em;font-variant-numeric:tabular-nums;color:#8a5a00}
 #barHw .slb .sdb{display:inline-block;width:7.6ch;text-align:right;font-size:.78em;color:var(--mut);font-variant-numeric:tabular-nums}
-@media(max-width:1560px){#driveBar #barHw{grid-template-columns:repeat(4,minmax(0,1fr))}}
+#barHw .slb{display:none}
 @media(max-width:1000px){#driveBar #barHw{grid-template-columns:repeat(2,minmax(0,1fr))}}
 #barHw .mst{flex-direction:row;align-items:center;gap:8px}
 #barHw .mstsvg{flex:none;width:calc(92px*var(--bz2))}#barHw .mstsvg svg{width:100%;height:auto;display:block}
@@ -50,18 +50,20 @@ body.logging .jump,body.logging #barStat{display:none !important}
 #barHw .alb{gap:1px}#barHw .alb .lab{white-space:nowrap}#barHw .alb .lab label{text-transform:none;letter-spacing:0;font-size:calc(12px*var(--bz2))}
 #barHw .alr{display:flex;align-items:center;gap:6px;font-size:calc(12px*var(--bz2))}
 #barHw .alr select{font-size:calc(11.5px*var(--bz2));padding:1px 3px;flex:1;min-width:0}
-#barHw .alr .alk{width:6.6ch;color:var(--mut);flex:none}
+#barHw .alr:first-child{flex-wrap:wrap;row-gap:2px}
+#barHw .alr .lab{overflow:visible;text-overflow:clip;white-space:nowrap;flex:none}
+#barHw .alr .alk{width:auto;color:var(--mut);flex:none}
 #barHw .alr input[type=range]{flex:1;min-width:40px;margin:0}
 #barHw .alr b{width:4.2ch;text-align:right;font-variant-numeric:tabular-nums;flex:none}
 #barHw .alr button{padding:1px 8px;font-size:calc(11.5px*var(--bz2))}
 #cMeters.moff #mGrid,#cMeters.moff #mFoot,#cMeters.moff .mctl{display:none}
 /* the top control row: much larger */
 #drvRow1{gap:10px 14px}
-#drvRow1 button,#drvRow1 input[type=text],#drvRow1 select{font-size:calc(14px*var(--bz));padding:calc(5px*var(--bz)) calc(10px*var(--bz));border-radius:10px}
-#drvRow1 label.chk,#drvRow1 label.chk span{font-size:calc(13px*var(--bz))}
-#drvRow1 input[type=checkbox]{width:calc(14px*var(--bz));height:calc(14px*var(--bz))}
-#driveBar #drvRow1 button.pri,#driveBar #drvRow1 button.stop{font-size:calc(16px*var(--bz));padding:calc(7px*var(--bz)) calc(18px*var(--bz))}
-#drvRow1 #route{width:calc(190px*var(--bz)*.8)}#drvRow1 #markNote{width:calc(150px*var(--bz)*.8)}
+#drvRow1 button,#drvRow1 input[type=text],#drvRow1 select{font-size:calc(14px*var(--bzr,var(--bz)));padding:calc(5px*var(--bzr,var(--bz))) calc(10px*var(--bzr,var(--bz)));border-radius:10px}
+#drvRow1 label.chk,#drvRow1 label.chk span{font-size:calc(13px*var(--bzr,var(--bz)))}
+#drvRow1 input[type=checkbox]{width:calc(14px*var(--bzr,var(--bz)));height:calc(14px*var(--bzr,var(--bz)))}
+#driveBar #drvRow1 button.pri,#driveBar #drvRow1 button.stop{font-size:calc(16px*var(--bzr,var(--bz)));padding:calc(7px*var(--bzr,var(--bz))) calc(18px*var(--bzr,var(--bz)))}
+#drvRow1 #route{width:calc(190px*var(--bzr,var(--bz))*.6)}#drvRow1 #markNote{width:calc(150px*var(--bzr,var(--bz))*.55)}
 #drvRow1 .szb{font-size:15px;padding:1px 8px}
 /* fixed-width numbers: the level and S-unit columns never shift */
 .dbn{display:inline-block;width:8.8ch;text-align:right;font-variant-numeric:tabular-nums}
@@ -87,6 +89,7 @@ td.lvlcell,.slv{white-space:nowrap}
 body.car #cMeters{display:block !important}
 #barHw .bbox .sub2{font-size:calc(12.5px*var(--bz2)*.85);color:var(--mut);font-variant-numeric:tabular-nums}
 #barHw button{align-self:center}
+header .szb{padding:1px 8px;font-size:15px}
 #driveBar .szb{padding:1px 8px;font-size:15px}
 .sU{color:#8a5a00;font-weight:700;margin-left:4px;font-size:.88em}
 #hwWin{position:fixed;inset:0;background:var(--bg);z-index:60;overflow:auto;display:none}
@@ -152,21 +155,61 @@ button.sm{font-size:13px;padding:4px 9px}
 .slbox .slrow button.sm{padding:3px 9px}
 .slbox .slRw{display:inline-flex;align-items:center;gap:6px}
 .slbox{background:#fff;border:1px solid #d5dde6;border-radius:10px;padding:8px 10px}
-.slbox .slh{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:13px;margin-bottom:3px}
+.slbox .slh{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px;margin-bottom:3px}
 .slbox canvas{width:100%;display:block;border-radius:4px}
 .slbox .slsp{height:270px;background:#0b1620}
 .slbox .slwf{height:150px;background:#000028;margin-top:2px}
 .slbox .slaud{height:60px;background:#0b1620;margin-top:4px}
 .slbox .slbar{width:110px;display:inline-block;vertical-align:middle;margin:0 0 0 8px}
 .slbox.notlive .slview canvas{opacity:.55}
+.slbox .slh>span:first-child{flex:0 1 auto;min-width:0;display:flex;flex-wrap:wrap;align-items:center;gap:2px 6px}
+.slbox .slt,.slbox .slPop{white-space:nowrap}
+.slbox:not(.empty) .slh>span:first-child{flex-wrap:nowrap}
+.slbox:not(.empty) .slf{white-space:nowrap}
+.slbox .slhr{flex-wrap:nowrap !important}
+.slbox .slhr>label{display:none}
+.slbox:not(.empty) .slbar{width:54px;margin-left:4px}
+.slbox .slhr select.slR{max-width:88px}
+.slbox .slhr{flex:none;gap:4px}
+.slbox:not(.empty) .slh>span:first-child .slzoom{width:40px !important}
+.slbox .slPop{margin-left:4px;padding:1px 8px}
+.slbox .slh select.slR{font-size:12px;padding:2px 4px}
 .slbox .slhr{display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end}
-.slbox:not([data-rad="hl2"]) .hlonly{display:none !important}
+.slbox:not([data-rad="hl2"]):not([data-rad="anan"]) .hlonly{display:none !important}
 .slbox:not([data-rad="sdrplay"]) .sdonly{display:none !important}
 button.slLive.on{background:#1e8e3e;border-color:#1e8e3e;color:#fff}
 button.slLock.on{background:#d93025;border-color:#b3261e;color:#fff;font-weight:700}
 .slbox .slview{position:relative}
 .slbox .slmsg{position:absolute;inset:0;display:none;align-items:center;justify-content:center;text-align:center;color:#cfe3f3;font-size:13px;padding:10px;background:rgba(11,22,32,.9);border-radius:4px}
-.slbox.empty .slview,.slbox.empty .slctl,.slbox.empty .sltune.hideoff{display:none}
+.slquick{display:flex;flex-wrap:wrap;align-items:center;gap:5px 10px;margin-top:5px}
+.slquick .slsx{display:flex;flex-wrap:wrap;align-items:center;gap:5px 8px}
+.slquick .hlonly{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.slquick{font-size:12px}
+.slquick label{font-size:12px;white-space:nowrap;margin:0}
+.slquick select.sm{font-size:12px;padding:2px 3px;width:auto;max-width:84px}
+.slquick .slspan,.slh .slspan{display:none}
+.slh button.slLock{padding:1px 6px;white-space:nowrap}
+.slbox .slhr .slv{margin-left:8px}
+.slh .hlonly{display:inline-flex;align-items:center;gap:4px;white-space:nowrap;font-size:12px}
+.slh .hlonly label{margin:0}
+.slquick .slsx>*{white-space:nowrap}
+.slquick .slSq{width:56px !important}
+.slquick .slzoom{width:64px !important}
+.slquick button.sm{padding:2px 8px;font-size:12px}
+.slsnd{display:inline-flex !important;flex-wrap:wrap;max-width:100%;align-items:center;gap:6px;white-space:nowrap}
+.slbottom .sltune{gap:5px 6px}
+.slbottom .sltune>.rn,.slbottom .sltune>.mut,.slbottom .sltune>label{display:none}
+.slbottom .sltune .slF{width:68px !important}
+.slbottom .sltune select.slStep{width:68px}
+.slbottom .sltune select.slsMode{width:64px}
+.slbottom .sltune{gap:4px 5px}
+.slbottom .slsnd{gap:4px}
+.slbottom .slVol{width:70px !important}
+.slbottom .slSq{width:46px !important}
+.slbox.empty .slsnd{display:none !important}
+.slsnd.nosnd>*:not(.slsico):not(.slNoSnd){display:none !important}
+.slsnd:not(.nosnd) .slNoSnd{display:none}
+.slbox.empty .slview,.slbox.empty .slctl,.slbox.empty .slsnd,.slbox.empty .sltune.hideoff{display:none}
 .slbox.fb .slwf{display:none}
 body.only-slot #driveBar,body.only-slot #cTrack,body.only-slices #cTrack,body.only-slices #driveBar,body.only-slot header,body.only-slot footer,body.only-slot main>section.card:not(#cSlices),body.only-slot #cSlices>h2,body.only-slot #cSlices>p.sub,body.only-slot #bSlCompact,body.only-slot #bSlPop,body.only-slot .slPop,body.only-slot #staleBanner,body.only-slot #warnBanner,body.only-slot #blockBanner{display:none !important}
 body.only-slot main{max-width:none;margin:6px auto;padding:0 12px 12px}
@@ -176,12 +219,26 @@ body.only-slot #slGrid .slbox.me{display:block}
 body.only-slot #slGrid .slsp{height:44vh} body.only-slot #slGrid .slwf{height:26vh}
 body.only-slot #slGrid .slh{font-size:18px}
 .slbox button.on{background:#1f5fd6;border-color:#1f5fd6;color:#fff}
-.slbox button.slMute.on{background:#c0392b;border-color:#c0392b}
-#slGrid.compact{grid-template-columns:repeat(2,1fr) !important;gap:8px !important}
-#slGrid.compact .slctl,#slGrid.compact .sltune,#slGrid.compact .slaud{display:none}
+#slGrid.compact{grid-template-columns:repeat(2,minmax(0,1fr)) !important;gap:8px !important}
+#slGrid.compact .slaud{display:none}
+.slbox{position:relative}
+#cSlices>.row:has(#slStatus:empty):not(:has(>button.pri[style*="inline"])):not(:has(>#bSlFull[style*="inline"])){display:none}
+#slGrid.compact .slctl{display:none}
+#slGrid.compact .slbox.more .slctl{display:block;position:absolute;left:6px;right:6px;top:30px;max-height:calc(100% - 36px);overflow:auto;z-index:6;background:#fff;border:2px solid #1b5fd6;border-radius:10px;box-shadow:0 6px 24px rgba(20,35,58,.35);padding:6px 10px 10px}
+#slGrid:not(.compact) .slPopB,#slGrid:not(.compact) .slMoreX,#slGrid:not(.compact) .slhdr{display:none}
+#slGrid.compact .slctl>.slrow[data-sec]{display:none !important}
+#slGrid.compact .slbox[data-pop="gain"] .slctl>.slrow[data-sec="gain"],#slGrid.compact .slbox[data-pop="mem"] .slctl>.slrow[data-sec="mem"],#slGrid.compact .slbox[data-pop="view"] .slctl>.slrow[data-sec="view"]{display:flex !important}
+#slGrid.compact .slctl .rn{display:none}
+#slGrid.compact .slctl>canvas{display:none !important}
+.slhdr .slpopT{font-size:14px}
+.slquick .slwid{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.slquick select.slBand{max-width:64px}
+.slquick .slW{width:44px !important;font-size:12px;padding:2px 3px}
+.slquick button.slAuto.on{background:#1f5fd6;color:#fff}
+#slGrid.compact .slbox.empty .slMore{display:none}
 #slGrid.compact .slbox.empty{opacity:.6}
-#slGrid.compact .slsp{height:calc((100vh - 230px)/2*.6)}
-#slGrid.compact .slwf{height:calc((100vh - 230px)/2*.4 - 30px)}
+#slGrid.compact .slsp{height:max(70px,calc((100vh - 400px)/2*.6))}
+#slGrid.compact .slwf{height:max(50px,calc((100vh - 400px)/2*.4 - 30px))}
 button:disabled{opacity:.45;cursor:default}
 button.lock{font-size:19px;font-weight:800;letter-spacing:.5px;padding:10px 18px;border-radius:10px;border:3px solid #1e8e3e;background:#e6f6ea;color:#14692c;min-width:210px}
 button.lock.on{border-color:#b3261e;background:#d93025;color:#fff;box-shadow:0 0 0 3px rgba(217,48,37,.28)}
@@ -238,6 +295,38 @@ body.only-slices #staleBanner,body.only-slices #warnBanner,body.only-slices #blo
 .seg button.on{background:var(--acc);border-color:var(--acc);color:#fff;font-weight:600}
 .smeter{height:12px;border-radius:6px;background:#e3e8ee;position:relative;overflow:hidden;min-width:180px}
 .smeter i{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(to right,#35d07f,#f3d34a,#e8553f);width:0}
+#cCollect{display:none}
+@media(max-width:1500px){header{gap:4px 8px;padding:6px 12px}header h1{font-size:16px}header .pill{font-size:12px;padding:2px 8px}header button.sm,header a.btn{font-size:12px;padding:3px 7px}
+ #driveBar{padding:6px 12px}#driveBar #drvRow1{gap:6px 8px}#driveBar #drvRow1 #route{width:calc(130px*calc(var(--bzr,1.2)/1.2))}#driveBar #drvRow1 #markNote{width:calc(100px*calc(var(--bzr,1.2)/1.2))}
+ #driveBar #drvRow1 button.pri,#driveBar #drvRow1 button.stop{font-size:calc(17px*calc(var(--bzr,1.2)/1.2));padding:calc(8px*calc(var(--bzr,1.2)/1.2)) calc(14px*calc(var(--bzr,1.2)/1.2))}#driveBar #drvRow1 button{font-size:calc(14px*calc(var(--bzr,1.2)/1.2));padding:calc(5px*calc(var(--bzr,1.2)/1.2)) calc(9px*calc(var(--bzr,1.2)/1.2))}#driveBar #drvRow1 label.chk,#driveBar #drvRow1 label.chk span{font-size:calc(13px*calc(var(--bzr,1.2)/1.2))}}
+#alPop{display:none;position:absolute;right:18px;top:100%;z-index:20;background:#fff;border:2px solid #1b5fd6;border-radius:10px;box-shadow:0 6px 24px rgba(20,35,58,.35);padding:10px 14px;width:min(420px,92vw)}
+#alPop .alr{display:flex;align-items:center;gap:8px;margin-top:8px;font-size:14px}
+#alPop .alr .alk{width:84px;color:var(--mut);flex:none}
+#alPop .alr select{flex:1}#alPop .alr input[type=range]{flex:1}#alPop .alr b{width:3ch;text-align:right}
+.slbottom{display:flex;gap:10px;align-items:flex-start}
+.slleft{flex:1;min-width:0}
+.slmtr{--mw:230px;flex:none;width:230px}
+@media(max-width:1500px){.slmtr{width:200px}.slmtr .mbox .mS{font-size:20px}}
+.slmtr .mbox{padding:0;border:0;border-radius:0;background:none}
+.slmtr .mh,.slmtr .mgrip{display:none}
+.mbox .mrst{display:none}
+.slmtr .mbox .mrst{display:block;position:absolute;left:8px;bottom:5px;padding:1px 7px;font-size:10.5px;line-height:1.3}
+.slmtr .mbox .mr{position:absolute;left:9px;right:9px;top:5px;display:grid;grid-template-columns:auto 1fr;column-gap:6px;align-items:start;pointer-events:none}
+.slmtr .mbox .mS{grid-row:1/3;width:auto;font-size:22px;line-height:1;text-shadow:0 0 3px #fff9dc}
+.slmtr .mbox .mDb{width:auto;text-align:right;font-size:11px;line-height:1.2}
+.slmtr .mbox .mPk{flex:none;min-height:0;text-align:right;font-size:10px;line-height:1.2;white-space:nowrap}
+#slGrid.nometers .slmtr{display:none}
+.slbox.empty .slmtr{display:none}
+@media(max-width:900px){.slbottom{flex-wrap:wrap}.slmtr{width:100%;max-width:230px}}
+body.setwin #cCollect{display:block;position:fixed;left:3%;right:3%;top:58px;bottom:14px;overflow:auto;z-index:60;box-shadow:0 10px 50px rgba(20,35,58,.5);border:2px solid #1b5fd6;margin:0}
+.winbox{display:none}
+body.win-dm #winDM,body.win-tools #winTools{display:block;position:fixed;left:3%;right:3%;top:58px;bottom:14px;overflow:auto;z-index:60;background:var(--bg,#f4f6fa);border:2px solid #1b5fd6;border-radius:12px;padding:8px 12px 12px;box-shadow:0 10px 50px rgba(20,35,58,.5)}
+body.win-tools #winTools{left:12%;right:12%}
+.winhd{display:flex;justify-content:space-between;align-items:center;font-size:18px;margin:2px 0 6px}
+body.win-dm #setBack,body.win-tools #setBack{display:block}
+#setBack{display:none;position:fixed;inset:0;background:rgba(20,35,58,.45);z-index:55}
+body.setwin #setBack{display:block}
+#cCollect .setX{float:right}
 </style></head><body>
 <header>
  <h1>RF Noise Map</h1>
@@ -246,7 +335,10 @@ body.only-slices #staleBanner,body.only-slices #warnBanner,body.only-slices #blo
  <span class="pill" title="The version of the program that is running now"><span id="tVer">v?</span></span>
  <span class="pill" id="pOv" style="display:none;background:#8a1f1f" title="A strong signal is overloading the Hermes. Lower its gain (see the slices box).">&#9888; Radio overload - lower the gain</span>
  <span class="sp"></span>
- <button class="sm" onclick="runCheck()">Check setup</button>
+ <button class="sm" onclick="setOpen()" title="Your radios, the GPS, how often to take a reading (distance or time), pause when stopped, gain and every other setting">Settings&hellip;</button>
+ <button class="sm" onclick="hwOpen()" title="GPS, radios and which radio measures each slot">Hardware setup&hellip;</button>
+ <span title="Make the numbers in the bar below smaller or larger"><button class="sm szb" onclick="barSize(-1)">A&minus;</button><button class="sm szb" onclick="barSize(1)">A+</button></span>
+ <button class="sm" id="bRestartTop" style="border-color:#e0b36a;color:#8a5a00;font-weight:600" title="Stops any drive that is being recorded (saving it), closes the program and starts it again with a fresh browser tab" onclick="restartApp()">Restart</button>
  <button class="sm" id="bQuitTop" style="border-color:#e58a8a;color:#a02222;font-weight:600" title="Stops any drive that is being recorded (saving it), then closes the program" onclick="quitApp()">Close program</button>
  <a class="btn" href="/help" target="_blank">Help &amp; guide</a>
 </header>
@@ -254,24 +346,22 @@ body.only-slices #staleBanner,body.only-slices #warnBanner,body.only-slices #blo
 <!-- ======================= DRIVE BAR (always in view) ======================= -->
 <div id="driveBar">
  <div class="dbrow" id="drvRow1">
-  <input type="text" id="route" placeholder="Route name (optional)" title="Goes into the drive's file name">
+  <input type="text" id="route" placeholder="Route name" title="Optional. Goes into the drive's file name">
   <label class="chk" title="Pretend radio and GPS, no hardware needed"><input type="checkbox" id="practice"> <span>Practice</span></label>
   <button class="pri" id="bStart" onclick="startLog()">&#9654; Start logging</button>
   <button class="stop" id="bStop" onclick="stopLog()" style="display:none">&#9632; Stop logging</button>
   <button id="bPause" onclick="slPause()" style="display:none">&#9208; Pause recording</button>
   <button id="bApply" onclick="applyLive()" style="display:none" title="Use the frequencies and slots as they are now in the slots below">Apply frequency changes</button>
   <button id="bMark" onclick="markSpot()" disabled title="Drops a flag at your current position (also the M key). It shows on the map. Type a note first if you like.">&#128681; Mark spot</button>
-  <input type="text" id="markNote" placeholder="note (optional)" style="width:150px;padding:6px 8px" class="carhide" onkeydown="if(event.key==='Enter'){markSpot();}">
+  <input type="text" id="markNote" placeholder="note" style="padding:6px 8px" class="carhide" onkeydown="if(event.key==='Enter'){markSpot();}">
   <span id="barStat" class="carhide"></span>
   <span style="flex:1"></span>
   <label class="chk" title="When you press Stop, a map of that drive opens by itself"><input type="checkbox" id="autoMap"> <span>Map when I stop</span></label>
   <button class="dbq" onclick="quickMap()" title="One press: a map of the drive being recorded now (or your newest drive) with all slots, using the dot spacing chosen in the Drives box">&#9889; Quick map</button>
-  <button class="carhide" onclick="gotoCard('cDrives')" title="Choose drives and slots for a map">Make map&hellip;</button>
-  <button class="carhide" onclick="hwOpen()" title="GPS, radios and which radio measures each slot">Hardware setup&hellip;</button>
-  <button class="carhide" onclick="perfRun()" title="Records for a few seconds, times your radios and works out how fast you can drive">Test my setup</button>
-  <span class="carhide" title="Make the numbers in this bar smaller or larger"><button class="sm szb" onclick="barSize(-1)">A&minus;</button><button class="sm szb" onclick="barSize(1)">A+</button></span>
+  <button class="carhide" onclick="winOpen('dm')" title="Your recorded drives, the choices for a map (dots, slots, speeds), and the maps you have made">Drives &amp; maps&hellip;</button>
+  <button class="carhide" onclick="winOpen('tools')" title="Open the data folder, back up, practice drive, full test, logs and support file">Tools&hellip;</button>
   <button id="bCar" onclick="carMode()" title="Big buttons and big numbers for the passenger seat: only Start, Pause, Mark, speed, health and the live map">Car mode</button>
- </div>
+  </div>
  <div class="dbrow" id="barLive">
   <div id="bigSpeed" title="Speed from the GPS"><b id="spVal">&ndash;</b><span>mph</span></div>
   <div class="bbox" title="The dot spacing you set, and what you are really getting at this speed. If the radio cannot keep up with your speed the dots end up farther apart than the setting."><span class="lab">Dot spacing</span>
@@ -290,19 +380,23 @@ body.only-slices #staleBanner,body.only-slices #warnBanner,body.only-slices #blo
   <div class="bbox slb off" id="hwS1"><span class="lab"><b>Slot 2</b> &middot; <span class="rn">&ndash;</span></span><span class="fq">&ndash;</span><span class="sr"><b class="sx">&ndash;</b><span class="sdb"></span></span></div>
   <div class="bbox slb off" id="hwS2"><span class="lab"><b>Slot 3</b> &middot; <span class="rn">&ndash;</span></span><span class="fq">&ndash;</span><span class="sr"><b class="sx">&ndash;</b><span class="sdb"></span></span></div>
   <div class="bbox slb off" id="hwS3"><span class="lab"><b>Slot 4</b> &middot; <span class="rn">&ndash;</span></span><span class="fq">&ndash;</span><span class="sr"><b class="sx">&ndash;</b><span class="sdb"></span></span></div>
-  <div class="bbox" title="The top speed at which your radios can still save a dot at your chosen dot spacing, worked out from how long one round of readings takes (measured by Test my setup, or live while you record). It does not know about the road, traffic or the speed limit."><span class="lab">Max speed</span><span id="hwMax">&ndash;</span><span class="sub2" id="hwMaxN">&nbsp;</span></div>
+  <div class="bbox" title="The top speed at which your radios can still save a dot at your chosen dot spacing, worked out from how long one round of readings takes (measured by Max speed test, or live while you record). It does not know about the road, traffic or the speed limit."><span class="lab">Max speed</span><span id="hwMax">&ndash;</span><span class="sub2" id="hwMaxN">&nbsp;</span></div>
  <div class="bbox mst" id="hwMst" title="The highest S-reading of the four slots in each round of readings, with the slot it came from. The orange marker is the highest since the drive started.">
    <div class="mstsvg" id="mstSvg"></div>
    <div class="mstt"><span class="lab">Highest</span><b class="mstS" id="mstS">&ndash;</b><span class="sub2" id="mstW">&nbsp;</span><span class="sub2" id="mstP">&nbsp;</span></div></div>
-  <div class="bbox alb hwx" id="hwAl" title="Plays a sound when the highest reading reaches the S-level you choose">
-   <span class="lab">Warning &nbsp;<label class="chk"><input type="checkbox" id="alOn" onchange="alSave()"> <span>noise</span></label> <label class="chk" title="Beeps if the GPS is lost or no new dots are saved while you are moving"><input type="checkbox" id="alarmOn" checked> <span>GPS</span></label></span>
-   <span class="alr"><select id="alSnd" onchange="alSave();alTest()"><option value="beep">Beep</option><option value="double">Double beep</option><option value="siren">Siren</option><option value="chirp">Chirp</option><option value="bell">Bell</option><option value="buzz">Low buzz</option></select><button class="sm" onclick="alTest()" title="Hear the chosen sound at the chosen volume">&#9654; Test</button></span>
-   <span class="alr"><span class="alk">Volume</span><input type="range" id="alVol" min="0" max="100" step="5" value="60" oninput="alSave()"><b id="alVolV">60</b></span>
-   <span class="alr"><span class="alk">Warn at</span><input type="range" id="alIdx" min="0" max="15" step="1" value="7" list="alTicks" oninput="alSave()"><b id="alIdxV">S7</b></span>
+  <div class="bbox alb hwx" id="hwAl" title="Plays a sound (and can speak the S-reading) when the highest reading reaches the S-level you choose">
+   <span class="alr"><span class="lab">Strong signal</span><label class="chk"><input type="checkbox" id="alOn" onchange="alSave()"> <span>on</span></label> <label class="chk" title="Beeps if the GPS is lost or no new dots are saved while you are moving"><input type="checkbox" id="alarmOn" checked> <span>GPS</span></label><button class="sm" id="alMoreB" onclick="alPop()" title="Sound, volume, voice: speak the reading with the alert, say S every X seconds">&#9881; Sound &amp; voice</button></span>
+   <span class="alr"><span class="alk">At</span><input type="range" id="alIdx" min="0" max="15" step="1" value="7" list="alTicks" oninput="alSave()" title="The S-level that sets off the alert"><b id="alIdxV">S7</b><button class="sm" onclick="alTest()" title="Hear the chosen sound at the chosen volume">&#9654; Test</button></span>
    <datalist id="alTicks"><option value="0"></option><option value="1"></option><option value="2"></option><option value="3"></option><option value="4"></option><option value="5"></option><option value="6"></option><option value="7"></option><option value="8"></option><option value="9"></option><option value="10"></option><option value="11"></option><option value="12"></option><option value="13"></option><option value="14"></option><option value="15"></option></datalist></div>
  </div>
+ <div id="alPop"><b>Strong signal alert</b>
+  <span class="alr"><span class="alk">Sound</span><select id="alSnd" onchange="alSave();alTest()"><option value="beep">Beep</option><option value="double">Double beep</option><option value="siren">Siren</option><option value="chirp">Chirp</option><option value="bell">Bell</option><option value="buzz">Low buzz</option></select><button class="sm" onclick="alTest()">&#9654; Test</button></span>
+  <span class="alr"><span class="alk">Volume</span><input type="range" id="alVol" min="0" max="100" step="5" value="60" oninput="alSave()"><b id="alVolV">60</b></span>
+  <span class="alr"><label class="chk" title="Says the S-reading out loud when a strong signal is heard"><input type="checkbox" id="alVoice" onchange="alSave()"> <span>Speak the reading with the alert</span></label></span>
+  <span class="alr"><span class="alk" title="Says the highest S-reading out loud every X seconds while you drive. 0 = off">Say S every</span><input type="number" id="alEvery" min="0" max="600" step="5" value="0" style="width:60px" onchange="alSave()"><b style="width:auto">seconds (0 = off)</b></span>
+  <button class="sm" onclick="alPop()">Close</button>
+ </div>
  <div id="alarmBar"></div>
- <div class="dbrow jump" style="margin-top:4px">Jump to: <a href="#cCollect">Setup</a><a href="#cSlices">Live slots</a><a href="#cDrives">Drives &amp; map choices</a><a href="#cMaps">Maps</a><a href="#cTools">Tools</a></div>
  <div id="startErr" class="note err" style="display:none;margin:6px 0 0"></div>
 </div>
 
@@ -326,9 +420,9 @@ body.only-slices #staleBanner,body.only-slices #warnBanner,body.only-slices #blo
    <table class="hwt" id="hwSlotT"></table>
    <div class="mut" style="margin-top:6px"><b>S-units</b> are shown next to every dB value (S9 = &minus;73&nbsp;dBm up to 30&nbsp;MHz, &minus;93&nbsp;dBm above; 6&nbsp;dB per S-unit). Everything is still <i>calculated</i> in dB. They are only right once a slot is <b>calibrated</b>: feed the radio a signal of known strength (a signal generator or a calibrated source), type its true level (like <b>-73</b> or <b>S9</b>) and press <b>Calibrate</b>. Until then treat S-units as a rough guide.</div>
   </section>
-  <section class="card" id="hwTestCard"><h2><span class="num">4</span>Test my setup</h2>
+  <section class="card" id="hwTestCard"><h2><span class="num">4</span>Max speed test</h2>
    <p class="sub">Records for a few seconds (nothing is kept), checks the GPS and every slot, times one round of readings, and works out <b>how fast you can drive</b> and still get a dot every set distance.</p>
-   <button class="pri" onclick="perfRun()">Test my setup</button>
+   <button class="pri" onclick="perfRun()">Max speed test</button>
    <div id="perfOut" style="margin-top:10px"></div>
   </section>
  </div>
@@ -345,11 +439,9 @@ body.only-slices #staleBanner,body.only-slices #warnBanner,body.only-slices #blo
  <button class="pri" onclick="freeDevices()">Close them for me</button> <button class="sm" onclick="$('blockBanner').style.display='none'">Ignore</button>
 </div>
 <!-- ======================= S-METERS ======================= -->
-<section class="card" id="cMeters">
+<section class="card" id="cMeters" style="display:none">
  <div class="trh"><b style="font-size:18px">S-meters</b>
   <span class="mut">One per slot. The needle is the reading from the latest sample cycle; the orange marker is the highest reading taken since the drive started.</span>
-  <label class="chk" title="Show or hide the four big S-meters. The Highest meter in the top bar stays."><input type="checkbox" id="mShow" onchange="meterShow(this.checked)" checked> <span><b>Show meters</b></span></label>
-  <button class="sm mctl" onclick="meterReset()" title="Put the orange peak markers back to the current readings">Reset peaks</button>
   <label class="chk mctl" title="Show all four meters in one row, sized to fit the window"><input type="checkbox" id="mSide" onchange="meterSide(this.checked)"> <span>Side by side (4 across)</span></label>
   <button class="sm mctl" id="mRst" onclick="meterSizeReset()" title="Put the meters back to the standard size">Reset size</button>
   <span class="mut mctl" id="mHint">Drag the corner grip of any meter to make all four bigger or smaller.</span></div>
@@ -367,12 +459,22 @@ body.only-slices #staleBanner,body.only-slices #warnBanner,body.only-slices #blo
 </section>
 
 <!-- ======================= 1. COLLECT ======================= -->
+<div id="setBack" onclick="setClose()"></div>
 <section class="card" id="cCollect">
- <h2><span class="num">1</span>Collect data</h2>
+ <h2><span class="num">1</span>Settings: radios, GPS, readings <button class="pri setX" onclick="setClose()">Close this window</button></h2>
  <p class="sub">Drive your route while this runs. A reading is saved about every 10&nbsp;ft along the way.</p>
 
  <p class="mut" style="margin:0 0 6px">The route name, <b>Practice</b> mode and the <b>Start / Stop / Pause</b> buttons are in the bar at the top of the page, always in view. <b>GPS, your radios and which radio measures each slot</b> are in <a href="#" onclick="hwOpen();return false">Hardware setup</a> (button at the top), so they stay out of the way while you drive.</p>
 
+ <div id="dispBox" style="margin:10px 0 4px">
+  <b>Display and the radios</b> <span class="mut">&mdash; how the slots look and behave</span>
+  <div class="row" style="align-items:center;gap:10px;margin-top:4px">
+   <label class="mut" style="margin:0" title="How often the Hermes pictures refresh. Smooth uses more of the computer and the network.">Hermes picture</label><select id="viewSpd" class="sm" onchange="viewSpeed(this.value)"><option value="smooth">Smooth</option><option value="normal" selected>Normal</option><option value="light">Light (saves effort)</option></select>
+   <label class="chk" title="Show or hide the S-meter in the lower right of each slot. The Highest meter in the top bar stays."><input type="checkbox" id="mShow" onchange="meterShow(this.checked)" checked> <span><b>S-meters</b> in the slots</span></label>
+   <button class="sm" id="bSlCompact" onclick="slCompact()" title="All four slots on one screen: pictures only">Compact view (all 4 on one screen)</button>
+   <button class="sm" id="bSlStop" onclick="slStop()" style="display:none" title="Lets other programs use the radio. Press Start live view (above the slots) to take it back.">&#9632; Free the radios for other programs</button>
+  </div>
+ </div>
  <div id="radioBox" style="margin:10px 0 4px">
   <b>Your radios</b> <span class="mut">&mdash; tick what you have; each frequency slot can pick which one measures it</span>
   <div class="row" style="align-items:flex-start;gap:22px;margin-top:4px">
@@ -412,8 +514,8 @@ body.only-slices #staleBanner,body.only-slices #warnBanner,body.only-slices #blo
   </div>
 
   <div>
-   <b>Readings and frequencies (Slots 1&ndash;4)</b>
-   <table id="chTable"></table>
+   <b>Frequencies, mode, width and radio are set in each slot</b> <span class="mut">(the controls under each picture)</span>
+   <table id="chTable" style="display:none"></table>
    <div class="mut">Low bands (0.75, 3.7, 7.3&nbsp;MHz) show the general area. A VHF or <b>AM airband</b> (118&ndash;137&nbsp;MHz) channel pinpoints a pole or house. Pick a quiet channel with no stations. You can change these <b>while driving</b>.</div>
    <div class="row" style="margin-top:10px">
      <div><label><b>Take a reading</b>:</label><br>
@@ -455,15 +557,11 @@ body.only-slices #staleBanner,body.only-slices #warnBanner,body.only-slices #blo
 
 <!-- ======================= SLOTS ======================= -->
 <section class="card" id="cSlices">
- <h2>Slots 1&ndash;4: your frequencies, live <span class="tag" id="slTag"></span></h2>
- <p class="sub">Each slot is a live panadapter with a waterfall for one frequency. They start by themselves and stay live as long as the program runs and the slot has a frequency and a working radio. Type a frequency in a slot (or in the readings table in box 1); everything you set is remembered. The yellow stripe is the part that is measured and logged.</p>
+ <span class="tag" id="slTag" style="display:none"></span>
  <div class="row" style="align-items:center">
   <button class="pri" id="bSlStart" onclick="slStart()" style="display:none">&#9654; Start live view</button>
   <button class="pri" id="bSlPause" onclick="slPause()" style="display:none">&#9208; Pause recording</button>
-  <label class="mut" style="margin:0 2px 0 8px" title="How often the Hermes pictures refresh. Smooth uses more of the computer and the network.">Hermes picture</label><select id="viewSpd" class="sm" onchange="viewSpeed(this.value)"><option value="smooth">Smooth</option><option value="normal" selected>Normal</option><option value="light">Light (saves effort)</option></select>
-  <button class="sm" id="bSlStop" onclick="slStop()" style="display:none" title="Lets other programs use the radio">&#9632; Stop live view</button>
-  <button class="sm" id="bSlCompact" onclick="slCompact()" title="All four slots on one screen: pictures only">Compact view (all 4 on one screen)</button>
-  <button class="sm" id="bSlPop" onclick="window.open('/?view=slices','_blank')" title="A page with only the four slots, good for a second screen or the car">Open in its own tab</button>
+  <button class="sm" id="bSlPop" style="display:none" onclick="window.open('/?view=slices','_blank')">Open in its own tab</button>
   <button class="sm" id="bSlFull" style="display:none" onclick="slFull()">Full screen</button>
   <span class="mut" id="slStatus"></span>
  </div>
@@ -553,9 +651,10 @@ body.only-slices #staleBanner,body.only-slices #warnBanner,body.only-slices #blo
  <table><thead><tr><th></th><th>Recording (date, time, frequency, mode)</th><th>Length</th><th>Size</th><th></th></tr></thead><tbody id="recTable"></tbody></table>
 </section>
 
+<div id="winDM" class="winbox"><div class="winhd"><b>Drives and maps</b><button class="pri" onclick="winClose()">Close this window</button></div>
 <!-- ======================= 2. DRIVES ======================= -->
 <section class="card" id="cDrives">
- <h2><span class="num">2</span>Your recorded drives</h2>
+ <h2>Your recorded drives</h2>
  <p class="sub">Every drive is saved automatically as a spreadsheet-style file (CSV) in <span id="pDrives" class="mut"></span>. Tick one or several drives, then make a map.</p>
  <div class="row">
   <button class="pri" onclick="mapChecked()">Make map from ticked drives</button>
@@ -586,13 +685,16 @@ body.only-slices #staleBanner,body.only-slices #warnBanner,body.only-slices #blo
 
 <!-- ======================= 3. MAPS ======================= -->
 <section class="card" id="cMaps">
- <h2><span class="num">3</span>Maps: view, print, save, email</h2>
+ <h2>Your maps: view, print, save, email</h2>
  <p class="sub">Each map is ONE file. Open it in any browser, print it or save it as a PDF, keep a copy, or email it. Saved in <span id="pMaps" class="mut"></span>.</p>
  <table><thead><tr><th>Map</th><th>Made</th><th>Size</th><th></th></tr></thead><tbody id="mTable"></tbody></table>
  <div id="mEmpty" class="mut" style="display:none;padding:8px">No maps yet. Tick a drive above and press <b>Make map</b>.</div>
  <div id="xList" class="mut" style="margin-top:10px"></div>
 </section>
 
+
+</div>
+<div id="winTools" class="winbox narrow"><div class="winhd"><b>Tools</b><button class="pri" onclick="winClose()">Close this window</button></div>
 <!-- ======================= TOOLS ======================= -->
 <section class="card" id="cTools">
  <h2>Tools</h2>
@@ -600,7 +702,8 @@ body.only-slices #staleBanner,body.only-slices #warnBanner,body.only-slices #blo
   <button onclick="openFolder('data')">Open my data folder</button>
   <button onclick="doBackup()">Back up everything (zip)</button>
   <button onclick="doDemo()">Try a practice drive + map</button>
-  <button onclick="runCheck()">Check setup</button>
+  <button onclick="perfRun()" title="Records for a few seconds, times your radios and works out how fast you can drive">Max speed test</button>
+  <button onclick="runCheck()">Health check</button>
   <button onclick="runFull()">Full test (about 1 minute)</button>
   <button onclick="quitApp()">Quit RF Noise Map</button>
  </div>
@@ -616,6 +719,7 @@ body.only-slices #staleBanner,body.only-slices #warnBanner,body.only-slices #blo
  <div id="phoneUrl" class="mut" style="display:none"></div>
  <div class="mut">Data folder: <span id="pData"></span></div>
 </section>
+</div>
 </main>
 
 <div id="busy"></div>
@@ -764,7 +868,7 @@ async function findHl2(){
 function hl2GainReset(){ $("hl2g").value=15; gainChanged("hl2"); }
 
 /* ---------- slots: four live panadapters ---------- */
-const PAGE_VER="1.5.0";        /* the version of this page: it must match the program version shown in the top bar */
+const PAGE_VER="1.6.0";        /* the version of this page: it must match the program version shown in the top bar */
 const SL={logging:false,live:false,busy:false,starting:false,manualStop:false,lastTry:0,health:{},byCh:{},startErr:"",radio:"",lastSync:0,seen:{},last:{},paused:false,autoPaused:false};
 const SLH={0:[],1:[],2:[],3:[]};      // the last readings saved for each slot (for the readout shown when a slot's radio is busy mapping)
 const ONLY_SLICES=new URLSearchParams(location.search).get("view")==="slices";
@@ -798,54 +902,61 @@ function slRadioFor(i,f){ const sel=(rowEl("cr",i)||{}).value||"auto"; if(sel===
   if(hl&&!sd) return "hl2"; if(sd&&!hl) return "sdrplay"; return mhz<=38?"hl2":"sdrplay"; }
 
 /* ----- building the four panels ----- */
-function slotHTML(i){ return '<div class="slh"><span><b class="slt">Slot '+(i+1)+'</b> <span class="slf"></span></span><span class="slhr"><span class="slv"></span><span class="bar slbar"><i></i></span> <label>Radio</label><select class="sm slR" title="Which radio measures this slot. Off skips the slot. Pick a radio to switch a slot on."><option value="off">Off (skip this slot)</option><option value="hl2">Hermes</option><option value="anan">ANAN</option><option value="sdrplay">SDRplay</option></select>'+
+function slotHTML(i){ return '<div class="slh"><span><b class="slt">Slot '+(i+1)+'</b> <span class="slf"></span> <button class="sm slPop" title="Open this slot in its own browser tab, as big as you like (up to four tabs)" onclick="slPopOut('+i+')">Pop out</button> <button class="sm slLock" title="Locks the frequency so it cannot be changed by accident (clicks, wheel, arrow keys, memories)">&#128275; Lock</button><span class="hlonly"><label>Zoom</label><input type="range" class="slzoom" min="0" max="16" step="1" value="0" style="width:90px"><span class="mut slspan"></span></span></span><span class="slhr"><span class="slv"></span><span class="bar slbar"><i></i></span> <label>Radio</label><select class="sm slR" title="Which radio measures this slot. Off skips the slot. Pick a radio to switch a slot on."><option value="off">Off (skip this slot)</option><option value="hl2">Hermes</option><option value="anan">ANAN</option><option value="sdrplay">SDRplay</option></select>'+
  '<button class="sm slLive" style="display:none" title="The SDRplay has one tuner, so only one SDRplay slot can be live (kept on its frequency, with a fast picture). The other SDRplay slots refresh slowly until you press their Live button.">Live</button>'+
- ' <button class="sm slPop" title="Open this slot in its own browser tab, as big as you like (up to four tabs)" onclick="slPopOut('+i+')">&#10064; Pop out</button></span></div>'+
+ '</span></div>'+
  '<div class="slview"><canvas class="slsp"></canvas><canvas class="slwf"></canvas><div class="slmsg"></div></div>'+
- '<div class="slrow sltune"><span class="rn">Tune</span>'+
+ '<div class="slbottom"><div class="slleft">'+
+'<div class="slrow sltune"><span class="rn">Tune</span>'+
  '<button class="sm slDn" title="Tune down one step">&minus;</button>'+
  '<input type="number" step="any" class="slF" style="width:104px" placeholder="MHz" title="Frequency in MHz. Type a frequency and press Enter, use the - and + buttons or the mouse wheel, or click or drag on the picture. Clear the box to switch this slot off.">'+
  '<button class="sm slUp" title="Tune up one step">+</button><span class="mut">MHz</span>'+
  '<label>Step</label><select class="sm slStep" title="How far each click of the - and + buttons, or each notch of the mouse wheel, moves the frequency">'+
  '<option value="0.1">100 Hz</option><option value="0.5">500 Hz</option><option value="1">1 kHz</option><option value="5">5 kHz</option>'+
  '<option value="10">10 kHz</option><option value="100">100 kHz</option><option value="1000">1 MHz</option></select>'+
- '<button class="sm slLock" title="Locks the frequency so it cannot be changed by accident (clicks, wheel, arrow keys, memories)">&#128275; Lock</button>'+
- '<label>Jump to band</label><select class="sm slBand" title="Tunes this slot to the middle of a band"></select></div>'+
- '<div class="slctl">'+
- '<div class="slrow"><span class="rn">Measure</span>'+
- '<label>Mode</label><select class="sm slsMode" title="Which side of the frequency is measured and listened to: LSB below it, USB above it, AM / SAM / NFM both sides"><option>AM</option><option>SAM</option><option>USB</option><option>LSB</option><option>NFM</option></select>'+
- '<label title="The signal power inside this many kHz is what gets logged and mapped (the yellow bar on the picture). It is not the listening filter.">Width</label><input type="number" step="any" class="slW" style="width:60px" title="The signal power inside this many kHz is what gets logged and mapped (the yellow bar on the picture). It is not the listening filter."><span class="mut">kHz</span>'+
- '</div>'+
- '<div class="slrow sdonly"><span class="rn">Band view</span>'+
- '<label>Centre</label><input type="number" step="any" class="slCen" style="width:104px" title="The middle of the picture, in MHz (it can differ from the tuned frequency)"><span class="mut">MHz</span>'+
- '<button class="sm slCL" title="Slide the view left">&#9664;</button><button class="sm slCR" title="Slide the view right">&#9654;</button><button class="sm slCC" title="Put the tuned frequency in the middle of the picture">Centre on tuned</button>'+
- '<label>Width of view</label><input type="range" class="slSpanS" min="0" max="5" step="1" style="width:130px"><b class="slSpanT"></b>'+
- '<label class="chk" style="display:inline-flex;margin:0" title="When ticked, Jump to band sets the width so the whole band fits"><input type="checkbox" class="slWide"> <span>whole band on jump</span></label></div>'+
- '<div class="slrow"><span class="rn">View</span>'+
- '<span class="hlonly"><label>Zoom</label><input type="range" class="slzoom" min="0" max="16" step="1" value="0" style="width:110px"><span class="mut slspan"></span></span>'+
- '<button class="sm slAuto" title="Automatic scale keeps the noise floor and the strongest signal in view. To set the scale by hand, drag the dB numbers at the left of the picture up or down (the mouse wheel there stretches it).">Auto scale</button>'+
- '<span class="mut">Drag the dB numbers on the picture to move the scale.</span></div>'+
- '<div class="slrow slgain"><span class="rn">Gain</span>'+
- '<span class="gHl" style="display:none;align-items:center;gap:6px"><input type="range" class="gHlS" min="-12" max="48" step="1" style="width:170px" title="Hermes gain. Higher hears weaker signals but overloads sooner. One gain for the whole radio, so every Hermes slot moves together."><b class="gHlV"></b><span class="mut">dB (whole radio)</span> <label class="chk" style="display:inline-flex;margin:0" title="The program keeps the gain as high as it can without overloading: it lowers the gain when a strong signal overloads the radio and slowly raises it again. For listening and looking only: it hides changes in the noise level, so it stops while recording."><input type="checkbox" class="gHlAuto"> <span>Auto gain (listening only)</span></label> <label class="chk" style="display:inline-flex;margin:0" title="Remembers the gain you set for each band and puts it back when the first Hermes slot moves to that band. You can still change it any time: the newest setting is the one remembered. Not used while recording."><input type="checkbox" class="gHlBand"> <span>Gain per band</span></label> <span class="mut gBandN"></span></span>'+
- '<span class="gSd" style="display:none;align-items:center;gap:6px"><label>IF att.</label><input type="range" class="gIfS" min="20" max="59" step="1" style="width:110px"><b class="gIfV"></b><label>RF att.</label><input type="range" class="gRfS" min="0" max="27" step="1" style="width:90px"><b class="gRfV"></b> <label class="chk" style="display:inline-flex;margin:0" title="Automatic gain, for listening only: it hides changes in the noise level, so switch it off when measuring"><input type="checkbox" class="gAuto"> <span>Auto gain (listening only)</span></label> <button class="sm gReset" title="Put IF attenuation back to 40 dB and RF attenuation to 0">Reset (IF 40, RF 0)</button></span>'+
- '<span class="gRtl" style="display:none;align-items:center;gap:6px"><input type="range" class="gRtlS" min="0" max="49" step="1" style="width:170px" title="Tuner gain of this dongle. Higher hears weaker signals but overloads sooner. Each dongle has its own gain."><b class="gRtlV"></b><span class="mut">dB (this dongle)</span></span>'+
- '<span class="gOv" style="display:none;color:#b3261e;font-weight:700">OVERLOAD - lower the gain</span></div>'+
- '<div class="slsnd slrow" style="display:none"><span class="rn">Listen</span>'+
- '<label>Volume</label><input type="range" class="slVol" min="0" max="100" step="1" style="width:100px" title="Raise the volume above 0 to hear this slot. Any number of slots can play together.">'+
- '<button class="sm slMute" title="Silences this slot without losing its volume setting">Mute</button>'+
+'<label>Mode</label><select class="sm slsMode" title="Which side of the frequency is measured and listened to: LSB below it, USB above it, AM / SAM / NFM both sides"><option>AM</option><option>SAM</option><option>USB</option><option>LSB</option><option>NFM</option></select>'+
+ '<span class="slsnd" style="display:none"><span class="slsico" title="Sound">&#128266;</span><span class="mut slNoSnd">No sound from this radio yet (RTL-SDR slots are readings only). Hermes, ANAN and SDRplay slots can be listened to and recorded.</span>'+
+ '<input type="range" class="slVol" min="0" max="100" step="1" style="width:96px" title="Raise the volume above 0 to hear this slot. Any number of slots can play together.">'+
+ '<button class="sm slMute" title="Silences this slot without losing its volume setting. When muted the button reads Listen: press it to hear the slot again.">Mute</button>'+
+ '<label>Squelch</label><input type="range" class="slSq" min="-120" max="-30" step="1" style="width:60px" title="Silences the sound when the signal is weaker than this. Far left = off."><b class="slSqV mut">off</b>'+
+ '<button class="sm recbtn slsRec"></button><span class="mut slsRecInfo"></span></span>'+
+'</div>'+
+ '<div class="slquick">'+
+ '<div class="slsx">'+
  '<label>Filter</label><select class="sm slsBw" title="Receive filter width: the green band on the picture">'+
  '<option value="">Auto</option><option value="match">= Width</option><option value="500">500 Hz</option><option value="1000">1.0 kHz</option><option value="1800">1.8 kHz</option><option value="2400">2.4 kHz</option>'+
  '<option value="2800">2.8 kHz</option><option value="3600">3.6 kHz</option><option value="6000">6 kHz</option><option value="8000">8 kHz</option><option value="12000">12 kHz</option></select>'+
  '<span class="hlonly"><label>AGC</label><select class="sm slsAgc" title="Off keeps the background noise at its true level next to the signals. Slow, Medium and Fast level the volume.">'+
  '<option value="off">Off</option><option value="slow">Slow</option><option value="medium">Medium</option><option value="fast">Fast</option></select></span>'+
- '<label>Squelch</label><input type="range" class="slSq" min="-120" max="-30" step="1" style="width:90px" title="Silences the sound when the signal is weaker than this. Far left = off."><b class="slSqV mut">off</b>'+
- '<button class="sm recbtn slsRec"></button><span class="mut slsRecInfo"></span></div>'+
+ '<select class="sm slBand" title="Jump to band: tunes this slot to the middle of a band"></select>'+
+ '<span class="slwid" title="The signal power inside this many kHz is what gets logged and mapped (the yellow bar on the picture). It is not the listening filter."><label>Width</label><input type="number" step="any" class="slW" style="width:60px" title="The signal power inside this many kHz is what gets logged and mapped (the yellow bar on the picture). It is not the listening filter."><span class="mut">kHz</span></span>'+
+ '<button class="sm slAuto" title="Automatic scale keeps the noise floor and the strongest signal in view. To set the scale by hand, drag the dB numbers at the left of the picture up or down (the mouse wheel there stretches it).">Auto scale</button>'+
+ '<button class="sm slPopB" data-pop="gain" title="Gain (how much the radio amplifies): slider, automatic gain, per-band memory">Gain &#9662;</button>'+
+ '<button class="sm slPopB" data-pop="mem" title="Memory frequencies: pick one to tune this slot, or save the current frequency">Memory &#9662;</button>'+
+ '<button class="sm slPopB sdonly" data-pop="view" title="Band view: centre, slide and width of the picture">Band view &#9662;</button>'+
+ '<span class="gOv2" style="display:none;color:#b3261e;font-weight:700">OVERLOAD</span>'+
+ ''+'</div></div>'+
+'</div><div class="slmtr"></div></div>'+
+'<div class="slctl">'+
+'<div class="slrow slhdr"><b class="slpopT"></b><button class="sm slMoreX" style="margin-left:auto" title="Close this box">&#10005; Close</button></div>'+
+ '<div class="slrow sdonly" data-sec="view"><span class="rn">Band view</span>'+
+ '<label>Centre</label><input type="number" step="any" class="slCen" style="width:104px" title="The middle of the picture, in MHz (it can differ from the tuned frequency)"><span class="mut">MHz</span>'+
+ '<button class="sm slCL" title="Slide the view left">&#9664;</button><button class="sm slCR" title="Slide the view right">&#9654;</button><button class="sm slCC" title="Put the tuned frequency in the middle of the picture">Centre on tuned</button>'+
+ '<label>Width of view</label><input type="range" class="slSpanS" min="0" max="5" step="1" style="width:130px"><b class="slSpanT"></b>'+
+ '<label class="chk" style="display:inline-flex;margin:0" title="When ticked, Jump to band sets the width so the whole band fits"><input type="checkbox" class="slWide"> <span>whole band on jump</span></label></div>'+
+ '<div class="slrow slgain" data-sec="gain"><span class="rn">Gain</span>'+
+ '<span class="gHl" style="display:none;align-items:center;gap:6px"><input type="range" class="gHlS" min="-12" max="48" step="1" style="width:170px" title="Hermes gain. Higher hears weaker signals but overloads sooner. One gain for the whole radio, so every Hermes slot moves together."><b class="gHlV"></b><span class="mut">dB (whole radio)</span> <label class="chk" style="display:inline-flex;margin:0" title="The program keeps the gain as high as it can without overloading: it lowers the gain when a strong signal overloads the radio and slowly raises it again. For listening and looking only: it hides changes in the noise level, so it stops while recording."><input type="checkbox" class="gHlAuto"> <span>Auto gain (listening only)</span></label> <label class="chk" style="display:inline-flex;margin:0" title="Remembers the gain you set for each band and puts it back when the first Hermes slot moves to that band. You can still change it any time: the newest setting is the one remembered. Not used while recording."><input type="checkbox" class="gHlBand"> <span>Gain per band</span></label> <span class="mut gBandN"></span></span>'+
+ '<span class="gSd" style="display:none;align-items:center;gap:6px"><label>IF att.</label><input type="range" class="gIfS" min="20" max="59" step="1" style="width:110px"><b class="gIfV"></b><label>RF att.</label><input type="range" class="gRfS" min="0" max="27" step="1" style="width:90px"><b class="gRfV"></b> <label class="chk" style="display:inline-flex;margin:0" title="Automatic gain, for listening only: it hides changes in the noise level, so switch it off when measuring"><input type="checkbox" class="gAuto"> <span>Auto gain (listening only)</span></label> <button class="sm gReset" title="Put IF attenuation back to 40 dB and RF attenuation to 0">Reset (IF 40, RF 0)</button></span>'+
+ '<span class="gRtl" style="display:none;align-items:center;gap:6px"><input type="range" class="gRtlS" min="0" max="49" step="1" style="width:170px" title="Tuner gain of this dongle. Higher hears weaker signals but overloads sooner. Each dongle has its own gain."><b class="gRtlV"></b><span class="mut">dB (this dongle)</span></span>'+
+ '<span class="gOv" style="display:none;color:#b3261e;font-weight:700">OVERLOAD - lower the gain</span></div>'+
+ 
  '<canvas class="slaud slscope" style="display:none" title="What you hear: the sound spectrum, 0 to 6 kHz"></canvas>'+
- '<div class="slrow"><span class="rn">Memory</span><span class="memrow slmems" style="margin:0"></span>'+
+ '<div class="slrow" data-sec="mem"><span class="rn">Memory</span><span class="memrow slmems" style="margin:0"></span>'+
  '<input type="text" class="slMemName" maxlength="30" placeholder="name (optional)" style="width:130px"><button class="sm slMemSave" title="Saves this slot\'s frequency and mode in the memory list shared by every slot and the wide panadapter">Save this frequency</button></div></div>'; }
-function ensureSlots(){ const grid=$("slGrid"); if(grid.children.length===4) return;
+function ensureSlots(){ const grid=$("slGrid"); if(grid.children.length===4){ meterHome(); return; }
   grid.innerHTML=""; for(let i=0;i<4;i++){ const d=document.createElement("div"); d.className="slbox empty"; d.innerHTML=slotHTML(i); if(POPSLOT===i+1) d.classList.add("me"); grid.appendChild(d); slotInit(i,d); }
-  if(localStorage.getItem("rfmapSlCompact")==="1"){ grid.classList.add("compact"); $("bSlCompact").textContent="Full-size view"; } }
+  meterHome();
+  if(localStorage.getItem("rfmapSlCompact")!=="0"){ grid.classList.add("compact"); $("bSlCompact").textContent="Full-size view"; } }
 const RADIO_MAX={hl2:38,anan:55};            /* highest MHz each radio can hear */
 const RADIO_NAME={hl2:"the Hermes Lite 2",anan:"the ANAN"};
 const SL_DEF={hl2:["7.2","LSB"],anan:["7.2","LSB"],sdrplay:["146.52","NFM"]};
@@ -876,11 +987,11 @@ function slotInit(i,d){ const q=s=>d.querySelector(s), p=slp(i);
   st.value=p.step||"1"; st.onchange=()=>{ p.step=st.value; slpSave(); };
   fi.onchange=()=>slotTune(i,{mhz:fi.value.trim()});
   fi.onwheel=e=>{ e.preventDefault(); move(e.deltaY<0?1:-1); };
-  wi.onchange=()=>{ if(+wi.value>0){ slotTune(i,{bw:wi.value}); if(d._rad==="hl2"&&p.bwsel==="match") setTimeout(()=>slsMode(i),400); } };
+  wi.onchange=()=>{ if(+wi.value>0){ slotTune(i,{bw:wi.value}); if((d._rad==="hl2"||d._rad==="anan")&&p.bwsel==="match") setTimeout(()=>slsMode(i),400); } };
   ri.onchange=()=>slotTune(i,{radio:ri.value});
   q(".slLive").onclick=()=>slLive(i);
   q(".slLock").onclick=()=>{ p.lock=!p.lock; slpSave(); toast(p.lock?"&#128274; Slot "+(i+1)+" locked at "+(rowEl("cm",i).value||"?")+" MHz":"&#128275; Slot "+(i+1)+" unlocked",2500); };
-  { const bd=q(".slBand"); bd.innerHTML='<option value="">Choose...</option>'+PAN_BANDS.map((b,k)=>`<option value="${k}">${b[0]}</option>`).join("");
+  { const bd=q(".slBand"); bd.innerHTML='<option value="">Band…</option>'+PAN_BANDS.map((b,k)=>`<option value="${k}">${b[0]}</option>`).join("");
     bd.onchange=()=>{ if(bd.value==="")return; const b=PAN_BANDS[+bd.value]; bd.value=""; const m=SLMODE[b[3]]||b[3];
       if(d._rad==="sdrplay"){ if(p.lock){ slotTune(i,{mhz:"x"}); return; } p.pmode=b[3]; p.pbw=PAN_BW_DEF[b[3]]; p.pc=b[1]*1e6; p.prate=b[4];
         if(q(".slWide").checked){ const need=(b[6]-b[5])*1e6/0.84; p.prate=PAN_SPANS.find(x=>x>=need)||PAN_SPANS[PAN_SPANS.length-1]; p.pc=(b[5]+b[6])/2*1e6;
@@ -900,7 +1011,7 @@ function slotInit(i,d){ const q=s=>d.querySelector(s), p=slp(i);
   { const sq=q(".slSq"); sq.value=String(p.sq===undefined?-120:p.sq); sq.oninput=()=>{ p.sq=+sq.value; q(".slSqV").textContent=p.sq<=-119?"off":p.sq+" dB"; slpSave(); if(d._rad==="sdrplay") slPanPost({squelch:p.sq}); }; sq.oninput(); }
   q(".slMemSave").onclick=()=>slMemSave(i);
   d.addEventListener("pointerenter",()=>{ SL.focus=i; }); d.addEventListener("pointerdown",()=>{ SL.focus=i; },true);
-  ms.onchange=()=>{ if(d._rad==="sdrplay") slSetMode(i,ms.value); else { slotTune(i,{mode:SLMODE[ms.value]||ms.value}); if(d._rad==="hl2") slsMode(i); } };
+  ms.onchange=()=>{ if(d._rad==="sdrplay") slSetMode(i,ms.value); else { slotTune(i,{mode:SLMODE[ms.value]||ms.value}); if(d._rad==="hl2"||d._rad==="anan") slsMode(i); } };
   const bs=q(".slsBw"), ag=q(".slsAgc"); bs.value=p.bwsel||""; ag.value=p.agc||"medium";
   d._bsHl=bs.innerHTML;
   bs.onchange=()=>{ if(d._rad==="sdrplay"){ p.pbw=+bs.value; slpSave(); slPanPost({bw:p.pbw}); if(d._f) slDraw(i,d._f); return; } p.bwsel=bs.value; slpSave(); slsMode(i); if(d._f) slDraw(i,d._f); };
@@ -917,10 +1028,11 @@ function slotInit(i,d){ const q=s=>d.querySelector(s), p=slp(i);
   gi.oninput=()=>{ $("ifgr").value=gi.value; q(".gIfV").textContent=gi.value; gainSync(); slGainSoon("sdr"); slPanPost({if_gain:+gi.value}); };
   gr.oninput=()=>{ $("rfgr").value=gr.value; q(".gRfV").textContent=gr.value; gainSync(); slGainSoon("sdr"); slPanPost({rf_state:+gr.value}); };
   // sound
-  const vo=q(".slVol"), mu=q(".slMute"); vo.value=String(p.vol||0);
+  const vo=q(".slVol"), mu=q(".slMute"); mu.textContent=p.mute?"Listen":"Mute"; mu.classList.toggle("on",!!p.mute); vo.value=String(p.vol||0);
   vo.oninput=()=>{ p.vol=+vo.value; slpSave(); slsCtx(); slsGainSet(i); slsSyncSoon(); };
-  mu.onclick=()=>{ p.mute=!p.mute; mu.textContent=p.mute?"Muted":"Mute"; mu.classList.toggle("on",!!p.mute); slsGainSet(i); slpSave(); slsCtx(); slsSyncSoon(); };      /* the button and the sound react at once; the saving comes after */
   q(".slsRec").onclick=()=>slsRec(i);
+  d.querySelectorAll(".slPopB").forEach(b=>{ b.onclick=()=>{ const k=b.dataset.pop; if(d.classList.contains("more")&&d.dataset.pop===k){ d.classList.remove("more"); return; } d.dataset.pop=k; d.querySelector(".slpopT").textContent=b.textContent.replace(/[^A-Za-z ]/g,"").trim(); d.classList.add("more"); }; }); q(".slMoreX").onclick=()=>d.classList.remove("more");
+  mu.onclick=()=>{ p.mute=!p.mute; mu.textContent=p.mute?"Listen":"Mute"; mu.classList.toggle("on",!!p.mute); slsGainSet(i); slpSave(); slsCtx(); slsSyncSoon(); };
   // the picture: wheel = step, click = tune to that spot, drag = grab the band and slide it; the dB numbers at the left move the scale
   cv.style.touchAction="none";
   const inScale=e=>{ const r=cv.getBoundingClientRect(); return e.clientX-r.left<SCW; };
@@ -1181,10 +1293,10 @@ function slRender(j){
         if(document.activeElement!==ga) ga.checked=!!p.autoGain; q(".gIfS").disabled=q(".gRfS").disabled=!!p.autoGain; } }
     const cal=+((calEls[i]||{}).value||0);
     const isSd=filled&&rad==="sdrplay", isLive=isSd&&liveI===i;
-    q(".slf").textContent=filled?((+cm.value).toFixed(4)+" MHz"+(rad==="hl2"?" (Hermes)":rad==="anan"?" (ANAN)":rad==="sdrplay"?" (SDRplay)":RTL_RE.test(rad)?" (RTL-SDR "+rad.slice(3)+")":"")+(isSd&&!isLive&&!SL.logging?" - not live, picture frozen. Press Live":"")):"- off. Pick a radio on the right (or type a frequency) to use this slot.";
+    q(".slf").textContent=filled?((+cm.value).toFixed(4)+" MHz"+(isSd&&!isLive&&!SL.logging?" - not live, picture frozen. Press Live":"")):"- off. Pick a radio on the right (or type a frequency) to use this slot.";
     const lb=q(".slLive"); lb.style.display=isSd?"inline-block":"none"; lb.classList.toggle("on",isLive); lb.textContent=isLive?"\u25cf Live":"Live";
     d.classList.toggle("notlive",isSd&&!isLive&&!SL.logging);
-    { const lk=q(".slLock"); lk.classList.toggle("on",!!p.lock); lk.innerHTML=p.lock?"&#128274; Locked":"&#128275; Lock"; }
+    { const lk=q(".slLock"); lk.classList.toggle("on",!!p.lock); lk.innerHTML=p.lock?"&#128274;":"&#128275;"; lk.title=p.lock?"LOCKED: the frequency cannot be changed. Press to unlock.":"Locks the frequency so it cannot be changed by accident (clicks, wheel, arrow keys, memories)"; }
     { const bar=q(".slbar i"); if(bar) bar.style.left=(f?posPct(f.smeter+cal):0)+"%"; }
     const lv=f?(f.smeter+cal):lastL;
     q(".slv").innerHTML=lv!=null?('<b class="dbn">'+lv.toFixed(1)+" dB</b>"+sSpan(lv,cm.value,i)):"";
@@ -1193,25 +1305,25 @@ function slRender(j){
     // level and last-reading cells in the readings table
     const lc=$("lvl"+i); if(lc){ const t=lv!=null?lv.toFixed(1):""; if(lc._t!==t){ lc._t=t; lc.innerHTML=lv!=null?('<b class="dbn">'+t+'</b>'+sSpan(lv,$$cm(i),i)+'<div class="bar"><i style="left:'+posPct(lv)+'%"></i></div>'):'<span class="mut">&ndash;</span>'; } }
     // gain row
-    const hl=rad==="hl2", sd=rad==="sdrplay", rt=RTL_RE.test(rad); q(".slgain").style.display=(hl||sd||rt)?"flex":"none";
+    const hl=rad==="hl2", sd=rad==="sdrplay", rt=RTL_RE.test(rad); q(".slgain").style.display=(hl||sd||rt)?"flex":"none"; q(".slPopB[data-pop=gain]").style.display=(hl||sd||rt)?"":"none";
     q(".gHl").style.display=hl?"inline-flex":"none"; q(".gSd").style.display=sd?"inline-flex":"none"; q(".gRtl").style.display=rt?"inline-flex":"none";
     if(rt){ const gt=q(".gRtlS"); if(document.activeElement!==gt){ const v=((SL.rtlGain||{})[rad]); gt.value=(v===undefined?30:v); q(".gRtlV").textContent=gt.value; } }
     const gh=q(".gHlS"), gi=q(".gIfS"), gr=q(".gRfS");
     if(hl&&document.activeElement!==gh){ gh.value=$("hl2g").value||15; q(".gHlV").textContent=(+gh.value>0?"+":"")+gh.value; }
     if(sd){ if(document.activeElement!==gi){ gi.value=$("ifgr").value||40; q(".gIfV").textContent=gi.value; } if(document.activeElement!==gr){ gr.value=$("rfgr").value||0; q(".gRfV").textContent=gr.value; } }
-    q(".gOv").style.display=(hl&&SL.health.overload)?"inline":"none";
+    q(".gOv").style.display=(hl&&SL.health.overload)?"inline":"none"; q(".gOv2").style.display=(hl&&SL.health.overload)?"inline":"none";
     if(hl){ const hb=q(".gHlBand"); if(hb.checked!==!!SL.hlBand) hb.checked=!!SL.hlBand; hb.disabled=!!SL.logging; q(".gBandN").textContent=SL.hlBand&&SL.hlBandName?("band: "+SL.hlBandName):""; const ha=q(".gHlAuto"); if(ha.checked!==!!SL.hlAuto) ha.checked=!!SL.hlAuto; ha.disabled=!!SL.logging; }
     // sound row (Hermes slots only)
-    const snd=q(".slsnd"); snd.style.display=(hl||sd)?"flex":"none";
-    if(hl||sd){ const st=hl?((SLS.sound||{})[String(c)]||{}):{}; const vo=q(".slVol"); if(document.activeElement!==vo&&+vo.value!==p.vol) vo.value=String(p.vol);
-      const mu=q(".slMute"); mu.textContent=p.mute?"Muted":"Mute"; mu.classList.toggle("on",!!p.mute);
-      const on=hl?!!st.rec_file:!!REC.on, rb=q(".slsRec"); rb.textContent=on?"■ Stop recording":"● Record";
-      q(".slsRecInfo").textContent=on?(hl?(st.rec_file+"  "+Math.floor((st.rec_s||0)/60)+":"+String(Math.floor((st.rec_s||0)%60)).padStart(2,"0")):("Recording... "+recFmt((Date.now()-REC.t0)/1000))):(sd?"Saved in the Audio recordings box below.":"");
-      if(hl) q(".slsp")._pb=slPassband(ms.value,p.bwsel,(+wi.value||5)*1000);
+    const ns=hl||rad==="anan"; const snd=q(".slsnd"); snd.style.display="flex"; snd.classList.toggle("nosnd",!(ns||sd)); q(".slsx").style.display=(ns||sd)?"flex":"none";
+    if(ns||sd){ const st=ns?((SLS.sound||{})[String(c)]||{}):{}; const vo=q(".slVol"); if(document.activeElement!==vo&&+vo.value!==p.vol) vo.value=String(p.vol);
+      { const mu=q(".slMute"); if(mu){ mu.textContent=p.mute?"Listen":"Mute"; mu.classList.toggle("on",!!p.mute); } }
+      const on=ns?!!st.rec_file:!!REC.on, rb=q(".slsRec"); rb.textContent=on?"■ Stop recording":"● Record";
+      q(".slsRecInfo").textContent=on?(ns?(st.rec_file+"  "+Math.floor((st.rec_s||0)/60)+":"+String(Math.floor((st.rec_s||0)%60)).padStart(2,"0")):("Recording... "+recFmt((Date.now()-REC.t0)/1000))):(sd?"Saved in the Audio recordings box below.":"");
+      if(ns) q(".slsp")._pb=slPassband(ms.value,p.bwsel,(+wi.value||5)*1000);
       else { const m=p.pmode||"AM", b=p.pbw||PAN_BW_DEF[m]; q(".slsp")._pb=m==="USB"?{lo:250,hi:250+b}:m==="LSB"?{lo:-250-b,hi:-250}:{lo:-b/2,hi:b/2}; } }
     else q(".slsp")._pb=null;
     { const scp=q(".slscope"); scp.style.display=(hl||sd)?"block":"none"; if(hl){ if(SLS.ch[c]) slsGainSet(i); slScope(i,scp,c); } else if(sd) slScopeSd(i,scp); }
-    const au=q(".slAuto"); au.classList.toggle("on",!!p.auto); au.textContent=p.auto?"Auto scale: on":"Auto scale";
+    const au=q(".slAuto"); au.classList.toggle("on",!!p.auto); au.textContent="Auto scale";
     if(fb) slFallback(i);
     if(f){ d._f=f; q(".slspan").textContent=slzSpanTxt(f.rate,p.zoom); const zs=q(".slzoom"); if(document.activeElement!==zs&&+zs.value!==slzPos(p.zoom)) zs.value=String(slzPos(p.zoom)); slDraw(i,f); } else d._f=null; }
   const h=SL.health, w=$("slWarn"), msg=[];
@@ -1296,7 +1408,7 @@ let slsSyncT=null; function slsSyncSoon(){ clearTimeout(slsSyncT); slsSyncT=setT
 async function slsSync(){
   if(SL.syncBusy||!SL.live) return; SL.syncBusy=true;
   try{
-    const want={}; for(let i=0;i<4;i++){ const c=slotCh(i); if(c>=0&&SL.byCh[c]&&slRadioFor(i,SL.byCh[c])==="hl2"&&slp(i).vol>0&&!slp(i).mute&&(!POPSLOT||POPSLOT===i+1)&&!popClaimed(i)) want[c]=i; }
+    const want={}; for(let i=0;i<4;i++){ const c=slotCh(i); if(c>=0&&SL.byCh[c]&&(slRadioFor(i,SL.byCh[c])==="hl2"||slRadioFor(i,SL.byCh[c])==="anan")&&slp(i).vol>0&&!slp(i).mute&&(!POPSLOT||POPSLOT===i+1)&&!popClaimed(i)) want[c]=i; }
     for(const c in want){ const i=want[c], o=slsChan(+c), st=SLS.sound[c]||{};
       if(!st.listen&&Date.now()-o.req>2500){ o.req=Date.now(); await api("/api/slices/listen",Object.assign({channel:+c,on:true},slsPrefs(i))); }
       o.on=true; if(!o.timer) slsPoll(+c); slsGainSet(i);
@@ -1328,7 +1440,7 @@ async function slPoll(){
     SLS.sound=j.sound||{};
     $("bSlStart").style.display=(SL.manualStop&&!j.logging)?"inline-block":"none"; $("bSlStop").style.display=(!SL.manualStop&&!j.logging&&(j.running||SLP2.on))?"inline-block":"none";
     $("slTag").textContent=j.logging?"logging":(j.running?"live":"");
-    $("slStatus").textContent=j.error?("Stopped: "+j.error):(j.logging?(SL.paused?"Logging, paused by you.":(SL.autoPaused?"Logging, paused (stopped).":"Mapping: live from the logger.")):(j.running&&j.radio?("Radio: "+j.radio+(SLP2.on?" + SDRplay (live slot "+(SLP2.slot+1)+")":"")):(SLP2.on?"Radio: SDRplay (live slot "+(SLP2.slot+1)+")":"")));
+    $("slStatus").textContent=j.error?("Stopped: "+j.error):(j.logging?(SL.paused?"Logging, paused by you.":(SL.autoPaused?"Logging, paused (stopped).":"")):"");
     if(!j.logging) for(const k in SLH) SLH[k]=[];
     slRender(j); slAuto(j);
   }catch(e){} SL.busy=false;
@@ -1725,7 +1837,12 @@ function trTick(lg){ const show=lg||document.body.classList.contains("car"); $("
   if(lg&&!trWasLg){ trInit().then(()=>{ if(TR.map){ TR.layer.clearLayers(); TR.pts=[]; TR.seq=0; TR.nMarks=-1; setTimeout(()=>TR.map.invalidateSize(),200);} }); }
   trWasLg=lg; if(lg) trPoll(); }
 
-function gotoCard(id){ const c=$(id); if(c) c.scrollIntoView({behavior:"smooth",block:"start"}); }
+function setOpen(){ document.body.classList.add('setwin'); const c=$('cCollect'); if(c) c.scrollTop=0; }
+function setClose(){ document.body.classList.remove('setwin','win-dm','win-tools'); }
+function winOpen(k){ setClose(); document.body.classList.add('win-'+k); const w=$(k==='dm'?'winDM':'winTools'); if(w) w.scrollTop=0; }
+function winClose(){ setClose(); }
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&/\b(setwin|win-dm|win-tools)\b/.test(document.body.className)) setClose(); });
+function gotoCard(id){ if(id==="cDrives"||id==="cMaps"){ winOpen("dm"); } else if(id==="cTools"){ winOpen("tools"); } const c=$(id); if(c) c.scrollIntoView({behavior:"smooth",block:"start"}); }
 function fixBarTop(){ const h=document.querySelector("header"), b=$("driveBar"); if(h&&b) b.style.top=h.offsetHeight+"px"; }
 window.addEventListener("load",()=>{ fixBarTop(); if(/[?&]view=car/.test(location.search)) carMode(true); }); window.addEventListener("resize",fixBarTop);
 const mapOne=f=>makeMap([f]);
@@ -1743,6 +1860,9 @@ async function showLog(){ await guard(async()=>{ const j=await api("/api/logs/ta
   $("logText").value=j.lines.length?j.lines.join("\n"):"No problems have been recorded. That is good news."; $("logText").scrollTop=1e9; }); }
 async function makeSupport(){ await guard(async()=>{ const j=await api("/api/logs/bundle",{});
   toast("Support file made: "+esc(j.file)+". It is in the logs folder (shown on your computer). Send that one file to KW4EX or Claude. It holds logs and settings only, not your drives or your private access key.",20000); }); }
+async function restartApp(){
+  const msg=window.__logging?"A drive is being recorded right now.\n\nIf you restart, the drive will be stopped and saved first (its dots are kept), then the program closes and starts again.\n\nStop the drive and restart the program?":"Restart RF Noise Map? It closes and starts again; this takes about 10 seconds.";
+  if(!confirm(msg))return; await guard(()=>api("/api/restart",{})); window.__quit=true; try{window.close();}catch(e){} document.body.innerHTML="<p style='padding:30px;font-size:18px'>RF Noise Map is restarting. A new browser tab opens by itself in about 10 seconds. You can close this tab.</p>"; }
 async function quitApp(){
   const msg=window.__logging?"A drive is being recorded right now.\n\nIf you close the program, the drive will be stopped and saved first (its dots are kept; make the map afterwards from the Drives list), and then the program closes.\n\nStop the drive and close the program?"
                             :"Close RF Noise Map?";
@@ -2210,9 +2330,22 @@ checkBlockers();
 $("practice").onchange=()=>{ showGpsFields(); guard(async()=>{ await api("/api/config",{practice:$("practice").checked}); await slRestart(); }); };
 
 /* ===================== top bar: size, GPS line, slot line, max speed ===================== */
-let BAR_Z=1.7, HWOPEN=false, HW=null;
+let BAR_Z=1.4, HWOPEN=false, HW=null;
+if(window.innerWidth<1500) BAR_Z=1.2;
 try{ const z=parseFloat(localStorage.getItem("rfmapBarZ")); if(z>=1&&z<=2.2) BAR_Z=z; }catch(e){}
-function barSize(d){ BAR_Z=Math.min(2.2,Math.max(1,Math.round((BAR_Z+d*0.2)*10)/10)); $("driveBar").style.setProperty("--bz",BAR_Z); try{localStorage.setItem("rfmapBarZ",String(BAR_Z));}catch(e){} fixBarTop(); }
+/* keeps the top control row on ONE line: if it would wrap, its buttons shrink a step at a time until it fits (at most down to 60%) */
+let __fitSig="";
+function fitRow1(force){
+  const r=$("drvRow1"), bar=$("driveBar"); if(!r||!bar||document.body.classList.contains("car")) return;
+  const kids=[...r.children].filter(e=>e.offsetParent!==null&&e.id!=="barStat");
+  const sig=innerWidth+"|"+BAR_Z+"|"+kids.length; if(!force&&sig===__fitSig) return; __fitSig=sig;
+  let z=BAR_Z; bar.style.setProperty("--bzr",z);
+  const wrapped=()=>{ const k=[...r.children].filter(e=>e.offsetParent!==null&&e.tagName!=="SPAN"); if(k.length<2) return false; const tops=k.map(e=>e.getBoundingClientRect().top), hs=k.map(e=>e.getBoundingClientRect().height); return Math.max(...tops)-Math.min(...tops)>Math.max(...hs)*0.6; };
+  let guard=0; while(wrapped()&&z>0.6&&guard++<30){ z=Math.round((z-0.05)*100)/100; bar.style.setProperty("--bzr",z); }
+  fixBarTop();
+}
+addEventListener("resize",()=>fitRow1()); setInterval(()=>fitRow1(),1200); setTimeout(()=>fitRow1(true),300);
+function barSize(d){ BAR_Z=Math.min(2.2,Math.max(1,Math.round((BAR_Z+d*0.2)*10)/10)); $("driveBar").style.setProperty("--bz",BAR_Z); try{localStorage.setItem("rfmapBarZ",String(BAR_Z));}catch(e){} fixBarTop(); fitRow1(true); }
 $("driveBar").style.setProperty("--bz",BAR_Z);
 const HW_RAD_NAME={hl2:"Hermes",sdrplay:"SDRplay",off:"off"};
 function hwRadName(r){ return HW_RAD_NAME[r]||(RTL_RE.test(r)?"RTL-SDR "+r.slice(3):r); }
@@ -2244,7 +2377,7 @@ function perfBar(lg,st){
   if(lg&&st&&st.cycle_s&&!(st.sdr&&/pretend|sim/i.test(st.sdr))){ cyc=st.cycle_s; src="live now"; } else if(P.cycle_s&&!P.practice){ cyc=P.cycle_s; src="tested "+P.when; }
   if($("practice").checked&&!(lg&&st&&st.cycle_s>0.05)){ $("hwMax").innerHTML="<b>practice</b>"; $("hwMaxN").textContent="pretend radios"; return; }
   if(byTime){ $("hwMax").innerHTML="<b>by time</b>"; $("hwMaxN").textContent="no distance limit"; return; }
-  if(!cyc){ $("hwMax").innerHTML="<b>not tested</b>"; $("hwMaxN").textContent=P.practice?"press Test my setup (practice is not real)":"press Test my setup"; return; }
+  if(!cyc){ $("hwMax").innerHTML="<b>not tested</b>"; $("hwMaxN").textContent=P.practice?"press Max speed test (practice is not real)":"press Max speed test"; return; }
   const v=ft/(cyc*1.46667), mph=(lg&&st&&st.speed_mph!=null)?st.speed_mph:null;
   $("hwMax").innerHTML="<b"+(mph!=null&&mph>v?' style="color:#a5281b"':"")+">"+Math.floor(v)+" mph</b> <span class='sub2'>at "+ft+" ft</span>"; $("hwMaxN").textContent=cyc.toFixed(2)+" s/round · "+(src==='live now'?'live':'tested'); }
 
@@ -2267,9 +2400,10 @@ function meterSVG(i){
   g+='<g id="mp'+i+'" style="transform-origin:150px 190px;transform:rotate(-55deg);transition:transform .35s ease"><polygon points="150,70 144,52 156,52" fill="#ff7a00" stroke="#7a3a00" stroke-width="1"/></g>';
   g+='<g id="mn'+i+'" style="transform-origin:150px 190px;transform:rotate(-55deg);transition:transform .35s cubic-bezier(.3,1.35,.5,1)"><line x1="150" y1="190" x2="150" y2="46" stroke="#111" stroke-width="2.8" stroke-linecap="round"/></g>';
   return '<svg viewBox="0 0 300 150" xmlns="http://www.w3.org/2000/svg" aria-label="S-meter slot '+(i+1)+'">'+g+'</svg>'; }
+function meterHome(){ for(let i=0;i<4;i++){ const m=$('mb'+i), box=document.querySelectorAll('#slGrid .slbox')[i]; if(!m||!box) continue; const h=box.querySelector('.slmtr'); if(h&&m.parentNode!==h) h.appendChild(m); } }
 function meterBuild(){ $("mGrid").innerHTML=[0,1,2,3].map(i=>'<div class="mbox off" id="mb'+i+'"><div class="mh"><b>Slot '+(i+1)+'</b><span class="mrn">&ndash;</span><span class="mfq"></span></div>'+meterSVG(i)+
-  '<div class="mr"><b class="mS">&ndash;</b><span class="mDb"></span><span class="mPk"></span></div><div class="mgrip" title="Drag to resize all four meters" onpointerdown="meterGrip(event)"></div></div>').join(""); meterLayout();
-  $("mstSvg").innerHTML=meterSVG(4); alLoad(); try{ meterShow(localStorage.getItem("rfmapMeters")!=="0"); }catch(e){} masterDraw(); }
+  '<div class="mr"><b class="mS">&ndash;</b><span class="mDb"></span><span class="mPk"></span></div><button class="sm mrst" title="Put this meter\'s orange peak marker back to the current reading" onclick="meterResetOne('+i+')">Reset peak</button><div class="mgrip" title="Drag to resize all four meters" onpointerdown="meterGrip(event)"></div></div>').join(""); meterLayout();
+  $("mstSvg").innerHTML=meterSVG(4); alLoad(); try{ meterShow(localStorage.getItem("rfmapMeters2")!=="0"); }catch(e){} masterDraw(); }
 /* meter size: one width for all four; saved in this browser */
 let MW=0, MSIDE=false;   /* 0 = standard size: two across */
 try{ const w=parseInt(localStorage.getItem("rfmapMeterW")); if(w>=200&&w<=1400) MW=w; else MW=0; MSIDE=localStorage.getItem("rfmapMeterSide")==="1"; }catch(e){}
@@ -2291,7 +2425,7 @@ function sNum(v,m){ return 9+(v-s9(m))/6; }
 function masterUpdate(){
   let best=null; for(let i=0;i<4;i++){ const M=MT[i]; if(M.v==null) continue; const n=sNum(M.v,M.m); if(best==null||n>best.n) best={n:n,i:i,v:M.v,m:M.m,un:M.un,t:M.t}; }
   if(!best){ MM.v=null; MM.i=-1; masterDraw(); return; }
-  const fresh=SL.logging?(best.t!=null&&best.t!==MM.cyc):false; if(SL.logging) MM.cyc=best.t;
+  const fresh=SL.logging?(best.t!=null&&best.t!==MM.cyc):true; if(SL.logging) MM.cyc=best.t;
   MM.v=best.v; MM.m=best.m; MM.i=best.i; MM.un=best.un;
   if(MM.peak==null||best.n>sNum(MM.peak,MM.pm)){ MM.peak=best.v; MM.pm=best.m; MM.pi=best.i; }
   masterDraw(); if(fresh) alCheck(best.n); }
@@ -2304,14 +2438,15 @@ function masterDraw(){ if(!$("mn4")) return; const has=MM.v!=null, t=MM.un?"~":"
   $("mstP").textContent=MM.peak!=null?("peak "+(MM.un?"~":"")+sTxt(MM.peak,MM.pm)+" · slot "+(MM.pi+1)):"";
   $("hwMst").classList.toggle("hot",has&&AL.on&&AL.thr!=null&&sNum(MM.v,MM.m)>=AL.thr); }
 /* ---- warning: sound, volume and the S-level at which it plays ---- */
-const AL={on:false,snd:"beep",vol:60,idx:7,thr:null,t:0};
+const AL={on:false,snd:"beep",vol:60,idx:7,thr:null,t:0,voice:false,every:0,ts:0};
+function alPop(){ const e=$('alPop'); e.style.display=e.style.display==='block'?'none':'block'; }
 function alLabel(ix){ return ix<=0?"Off":ix<=9?"S"+ix:"S9+"+((ix-9)*10); }
 function alThr(ix){ return ix<=0?null:ix<=9?ix:9+(ix-9)*10/6; }
-function alLoad(){ try{ const g=k=>localStorage.getItem(k); AL.on=g("rfmapAlOn")==="1"; AL.snd=g("rfmapAlSnd")||"beep"; const v=parseInt(g("rfmapAlVol")); AL.vol=(v>=0&&v<=100)?v:60; const x=parseInt(g("rfmapAlIdx")); AL.idx=(x>=0&&x<=15)?x:7; }catch(e){}
-  $("alOn").checked=AL.on; $("alSnd").value=AL.snd; $("alVol").value=AL.vol; $("alIdx").value=AL.idx; alShow(); }
-function alShow(){ AL.thr=alThr(AL.idx); $("alVolV").textContent=AL.vol; $("alIdxV").textContent=alLabel(AL.idx); }
-function alSave(){ AL.on=$("alOn").checked; AL.snd=$("alSnd").value; AL.vol=+$("alVol").value; AL.idx=+$("alIdx").value; alShow();
-  try{ localStorage.setItem("rfmapAlOn",AL.on?"1":"0"); localStorage.setItem("rfmapAlSnd",AL.snd); localStorage.setItem("rfmapAlVol",String(AL.vol)); localStorage.setItem("rfmapAlIdx",String(AL.idx)); }catch(e){}
+function alLoad(){ try{ const g=k=>localStorage.getItem(k); AL.on=g("rfmapAlOn")==="1"; AL.snd=g("rfmapAlSnd")||"beep"; const v=parseInt(g("rfmapAlVol")); AL.vol=(v>=0&&v<=100)?v:60; const x=parseInt(g("rfmapAlIdx")); AL.idx=(x>=0&&x<=15)?x:7; AL.voice=g("rfmapAlVoice")==="1"; const ev=parseInt(g("rfmapAlEvery")); AL.every=(ev>=0&&ev<=600)?ev:0; }catch(e){}
+  $("alOn").checked=AL.on; $("alSnd").value=AL.snd; $("alVol").value=AL.vol; $("alIdx").value=AL.idx; $("alVoice").checked=AL.voice; $("alEvery").value=AL.every; alShow(); }
+function alShow(){ { const mb=$("alMoreB"); if(mb) mb.innerHTML=(AL.voice||AL.every>0)?"&#128266; Voice on":"&#9881; Sound &amp; voice"; } AL.thr=alThr(AL.idx); $("alVolV").textContent=AL.vol; $("alIdxV").textContent=alLabel(AL.idx); }
+function alSave(){ AL.on=$("alOn").checked; AL.snd=$("alSnd").value; AL.vol=+$("alVol").value; AL.idx=+$("alIdx").value; AL.voice=$("alVoice").checked; AL.every=Math.max(0,Math.min(600,parseInt($("alEvery").value)||0)); AL.ts=Date.now(); alShow();
+  try{ localStorage.setItem("rfmapAlOn",AL.on?"1":"0"); localStorage.setItem("rfmapAlSnd",AL.snd); localStorage.setItem("rfmapAlVol",String(AL.vol)); localStorage.setItem("rfmapAlIdx",String(AL.idx)); localStorage.setItem("rfmapAlVoice",AL.voice?"1":"0"); localStorage.setItem("rfmapAlEvery",String(AL.every)); }catch(e){}
   if(MM.v!=null) masterDraw(); }
 function alPlay(name,vol){ const a=audio(); if(!a||vol<=0) return; const g0=Math.pow(vol/100,1.6)*0.7, now=a.currentTime;
   const tone=(f,t0,d,type,f2,gain)=>{ try{ const o=a.createOscillator(), g=a.createGain(); o.type=type||"sine"; o.frequency.setValueAtTime(f,now+t0); if(f2) o.frequency.linearRampToValueAtTime(f2,now+t0+d);
@@ -2322,9 +2457,13 @@ function alPlay(name,vol){ const a=audio(); if(!a||vol<=0) return; const g0=Math
   else if(name==="chirp"){ tone(700,0,0.09,"sine",1000); tone(900,0.12,0.09,"sine",1200); tone(1100,0.24,0.09,"sine",1500); }
   else if(name==="bell"){ tone(1318,0,0.9,"sine",null,1); tone(2637,0,0.5,"sine",null,0.3); }
   else if(name==="buzz") tone(140,0,0.38,"sawtooth",null,0.8); }
-function alTest(){ audio(); alPlay(AL.snd,AL.vol); }
-function alCheck(n){ if(!AL.on||AL.thr==null||n<AL.thr) return; const t=Date.now(); if(t-AL.t<900) return; AL.t=t; alPlay(AL.snd,AL.vol); }
-function meterShow(on){ $("cMeters").classList.toggle("moff",!on); const c=$("mShow"); if(c) c.checked=!!on; try{localStorage.setItem("rfmapMeters",on?"1":"0");}catch(e){} }
+function sSay(v,m,un){ const o=v-s9(m); let t; if(o>=1) t="S, 9 plus "+Math.round(o); else { const n=Math.round(9+o/6); t="S, "+(n<1?0:n); } return t; }
+function say(text,force){ try{ const ss=window.speechSynthesis; if(!ss||AL.vol<=0) return; if(ss.speaking&&!force) return; const u=new SpeechSynthesisUtterance(text); u.volume=Math.min(1,AL.vol/100); u.rate=1.0; ss.speak(u); }catch(e){} }
+function alTest(){ audio(); alPlay(AL.snd,AL.vol); if(AL.voice) setTimeout(()=>say("S, 9 plus 20.",true),500); else if(AL.every>0) setTimeout(()=>say("S, 7.",true),500); }
+setInterval(()=>{ if(!AL.every||MM.v==null||!(SL.logging||SL.live)) return; const t=Date.now(); if(t-AL.ts<AL.every*1000) return; AL.ts=t; say(sSay(MM.v,MM.m,MM.un)); },1000);
+function alCheck(n){ if(!AL.on||AL.thr==null||n<AL.thr) return; const t=Date.now(); if(t-AL.t<900) return; AL.t=t; alPlay(AL.snd,AL.vol); if(AL.voice&&MM.v!=null){ AL.ts=t; setTimeout(()=>say(sSay(MM.v,MM.m,MM.un)),450); } }
+function meterShow(on){ $("cMeters").classList.toggle("moff",!on); const g=$("slGrid"); if(g) g.classList.toggle("nometers",!on); const c=$("mShow"); if(c) c.checked=!!on; try{localStorage.setItem("rfmapMeters2",on?"1":"0");}catch(e){} }
+function meterResetOne(i){ MT[i].peak=MT[i].v==null?null:MT[i].v; MT[i].t=null; meterDraw(i); }
 function meterReset(){ MM.peak=MM.v; MM.pm=MM.m; MM.pi=MM.i; masterDraw(); for(let i=0;i<4;i++){ MT[i].peak=MT[i].v==null?null:MT[i].v; MT[i].t=null; meterDraw(i); } }
 function meterUpdate(i,v,m,t){
   const M=MT[i]; if(v==null||isNaN(v)){ if(M.v!=null){ M.v=null; meterDraw(i); masterUpdate(); } return; }
@@ -2372,7 +2511,7 @@ function hwCal(i){ const m=$$cm(i), t=sParse($("hwCalIn"+i).value,m), lc=$("lvl"
   toast("Slot "+(i+1)+" calibrated: it read "+cur.toFixed(1)+" dB, the signal is "+t.toFixed(1)+" dBm, so the calibration is now "+nw+" dB."); }
 setInterval(()=>{ if(!HWOPEN) return; const sb=$("btnScan"); if(sb) sb.disabled=!!window.__logging; for(let i=0;i<4;i++){ const lc=$("lvl"+i), t=$("hwLv"+i); if(!t) continue; const v=lc&&lc._t!==undefined&&lc._t!==""?+lc._t:null; t.innerHTML=v==null||isNaN(v)?"–":"<b class='dbn'>"+v.toFixed(1)+" dB</b>"+sSpan(v,$$cm(i),i); } },1000);
 
-/* ===================== Test my setup ===================== */
+/* ===================== Max speed test ===================== */
 async function perfRun(){ await guard(async()=>{
   if(window.__logging){ toast("A drive is being recorded, so the radios are busy. The top bar already shows the live numbers. Stop recording to run the test."); return; }
   try{ await api("/api/config",readForm()); }catch(e){}

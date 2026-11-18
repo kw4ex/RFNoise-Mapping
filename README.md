@@ -4,11 +4,11 @@ Find power-line and other radio noise by driving a route.
 
 Up to four software-defined radios (an **SDRplay RSP1**, a **Hermes Lite 2**, and low-price **RTL-SDR dongles**, in any mix) and a **GPS** log the signal level on up to four frequencies about every 10 feet. The program then draws a **street map of colored dots, blue (weak) to red (strong)**, so you can see where the noise is loudest and drive straight to it. Live panadapters, one per frequency, let you see and hear the noise as you drive.
 
-> **Status (1.5.0):** tested with simulated hardware, and on a Windows 11 PC and a Mac with a real SDRplay RSP1, a real Hermes Lite 2, an **ANAN-7000DLE MkIII** and a GPS. **Not yet confirmed in a long real drive with every radio:** the USB GPS puck, the S-meters and Warning sounds with every radio, **Test my setup** with every radio type, and the new **RTL-SDR dongle support, which has only been tried with simulated dongles**. The Mac version is experimental. Shared as is, with **no warranty. Use at your own risk.** Design and on-air testing by KW4EX. Please report what you find.
+> **Status (1.6.0):** tested with simulated hardware, and on a Windows 11 PC and a Mac with a real SDRplay RSP1, a real Hermes Lite 2, an **ANAN-7000DLE MkIII** and a GPS. **Not yet confirmed in a long real drive with every radio:** the USB GPS puck, the S-meters and Warning sounds with every radio, **Max speed test** with every radio type, and the new **RTL-SDR dongle support, which has only been tried with simulated dongles**. The Mac version is experimental. Shared as is, with **no warranty. Use at your own risk.** Design and on-air testing by KW4EX. Please report what you find.
 >
-> **What is new in 1.5.0:** the **ANAN** (Apache Labs, OpenHPSDR Protocol 2, for example the ANAN-7000DLE MkIII) works in the slots: up to four slots read at the same instant, receive only. A slot set to a radio that cannot hear its frequency is now turned down with a message instead of locking up. See [the release notes](docs/release-notes/v1.5.0.md).
+> **What is new in 1.6.0:** a much tidier, laptop-friendly screen. Each slot now has its own S-meter with Reset peak, one-line heading, Mute/Listen, Squelch, Record, Zoom, Lock and small pop-up boxes for Gain, Memory and Band view. The top bar is shorter, Drives & maps and Tools open as pop-up windows, and the top row shrinks to fit a narrower window. ANAN slots can now be listened to and recorded, with AGC and Zoom. See [the release notes](docs/release-notes/v1.6.0.md).
 >
-> **Since 1.3.0:** up to four radios at once, any radio in any slot (RTL-SDR dongles), a bigger top bar with a hardware line, a separate **Hardware setup** window, **Test my setup**, **S-units** next to every dB value, four large **S-meters**, Hermes Lite 2 auto gain and gain per band, and a new Windows install layout (folder RFNoise_Mapping). See [the 1.4.0 notes](docs/release-notes/v1.4.0.md).
+> **Since 1.3.0:** up to four radios at once, any radio in any slot (RTL-SDR dongles), a bigger top bar with a hardware line, a separate **Hardware setup** window, **Max speed test**, **S-units** next to every dB value, four large **S-meters**, Hermes Lite 2 auto gain and gain per band, and a new Windows install layout (folder RFNoise_Mapping). See [the 1.4.0 notes](docs/release-notes/v1.4.0.md).
 
 ![Control panel: route, radios, frequencies](docs/images/panel.png)
 
@@ -30,7 +30,7 @@ Up to four software-defined radios (an **SDRplay RSP1**, a **Hermes Lite 2**, an
 - **Pause recording** at a traffic light: no dots are saved and every slot goes back to a full live picture (an SDRplay slot shows only its latest reading while mapping, because it must retune between frequencies). **Pause automatically** does it by itself after you have not moved for a number of seconds, and resumes when you move.
 - Saves every reading with its time to the millisecond, so a map can be made with **one dot every X feet** worked out from the clock, whatever speed you drove.
 - A **Close program** button sits at the top of the panel; if a drive is being recorded it asks first, then saves the drive and closes. The panel shows its version number, and warns you if new program files were installed while an older copy is still running.
-- Has built-in checks: **Check setup**, **Find my GPS** and a one-minute **Full test**.
+- Has built-in checks: **Health check**, **Find my GPS** and a one-minute **Full test**.
 
 ![Example map (practice data)](docs/images/map-example.png)
 
@@ -59,7 +59,7 @@ You do **not** need a GitHub account.
 
 ### Windows (main version, Windows 10 and 11)
 
-1. Go to the [**Releases** page](../../releases) and open the newest version at the top of the list (**v1.5.0**).
+1. Go to the [**Releases** page](../../releases) and open the newest version at the top of the list (**v1.6.0**).
 2. Under **Assets**, click **Install_RFNoise_Windows.bat**. Your browser saves it, normally in **Downloads**. (If it warns that the file may be harmful, choose **Keep**.)
 3. Double-click it. If Windows says "Windows protected your PC", click **More info**, then **Run anyway**.
 4. Answer the short questions. It finds (or installs) the right Python, installs the helpers, finds your GPS, and puts icons on your Desktop. Suggested folder: `C:\RadioScripts`.
@@ -73,7 +73,7 @@ For the real radio you also need **SDRplay API** and **PothosSDR** from their ow
 
 **Hermes Lite 2 on a Mac (network changes):** plug the radio into a USB-to-Ethernet adapter and leave **Wi-Fi on**. Wait about 30 seconds until **System Settings > Network** shows the adapter with a green dot and a self-assigned address starting **169.254** (normal; keep *Configure IPv4: Using DHCP*, do not type an address). Allow **Local Network** access if macOS asks. Since 1.3.0b the program searches for the radio out of every network port, so nothing else needs changing. The program opens in **Google Chrome** (Safari holds the sound back); the *Open the program in* setting changes that. Full steps are in the guide and in [mac/README_Mac.txt](mac/README_Mac.txt).
 
-1. On the Releases page, click **RFNoise_Mac_v1.5.0.zip** under Assets. Double-click it in Downloads to unzip. Keep the `mac` and `app` folders together.
+1. On the Releases page, click **RFNoise_Mac_v1.6.0.zip** under Assets. Double-click it in Downloads to unzip. Keep the `mac` and `app` folders together.
 2. Open the `mac` folder, right-click **Install_RFNoise.command**, choose **Open**, then **Open** again.
 3. Follow the steps in the window. See [mac/README_Mac.txt](mac/README_Mac.txt).
 
@@ -83,7 +83,7 @@ The **Install and User Guide (PDF)** is here: [docs/guides/RFNoise-Mapping-guide
 
 ## If something does not work
 
-- **Check setup** button: tells you in plain words what is missing (Python, radio library, radio, GPS).
+- **Health check** button: tells you in plain words what is missing (Python, radio library, radio, GPS).
 - **Find my GPS** button: finds a USB GPS puck and its speed by itself.
 - **Full test** (`Test_Everything.bat`): checks everything in about a minute, with a pretend drive and a map.
 - **Radio or GPS busy:** only one program can use the radio or a GPS port at a time. The program closes its own leftovers, and lists other SDR or GPS programs (SDRuno, SDRconnect, SDR Console, HDSDR, u-center and similar) with a button to close them. Nothing else is closed without your OK.

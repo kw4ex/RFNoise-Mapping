@@ -426,7 +426,7 @@ class SoapySdr:
             sys.exit(
                 "\nERROR: the radio library (SoapySDR) is not available.\n"
                 f"       {note}\n"
-                "       In the RF Noise Map window, press 'Check setup' for plain-English help,\n"
+                "       In the RF Noise Map window, press 'Health check' for plain-English help,\n"
                 "       or tick 'Practice mode' to try everything without the radio.\n")
         from SoapySDR import SOAPY_SDR_RX, SOAPY_SDR_CF32
         self.S = SoapySDR
@@ -865,7 +865,7 @@ class MultiRadio:
             if "anan" in names:
                 aset = dict(settings)
                 aset["channels"] = [c for c in chans if (c.get("radio") or "sdrplay") == "anan"]
-                self.radios["anan"] = AnanRadio(aset)
+                self.radios["anan"] = AnanRadio(aset, "", hl2_rate)
             if "sdrplay" in names:
                 self.radios["sdrplay"] = SoapySdr(settings)
             for rid in RTL_IDS:
@@ -958,10 +958,13 @@ def hl2_lookup(sdr, chans, ch):
     if not (0 <= ch < len(chans)):
         return None
     if isinstance(sdr, MultiRadio):
-        hl2 = sdr.radios.get("hl2")
+        kind = (chans[ch].get("radio") or "sdrplay")
+        if kind not in ("hl2", "anan"):
+            return None
+        hl2 = sdr.radios.get(kind)                  # the Hermes and the ANAN share the same sound code
         if hl2 is None:
             return None
-        subset = [i for i, c in enumerate(chans) if (c.get("radio") or "sdrplay") == "hl2"]
+        subset = [i for i, c in enumerate(chans) if (c.get("radio") or "sdrplay") == kind]
         if ch not in subset:
             return None
         return (hl2.client, subset.index(ch) % hl2.nrx, hl2.rate)

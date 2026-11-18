@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 check_setup.py - Tells you, in plain English, what is working and what is missing.
-The 'Check setup' button in the RF Noise Map window runs run_checks() below.
+The 'Health check' button in the RF Noise Map window runs run_checks() below.
 
 Command line:
   python3 check_setup.py

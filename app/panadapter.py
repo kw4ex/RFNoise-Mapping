@@ -126,13 +126,13 @@ class SdrplaySource:
         SoapySDR, note = C.find_soapy()
         if SoapySDR is None:
             raise ValueError("The radio library (SoapySDR) is not available. " + str(note) +
-                             " Press 'Check setup' for help, or tick Practice mode.")
+                             " Press 'Health check' for help, or tick Practice mode.")
         from SoapySDR import SOAPY_SDR_RX, SOAPY_SDR_CF32
         self.S, self.RX, self.CF32 = SoapySDR, SOAPY_SDR_RX, SOAPY_SDR_CF32
         devs = SoapySDR.Device.enumerate("driver=sdrplay")
         if not devs:
             raise ValueError("No SDRplay found. Is it plugged in directly, and is another program "
-                             "(or a second copy of this one) using it? Press 'Check setup' for help.")
+                             "(or a second copy of this one) using it? Press 'Health check' for help.")
         d0 = dict(devs[0])
         self.name = "SDRplay " + str(d0.get("label", d0.get("serial", "")))
         self.dev = SoapySDR.Device(devs[0])

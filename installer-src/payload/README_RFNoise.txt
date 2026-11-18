@@ -1,4 +1,4 @@
-RF NOISE MAP  v1.5.0   (Windows 10 / 11)
+RF NOISE MAP  v1.6.0  (Windows 10 / 11)
 Design and testing: KW4EX
 =====================================================================
 
@@ -114,7 +114,7 @@ PART 2 - THE RADIO (needed only for real measuring)
       Choose Windows and install the API (version 3.15 or newer). Restart if asked.
    2. PothosSDR (free radio library bundle): link on
       https://github.com/pothosware/PothosSDR/wiki   Install with the defaults.
-   3. Plug in the SDRplay, start RF Noise Map and press "Check setup".
+   3. Plug in the SDRplay, start RF Noise Map and press "Health check".
   NOTE: PothosSDR's Python part is made for ONE Python version (Python 3.9).
   The installer notices this and uses (or installs) Python 3.9 by itself. If you
   install PothosSDR AFTER this program, run Install_RFNoise_Windows.bat again.
@@ -164,7 +164,7 @@ PART 4 - PROBLEMS
      http://localhost:8780/ in your browser.
    - "DLL load failed": install https://aka.ms/vs/17/release/vc_redist.x64.exe
    - Radio not found: close SDRuno/SDRconnect/SDR Console/HDSDR, replug the
-     radio, install the SDRplay API, then press "Check setup".
+     radio, install the SDRplay API, then press "Health check".
    - A different Python than 3.9 and PothosSDR installed: run the installer again.
 
 ---------------------------------------------------------------------

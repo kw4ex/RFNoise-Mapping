@@ -112,7 +112,7 @@ class AnanDriver(RadioDriver):
     id, name, kind = "anan", "ANAN (Apache / OpenHPSDR, e.g. ANAN-7000)", "iq"
     accuracy = "Raw radio signal, four receivers read at the same instant (like the Hermes Lite 2). Levels in dBFS, not yet calibrated to dBm."
     multi, max_mhz, cfg_flag = True, 55.0, "use_anan"
-    note = "Four slots at the same instant on the main antenna input. Levels in dBFS (not yet dBm), no sound yet. Close Thetis first."
+    note = "Four slots at the same instant on the main antenna input. Levels in dBFS (not yet dBm). Listen and record work (AM, SAM, USB, LSB, NFM). Close Thetis first."
 
     def slot_values(self, found):
         return [(self.id, "ANAN")]

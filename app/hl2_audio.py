@@ -252,8 +252,8 @@ class SliceSound:
                     raise ValueError("The radio is not running.")
                 got = self.lookup(ch)
                 if not got:
-                    raise ValueError("Sound works on the Hermes Lite 2 slots only. This slot is measured by "
-                                     "the SDRplay, which cannot stream sound while it is measuring.")
+                    raise ValueError("Sound works on the Hermes Lite 2 and ANAN slots here. This slot is measured by "
+                                     "another radio that cannot stream sound while it is measuring.")
                 client, rx, rate = got
                 d = _SliceDemod(client, rx, rate, mode or "AM", bw, agc)
                 self.slices[ch] = d

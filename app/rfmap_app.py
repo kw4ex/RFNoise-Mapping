@@ -83,7 +83,7 @@ DEFAULT_CONFIG = {
         {"mhz": 148.000, "bw_khz": 10.0, "cal_db": 0.0, "radio": "auto"},
         {"mhz": "", "bw_khz": 5.0, "cal_db": 0.0, "radio": "auto"},
     ],
-    "perf": {},                      # result of the last "Test my setup" (reading-round time, max safe speed)
+    "perf": {},                      # result of the last "Max speed test" (reading-round time, max safe speed)
     "sdr_live": -1,                  # which SDRplay slot is the live one (-1 = the lowest-numbered SDRplay slot)
     "pan_mem": None,                 # saved panadapter memory frequencies (None = show the starter list)
     "phone_access": False,           # let an iPhone/iPad open this window too (needs restart)
@@ -466,7 +466,7 @@ class App:
         self.active_csv = None
         return csv_name
 
-    # ---- hardware: the radio list, slot summary and the "Test my setup" measurement
+    # ---- hardware: the radio list, slot summary and the "Max speed test" measurement
     RADIO_LABELS = {"hl2": "Hermes Lite 2", "anan": "ANAN", "sdrplay": "SDRplay", "off": "Off"}
 
     def radio_label(self, rid):
@@ -1459,10 +1459,26 @@ class Handler(BaseHTTPRequestHandler):
                 return {"ok": True, "found": [], "note": "Stop logging first, then press Find my GPS."}
             res = gps_detect.find_gps(budget_s=45, listen=2.5)
             return {"ok": True, **res}
-        if path == "/api/quit":
+        if path in ("/api/quit", "/api/restart"):
             PAN.stop(); SLICES.stop()
             APP.stop()
             port = APP.port
+            if path == "/api/restart":                       # start a fresh copy a few seconds after this one has gone
+                try:
+                    args0 = [a for a in sys.argv[1:] if a != "--no-browser"]
+                    launcher = ("import subprocess,sys,time\ntime.sleep(3)\n"
+                                "fl=0x10 if sys.platform=='win32' else 0\n"
+                                "subprocess.Popen([sys.executable,'-u',%r]+%r,creationflags=fl,start_new_session=(sys.platform!='win32'))\n"
+                                % (os.path.abspath(__file__), args0))
+                    kw = {}
+                    if sys.platform == "win32":
+                        kw["creationflags"] = 0x00000008 | 0x00000200      # detached, own process group
+                    else:
+                        kw["start_new_session"] = True
+                    subprocess.Popen([sys.executable, "-c", launcher], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                                     stderr=subprocess.DEVNULL, **kw)
+                except Exception as e:
+                    print("Restart could not be prepared:", e, flush=True)
             def _finish():
                 close_browser_tabs(port)
                 time.sleep(0.4)
