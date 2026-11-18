@@ -48,7 +48,7 @@ if errorlevel 2 (
 )
 netsh advfirewall firewall delete rule name="%RULE%" >nul 2>&1
 netsh advfirewall firewall add rule name="%RULE%" dir=in action=allow protocol=UDP program="%PYEXE%" profile=any remoteip=localsubnet
-if errorlevel 1 ( echo The rule could not be added. ) else ( echo. & echo Done. Now run ANAN_Read_Test.bat again. )
+if errorlevel 1 ( echo The rule could not be added. ) else ( echo. & echo Done. Now restart RF Noise Map and use the ANAN in a slot. )
 pause
 exit /b
 

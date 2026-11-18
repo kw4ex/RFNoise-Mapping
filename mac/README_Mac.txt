@@ -1,4 +1,4 @@
-RF Noise Map - Mac (TESTING VERSION)
+RF Noise Map - Mac (experimental)
 ================================================================
 Design and on-air testing by KW4EX. No warranty. Use at your own risk.
 Not made or approved by SDRplay, Apple or any radio maker.

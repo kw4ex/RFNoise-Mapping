@@ -1,4 +1,4 @@
-RF NOISE MAP  v1.4.0i  TESTING VERSION   (Windows 10 / 11)
+RF NOISE MAP  v1.5.0   (Windows 10 / 11)
 Design and testing: KW4EX
 =====================================================================
 
@@ -23,9 +23,7 @@ WHAT IT IS
             Test_Everything.bat       checks the radio, the GPS and a pretend drive
             Find_GPS.bat              finds a USB GPS puck
             HL2_Test.bat              tests a Hermes Lite 2
-            ANAN_Read_Test.bat        starts one receiver of an ANAN for a few seconds (receive only)
-            Allow_ANAN_Firewall.bat   one-time Windows Firewall rule so the ANAN data can reach Python
-            Capture_ANAN.bat          records how Thetis talks to the ANAN (for development; stays on this PC)
+            Allow_ANAN_Firewall.bat   one-time Windows Firewall rule so the ANAN data can reach Python (only if you use an ANAN)
             Switch_Test.bat           tests switching between frequencies
             Make_Support_File.bat     packs the logs into ONE zip to send for help
             Open_Logs.bat             opens the Logs folder

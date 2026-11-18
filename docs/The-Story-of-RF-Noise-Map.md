@@ -241,13 +241,15 @@ The deeper lesson: a single-receiver radio that must *take turns* is fighting ph
 
 *The Slices view that came out of it: one live panadapter per measured frequency, each with its own zoom, and - on Hermes Lite 2 slots - sound and recording that run while the drive is being logged. (Simulated radio shown.)*
 
+Version 1.5.0 adds the **ANAN** (Apache Labs, OpenHPSDR Protocol 2): up to four slots read at the same instant on the main antenna input, receive only. It was worked out on a real ANAN-7000DLE MkIII by comparing a recording of how Thetis talks to the radio with known signals (WWV and a shortwave broadcast station), which also showed where the radio keeps each receiver's frequency. Levels are in dBFS for now, with no sound or calibration yet.
+
 Version 1.4.0 adds a third kind of radio: low-price **RTL-SDR USB dongles**, up to four of them, any dongle in any slot, so a drive can use several cheap dongles at once with no switching. It is built but not yet tried on real dongles.
 
 Version 1.3.0 ties the two radios together: a **"Your radios"** box, and a **Radio choice on each of the four frequency slots**. The Hermes Lite 2 might hold an AM broadcast channel and two HF ham bands while the SDRplay covers airband and 70 cm — each radio doing what it is best at, in one drive, on one map. Each reading now also carries its **time to the millisecond**, so the map builder can work out how far the car travelled and place **one dot every X feet**, whatever the driving speed was — keeping the strongest reading in each stretch so a short burst of power-line noise is never averaged away.
 
 ## 10. The product today
 
-**RF Noise Map v1.4.0 (testing version)** — a free, open, stand-alone tool for amateur radio. *Design and on-air testing by KW4EX.* MIT licensed.
+**RF Noise Map v1.5.0** — a free, open, stand-alone tool for amateur radio. *Design and on-air testing by KW4EX.* MIT licensed.
 
 ### Noise mapping
 - **Two radios, used together or alone**: the SDRplay RSP1 (USB; VHF, airband, 70 cm) and the Hermes Lite 2 (network cable; HF receivers that all run at the same instant, no driver needed). Each of the **4 frequency slots picks its radio** (or Auto decides).
