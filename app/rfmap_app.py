@@ -217,6 +217,7 @@ class App:
             self.cfg["token"] = secrets.token_urlsafe(12)
         self.save_cfg()
         self.lock = threading.Lock()
+        self.slot_warn = {}                    # live view: slot number -> why that one slot could not be used (the other slots still run)
         self.starting = False                  # True while the logger is being started: nothing else may open the radios then
         self.proc = None
         self.logger_port = LOGGER_PORT
@@ -336,22 +337,35 @@ class App:
         if practice is None:
             practice = bool(self.cfg.get("practice"))
         out = []
+        if for_slices:
+            self.slot_warn = {}
+        first_err = None
         for slot_no, ch in enumerate(chans[:4], 1):
             if str(ch.get("mhz", "")).strip() == "" or str(ch.get("radio")) == "off":
                 continue                                   # empty, or switched off with the slot's Radio chooser
             mhz = float(ch["mhz"])
             if not (0.001 <= mhz <= 2000):
                 raise ValueError(f"{mhz} MHz is outside the radio's range (0.001 to 2000 MHz).")
+            try:
+                rad = self.resolve_radio(mhz, str(ch.get("radio") or "auto"), practice)
+            except ValueError as e:
+                if not for_slices:
+                    raise                                  # a drive is never started with a slot quietly left out
+                self.slot_warn[slot_no] = str(e)           # live view: only THIS slot says why; the other slots still start
+                first_err = first_err or e
+                continue
             out.append({"mhz": mhz, "bw_khz": max(0.5, float(ch.get("bw_khz") or 5)),
                         "cal_db": float(ch.get("cal_db") or 0),
                         "mode": (str(ch.get("mode") or "AM").upper() if str(ch.get("mode") or "AM").upper() in ("AM", "SAM", "USB", "LSB", "NFM") else "AM"),
-                        "radio": self.resolve_radio(mhz, str(ch.get("radio") or "auto"), practice),
+                        "radio": rad,
                         "slot": slot_no})                  # the slot number on the panel, kept in the drive file
         if for_slices:            # the live-view engine (the panadapter) owns the SDRplay; the slices preview only serves the other radios
             for c2 in out:
                 if c2["radio"] == "sdrplay":
                     c2["skip"] = True
         if not out:
+            if first_err:
+                raise first_err
             raise ValueError("Enter at least one frequency.")
         return out
 
@@ -1073,7 +1087,8 @@ class Handler(BaseHTTPRequestHandler):
                     except Exception:
                         j = {"frames": [], "health": {}}
                     return self._json(dict({"ok": True, "running": True, "logging": True, "error": "", "cfg": APP.slot_cfg()}, **j))
-                return self._json(dict(SLICES.get(), cfg=APP.slot_cfg()))
+                j = SLICES.get(); j["warn"] = dict(APP.slot_warn, **(j.get("warn") or {}))
+                return self._json(dict(j, cfg=APP.slot_cfg()))
             if path == "/api/logs/tail":
                 return self._json({"ok": True, "lines": L.tail(int((q.get("n") or ["60"])[0] or 60)), "dir": L.log_dir()})
             if path == "/api/rec/list":

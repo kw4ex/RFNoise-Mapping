@@ -1,4 +1,4 @@
-RF NOISE MAP  v1.6.0  (Windows 10 / 11)
+RF NOISE MAP  v1.6.0a  (Windows 10 / 11)
 Design and testing: KW4EX
 =====================================================================
 

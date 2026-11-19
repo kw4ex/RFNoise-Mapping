@@ -853,28 +853,39 @@ class MultiRadio:
 
     multi = True
 
-    def __init__(self, settings, hl2_ip="", hl2_rate=96000, hl2_port=1024):
+    def __init__(self, settings, hl2_ip="", hl2_rate=96000, hl2_port=1024, tolerant=False):
         chans = [c for c in settings.get("channels", []) if str(c.get("mhz", "")).strip() != ""]
         names = [str(c.get("radio") or "sdrplay") for c in chans if not c.get("skip")]
         self.radios = {}
+        self.failed = {}                      # tolerant (live view only): radio id -> why it could not be opened; the other radios still run
+
+        def open_one(rid, make):
+            try:
+                self.radios[rid] = make()
+            except (Exception, SystemExit) as e:
+                if not tolerant:
+                    raise
+                self.failed[rid] = (str(e).strip() if not isinstance(e, SystemExit) else "") or "The radio could not be opened."
         try:
             if "hl2" in names:
                 hset = dict(settings)
                 hset["channels"] = [c for c in chans if (c.get("radio") or "sdrplay") == "hl2"]
-                self.radios["hl2"] = HermesLite2(hset, hl2_ip, hl2_rate, hl2_port)
+                open_one("hl2", lambda: HermesLite2(hset, hl2_ip, hl2_rate, hl2_port))
             if "anan" in names:
                 aset = dict(settings)
                 aset["channels"] = [c for c in chans if (c.get("radio") or "sdrplay") == "anan"]
-                self.radios["anan"] = AnanRadio(aset, "", hl2_rate)
+                open_one("anan", lambda: AnanRadio(aset, "", hl2_rate))
             if "sdrplay" in names:
-                self.radios["sdrplay"] = SoapySdr(settings)
+                open_one("sdrplay", lambda: SoapySdr(settings))
             for rid in RTL_IDS:
                 if rid in names:
-                    self.radios[rid] = RtlSdr(settings, rid)
+                    open_one(rid, lambda rid=rid: RtlSdr(settings, rid))
         except BaseException:
             self.close()                      # one radio opened but the other failed: let the first go again
             raise
         if not self.radios:
+            if self.failed:
+                raise RuntimeError(next(iter(self.failed.values())))
             raise RuntimeError("No radio is assigned to any frequency.")
         self.name = " + ".join(self.radios[k].name for k in sorted(self.radios))
         self.frames = {}

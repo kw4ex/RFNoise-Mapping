@@ -813,7 +813,8 @@ async function guard(fn){try{return await fn();}catch(e){toast("&#9888; "+esc(e.
 
 /* ---------- form <-> config ---------- */
 function radNorm(c){ const r=c.radio||"auto"; if(String(c.mhz===undefined?"":c.mhz).trim()==="") return "off"; if(r==="hl2"||r==="anan"||r==="sdrplay"||r==="off"||/^rtl[1-4]$/.test(r)) return r;
-  return ((+c.mhz>38)||!($("useHl2")&&$("useHl2").checked))?"sdrplay":"hl2"; }
+  const hl=!!($("useHl2")&&$("useHl2").checked), an=!!($("useAnan")&&$("useAnan").checked), m=+c.mhz;      // "auto": the Hermes first, then the ANAN, then the SDRplay
+  if(hl&&m<=38) return "hl2"; if(an&&m<=55) return "anan"; return "sdrplay"; }
 function chRow(c,i){const r=radNorm(c), md=(c.mode||"AM").toUpperCase();
  const opt=(v,t)=>`<option value="${v}" ${r===v?"selected":""}>${t}</option>`;
  return `<tr><td><b>Slot ${i+1}</b></td><td><input type="number" step="any" class="cm" value="${esc(c.mhz)}" placeholder="MHz" onchange="chEdited()"></td>
@@ -868,7 +869,7 @@ async function findHl2(){
 function hl2GainReset(){ $("hl2g").value=15; gainChanged("hl2"); }
 
 /* ---------- slots: four live panadapters ---------- */
-const PAGE_VER="1.6.0";        /* the version of this page: it must match the program version shown in the top bar */
+const PAGE_VER="1.6.0a";        /* the version of this page: it must match the program version shown in the top bar */
 const SL={logging:false,live:false,busy:false,starting:false,manualStop:false,lastTry:0,health:{},byCh:{},startErr:"",radio:"",lastSync:0,seen:{},last:{},paused:false,autoPaused:false};
 const SLH={0:[],1:[],2:[],3:[]};      // the last readings saved for each slot (for the readout shown when a slot's radio is busy mapping)
 const ONLY_SLICES=new URLSearchParams(location.search).get("view")==="slices";
@@ -1249,7 +1250,8 @@ function slDraw(i,f,force){
 }
 
 /* ----- one pass over the four panels, many times a second ----- */
-function slMsg(){ if(SL.manualStop) return "Live view is stopped. Press <b>Start live view</b> (above) to use the radio again.";
+function slMsg(i){ if(SL.manualStop) return "Live view is stopped. Press <b>Start live view</b> (above) to use the radio again.";
+  { const w=(SL.warn||{})[i+1]; if(w) return "This slot cannot be used: "+esc(w)+"<br><span style='font-size:12px'>Change this slot's Radio in its header (above), or tick that radio in <b>Hardware setup</b>. The other slots keep running.</span>"; }
   if(SL.starting) return "Starting the radio... (a few seconds)";
   if(PAN&&PAN.on) return "The wide panadapter below is using the radio. Press its Stop button and this slot comes back.";
   if(!$("practice").checked&&!useSdr()&&!useHl2()&&!useRtl()&&!useAnan()) return "Tick a radio under <b>Your radios</b> in box 1 above (or use Practice mode).";
@@ -1258,7 +1260,7 @@ function slMsg(){ if(SL.manualStop) return "Live view is stopped. Press <b>Start
 function slRender(j){
   if(!formFilled) return;
   hlAutoStep(j.health||{}); hlBandStep();
-  const fr=j.frames||[]; SL.health=j.health||{}; SL.byCh={}; fr.forEach(f=>{SL.byCh[f.channel]=f;});
+  const fr=j.frames||[]; SL.warn=j.warn||{}; SL.health=j.health||{}; SL.byCh={}; fr.forEach(f=>{SL.byCh[f.channel]=f;});
   ensureSlots(); slMemRender(); const calEls=[...document.querySelectorAll(".cc")], liveI=slLiveIdx();
   for(let i=0;i<4;i++){ const d=slotEl(i), p=slp(i), c=slotCh(i), q=s=>d.querySelector(s);
     const sdNow=c>=0&&(rowEl("cr",i)||{}).value==="sdrplay"&&!SL.logging;
@@ -1301,7 +1303,7 @@ function slRender(j){
     const lv=f?(f.smeter+cal):lastL;
     q(".slv").innerHTML=lv!=null?('<b class="dbn">'+lv.toFixed(1)+" dB</b>"+sSpan(lv,cm.value,i)):"";
     { const mt=(SL.logging&&SL.last&&SL.last[c])?SL.last[c]:null; meterUpdate(i,filled?(SL.logging?(mt?mt.level:null):lv):null,cm.value,mt?mt.t:null); }
-    const msg=q(".slmsg"); if(filled&&!f&&!fb){ msg.style.display="flex"; const t=(sdNow&&!SL.manualStop)?sdMsg(i,liveI):slMsg(); if(msg._t!==t){ msg.innerHTML="<span>"+t+"</span>"; msg._t=t; } } else msg.style.display="none";
+    const msg=q(".slmsg"); if(filled&&!f&&!fb){ msg.style.display="flex"; const t=(sdNow&&!SL.manualStop)?sdMsg(i,liveI):slMsg(i); if(msg._t!==t){ msg.innerHTML="<span>"+t+"</span>"; msg._t=t; } } else msg.style.display="none";
     // level and last-reading cells in the readings table
     const lc=$("lvl"+i); if(lc){ const t=lv!=null?lv.toFixed(1):""; if(lc._t!==t){ lc._t=t; lc.innerHTML=lv!=null?('<b class="dbn">'+t+'</b>'+sSpan(lv,$$cm(i),i)+'<div class="bar"><i style="left:'+posPct(lv)+'%"></i></div>'):'<span class="mut">&ndash;</span>'; } }
     // gain row
@@ -1663,7 +1665,7 @@ function mapSpLoad(){ try{const j=JSON.parse(localStorage.getItem("rfmapSp")||"n
 window.addEventListener("load",mapSpLoad);
 /* ----- which readings go on the map: slots, radios, frequencies, speed, level ----- */
 const FILT={s:new Set(),r:new Set(),f:new Set()};        // the things switched OFF
-const radName=r=>({hl2:"Hermes Lite 2",sdrplay:"SDRplay"}[r]||(/^rtl[1-4]$/.test(r)?"RTL-SDR "+r.slice(3):r));
+const radName=r=>({hl2:"Hermes Lite 2",anan:"ANAN",sdrplay:"SDRplay"}[r]||(/^rtl[1-4]$/.test(r)?"RTL-SDR "+r.slice(3):r));
 function filtChoices(){
   const L=window._drives||{}; let files=[...document.querySelectorAll(".dsel:checked")].map(x=>x.value);
   if(!files.length) files=Object.keys(L);
@@ -2347,7 +2349,7 @@ function fitRow1(force){
 addEventListener("resize",()=>fitRow1()); setInterval(()=>fitRow1(),1200); setTimeout(()=>fitRow1(true),300);
 function barSize(d){ BAR_Z=Math.min(2.2,Math.max(1,Math.round((BAR_Z+d*0.2)*10)/10)); $("driveBar").style.setProperty("--bz",BAR_Z); try{localStorage.setItem("rfmapBarZ",String(BAR_Z));}catch(e){} fixBarTop(); fitRow1(true); }
 $("driveBar").style.setProperty("--bz",BAR_Z);
-const HW_RAD_NAME={hl2:"Hermes",sdrplay:"SDRplay",off:"off"};
+const HW_RAD_NAME={hl2:"Hermes",anan:"ANAN",sdrplay:"SDRplay",off:"off"};
 function hwRadName(r){ return HW_RAD_NAME[r]||(RTL_RE.test(r)?"RTL-SDR "+r.slice(3):r); }
 function hwSlotsLine(){
   const cm=[...document.querySelectorAll(".cm")], cr=[...document.querySelectorAll(".cr")]; if(!cm.length) return;

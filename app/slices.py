@@ -24,6 +24,7 @@ class SlicePreview:
         self.last_poll = time.time()
         self.health = {}
         self.cfg = {}
+        self.warn = {}
 
     def start(self, practice, channels, hl2_ip="", hl2_rate=96000, gain=None):
         import rf_logger as RL
@@ -36,7 +37,7 @@ class SlicePreview:
             if practice:
                 sdr = RL.SimSdr()
             else:
-                sdr = RL.MultiRadio(settings, hl2_ip, int(hl2_rate))
+                sdr = RL.MultiRadio(settings, hl2_ip, int(hl2_rate), tolerant=True)
         except SystemExit as e:                        # the radio classes print-and-exit on trouble
             raise ValueError(str(e).strip() or "The radio could not be opened.")
         except RuntimeError as e:
@@ -52,6 +53,8 @@ class SlicePreview:
             self.name = getattr(sdr, "name", "")
             self.last_poll = time.time()
             self.sdr = sdr
+            bad = getattr(sdr, "failed", {}) or {}          # a radio that would not open only takes down its own slots
+            self.warn = {c.get("slot"): bad[c.get("radio")] for c in channels if c.get("slot") and c.get("radio") in bad}
         hl2_audio.SND.attach(lambda ch: RL.hl2_lookup(sdr, self.cfg.get("channels", []), ch),
                              C.sub_dir("Recordings"))
         self.thread = threading.Thread(target=self._loop, args=(sdr,), name="slices", daemon=True)
@@ -83,7 +86,7 @@ class SlicePreview:
             fr = [RL.PAN_FRAME["all"][k] for k in sorted(RL.PAN_FRAME["all"])]
         import hl2_audio
         return {"ok": True, "running": self.running, "logging": False, "error": self.error,
-                "radio": self.name, "frames": fr, "health": self.health, "sound": hl2_audio.SND.status()}
+                "radio": self.name, "frames": fr, "health": self.health, "sound": hl2_audio.SND.status(), "warn": dict(self.warn)}
 
     def _recording(self):
         try:
