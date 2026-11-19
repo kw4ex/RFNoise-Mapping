@@ -59,7 +59,7 @@ You do **not** need a GitHub account.
 
 ### Windows (main version, Windows 10 and 11)
 
-1. Go to the [**Releases** page](../../releases) and open the newest version at the top of the list (**v1.6.0**).
+1. Go to the [**Releases** page](../../releases) and open the newest version at the top of the list (**v1.6.0b**).
 2. Under **Assets**, click **Install_RFNoise_Windows.bat**. Your browser saves it, normally in **Downloads**. (If it warns that the file may be harmful, choose **Keep**.)
 3. Double-click it. If Windows says "Windows protected your PC", click **More info**, then **Run anyway**.
 4. Answer the short questions. It finds (or installs) the right Python, installs the helpers, finds your GPS, and puts icons on your Desktop. Suggested folder: `C:\RadioScripts`.
@@ -73,7 +73,7 @@ For the real radio you also need **SDRplay API** and **PothosSDR** from their ow
 
 **Hermes Lite 2 on a Mac (network changes):** plug the radio into a USB-to-Ethernet adapter and leave **Wi-Fi on**. Wait about 30 seconds until **System Settings > Network** shows the adapter with a green dot and a self-assigned address starting **169.254** (normal; keep *Configure IPv4: Using DHCP*, do not type an address). Allow **Local Network** access if macOS asks. Since 1.3.0b the program searches for the radio out of every network port, so nothing else needs changing. The program opens in **Google Chrome** (Safari holds the sound back); the *Open the program in* setting changes that. Full steps are in the guide and in [mac/README_Mac.txt](mac/README_Mac.txt).
 
-1. On the Releases page, click **RFNoise_Mac_v1.6.0.zip** under Assets. Double-click it in Downloads to unzip. Keep the `mac` and `app` folders together.
+1. On the Releases page, click **RFNoise_Mac_v1.6.0b.zip** under Assets. Double-click it in Downloads to unzip. Keep the `mac` and `app` folders together.
 2. Open the `mac` folder, right-click **Install_RFNoise.command**, choose **Open**, then **Open** again.
 3. Follow the steps in the window. See [mac/README_Mac.txt](mac/README_Mac.txt).
 
