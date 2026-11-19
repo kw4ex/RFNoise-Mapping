@@ -869,7 +869,7 @@ async function findHl2(){
 function hl2GainReset(){ $("hl2g").value=15; gainChanged("hl2"); }
 
 /* ---------- slots: four live panadapters ---------- */
-const PAGE_VER="1.6.0a";        /* the version of this page: it must match the program version shown in the top bar */
+const PAGE_VER="1.6.0b";        /* the version of this page: it must match the program version shown in the top bar */
 const SL={logging:false,live:false,busy:false,starting:false,manualStop:false,lastTry:0,health:{},byCh:{},startErr:"",radio:"",lastSync:0,seen:{},last:{},paused:false,autoPaused:false};
 const SLH={0:[],1:[],2:[],3:[]};      // the last readings saved for each slot (for the readout shown when a slot's radio is busy mapping)
 const ONLY_SLICES=new URLSearchParams(location.search).get("view")==="slices";
@@ -957,6 +957,7 @@ function slotHTML(i){ return '<div class="slh"><span><b class="slt">Slot '+(i+1)
 function ensureSlots(){ const grid=$("slGrid"); if(grid.children.length===4){ meterHome(); return; }
   grid.innerHTML=""; for(let i=0;i<4;i++){ const d=document.createElement("div"); d.className="slbox empty"; d.innerHTML=slotHTML(i); if(POPSLOT===i+1) d.classList.add("me"); grid.appendChild(d); slotInit(i,d); }
   meterHome();
+  try{ if(!localStorage.getItem("rfmapSlCompactReset")){ localStorage.setItem("rfmapSlCompactReset","1"); localStorage.removeItem("rfmapSlCompact"); } }catch(e){}    // once: an old Full-size choice from an earlier version is cleared so the 2-across view shows
   if(localStorage.getItem("rfmapSlCompact")!=="0"){ grid.classList.add("compact"); $("bSlCompact").textContent="Full-size view"; } }
 const RADIO_MAX={hl2:38,anan:55};            /* highest MHz each radio can hear */
 const RADIO_NAME={hl2:"the Hermes Lite 2",anan:"the ANAN"};

@@ -108,7 +108,10 @@ def _bound_socket(ifname):
     return s
 
 
-def discover(ip=None, timeout=2.0, port=PORT):
+OTHER_RADIOS = {}                              # ip -> board code of radios that answered but are not a Hermes Lite 2
+
+
+def discover(ip=None, timeout=2.0, port=PORT, only_hl2=True):
     """Look for HPSDR radios. With ip given, ask just that address (works even where broadcasts are blocked).
     Returns a list of dicts: ip, mac, gateware, board, is_hl2, nrx, busy."""
     import select
@@ -152,7 +155,10 @@ def discover(ip=None, timeout=2.0, port=PORT):
                     continue
                 d = parse_discovery(data, addr)
                 if d:
-                    found[d["ip"]] = d
+                    if d["is_hl2"] or not only_hl2:
+                        found[d["ip"]] = d
+                    else:
+                        OTHER_RADIOS[d["ip"]] = d["board"]   # an openHPSDR radio that is NOT a Hermes Lite 2 (an ANAN also answers this search)
             if ip and found:
                 break
     finally:

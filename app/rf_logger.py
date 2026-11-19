@@ -678,11 +678,14 @@ class HermesLite2:
         if KNOWN_HL2:                              # the control panel already found this radio: no need to ask again
             found = [{"ip": KNOWN_HL2[0], "port": port, "nrx": KNOWN_HL2[1]}]
         for _try in range(0 if found else 3):                      # a Hermes that was just released can take a few seconds to answer again
+            hl2.OTHER_RADIOS.clear()
             found = hl2.discover(ip or None, timeout=3.0, port=port)
             if found:
                 break
         if not found:
             L.error("no Hermes Lite 2 found (ip=%r)" % ip)
+            if hl2.OTHER_RADIOS:
+                raise RuntimeError("A radio at %s answered, but it is not a Hermes Lite 2 (it looks like an ANAN). Set this slot's Radio to ANAN." % next(iter(hl2.OTHER_RADIOS)))
             raise RuntimeError("No Hermes Lite 2 answered. Check the network cable and the radio's power, that nothing "
                                "else (Thetis, SDR Console) is using the radio, and the address on the control panel.")
         d = found[0]
