@@ -6,10 +6,10 @@ full_test.py - the automatic "is everything working?" test. About one minute. No
   3. GPS          looks for a USB GPS puck by itself (port and speed) and checks for a position fix
   4. Mock drive   runs a pretend drive with the REAL radio, saves it, and builds a map from it
 
-Run it:   Test_Everything.bat   (or press 'Full test' in the RF Noise Map window)
+Run it:   Test_Everything.bat   (or press 'Full test' in the RFI Trail window)
 Options:  --gps-wait 120   wait up to 120 s for the GPS to get a position (take the puck outside first)
           --iphone         you use the iPhone GPS: do not treat 'no USB GPS' as a problem
-          --json           machine-readable output (used by the RF Noise Map window)
+          --json           machine-readable output (used by the RFI Trail window)
 """
 
 import argparse
@@ -25,7 +25,7 @@ import sys
 import tempfile
 import time
 
-import rfmap_common as C
+import nt_common as C
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
@@ -71,13 +71,13 @@ def test_software(r, need_soapy=True):
         import numpy
         r.add("Software", "ok", f"numpy {numpy.__version__} (math library)")
     except ImportError:
-        r.add("Software", "fix", "numpy is missing. Run Install_RFNoise_Windows.bat again.")
+        r.add("Software", "fix", "numpy is missing. Run Install_RFI_Trail_Windows.bat again.")
     try:
         import serial
         r.add("Software", "ok", f"pyserial {getattr(serial, '__version__', '?')} (USB GPS library)")
     except ImportError:
         r.add("Software", "warn", "pyserial is missing, so a USB GPS cannot be used (iPhone GPS still works). "
-                                  "Run Install_RFNoise_Windows.bat again.")
+                                  "Run Install_RFI_Trail_Windows.bat again.")
     if not need_soapy:
         r.add("Software", "ok", "Hermes Lite 2 selected: the SDRplay radio library (SoapySDR) is not needed.")
         return None
@@ -112,8 +112,8 @@ def test_radio(r, soapy):
                               "(Windows Services)? Is another program (SDRuno, SDRconnect, SDR Console) using it?")
         return False
     r.add("Radio", "ok", "Found " + str(devs[0].get("label", "SDRplay")))
-    import rf_logger
-    settings = copy.deepcopy(rf_logger.DEFAULT_SETTINGS)
+    import nt_logger
+    settings = copy.deepcopy(nt_logger.DEFAULT_SETTINGS)
     # use the saved frequencies if there are any
     for cand in (os.path.join(C.data_dir(), "Settings", "settings.json"),
                  os.path.join(C.data_dir(), "Settings", "logger_settings.json")):
@@ -124,7 +124,7 @@ def test_radio(r, soapy):
         except Exception:
             pass
     try:
-        sdr = rf_logger.SoapySdr(settings)
+        sdr = nt_logger.SoapySdr(settings)
     except SystemExit as e:
         r.add("Radio", "fix", "Could not open the radio: " + str(e).strip()[:200])
         return False
@@ -188,7 +188,7 @@ def _saved_config():
 def test_radio_hl2(r, cfg):
     """Hermes Lite 2: found on the network, streams cleanly, readings on each saved frequency."""
     import hl2
-    import rf_logger
+    import nt_logger
     ip = str(cfg.get("hl2_ip", "")).strip()
     found = hl2.discover(ip or None, timeout=3.0)
     if not found:
@@ -198,7 +198,7 @@ def test_radio_hl2(r, cfg):
         return False
     d = found[0]
     r.add("Radio", "ok", "Found %s at %s (%d receivers)" % ("a Hermes Lite 2" if d["is_hl2"] else "an HPSDR radio", d["ip"], d["nrx"]))
-    settings = copy.deepcopy(rf_logger.DEFAULT_SETTINGS)
+    settings = copy.deepcopy(nt_logger.DEFAULT_SETTINGS)
     settings["hl2_gain_db"] = int(cfg.get("hl2_gain_db", 15))
     chans = [c for c in cfg.get("channels", []) if str(c.get("mhz", "")).strip() != ""]
     ok_chans = [c for c in chans if float(c["mhz"]) <= 38][:4]
@@ -209,7 +209,7 @@ def test_radio_hl2(r, cfg):
     settings["channels"] = [{"mhz": float(c["mhz"]), "bw_khz": float(c.get("bw_khz") or 5), "cal_db": 0} for c in ok_chans] or \
         [{"mhz": 3.7, "bw_khz": 5, "cal_db": 0}, {"mhz": 7.3, "bw_khz": 5, "cal_db": 0}]
     try:
-        sdr = rf_logger.HermesLite2(settings, d["ip"], int(cfg.get("hl2_rate", 96000)), d["port"])
+        sdr = nt_logger.HermesLite2(settings, d["ip"], int(cfg.get("hl2_rate", 96000)), d["port"])
     except RuntimeError as e:
         r.add("Radio", "fix", "Could not start the radio: " + str(e)[:200])
         return False
@@ -269,11 +269,11 @@ def test_gps(r, gps_wait, iphone):
 
 # ---------------------------------------------------------------- 4. mock drive
 def test_drive(r, radio_ok, seconds=25):
-    tmp = tempfile.mkdtemp(prefix="rfmap_test_")
+    tmp = tempfile.mkdtemp(prefix="nt_test_")
     try:
         port = _free_port()
         sdr_kind = "sdrplay" if radio_ok else "sim"
-        cmd = [_python_exe(), "-u", os.path.join(HERE, "rf_logger.py"), "--gps", "sim", "--sdr", sdr_kind,
+        cmd = [_python_exe(), "-u", os.path.join(HERE, "nt_logger.py"), "--gps", "sim", "--sdr", sdr_kind,
                "--outdir", tmp, "--settings", os.path.join(tmp, "s.json"), "--port", str(port),
                "--local-only", "--name", "Self-test", "--sim-speed", "20"]
         kw = {"creationflags": 0x08000000} if C.IS_WIN else {}
@@ -373,14 +373,14 @@ def main():
             print(line, flush=True)
 
     if not a.json:
-        print("RF Noise Map full test - about one minute. Please wait...\n", flush=True)
+        print("RFI Trail full test - about one minute. Please wait...\n", flush=True)
     r = run_all(emit, a.gps_wait, a.iphone, a.no_drive)
     if a.json:
         print(json.dumps(r.items))
     if a.report:
         try:
             with open(a.report, "w", encoding="utf-8") as f:
-                f.write(f"RF Noise Map full test  {time.strftime('%Y-%m-%d %H:%M:%S')}  version {C.VERSION}\n\n")
+                f.write(f"RFI Trail full test  {time.strftime('%Y-%m-%d %H:%M:%S')}  version {C.VERSION}\n\n")
                 f.write("\n".join(lines) + "\n")
         except OSError:
             pass

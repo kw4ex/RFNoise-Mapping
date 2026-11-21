@@ -9,12 +9,30 @@ and the frequencies BEFORE a drive. With the Hermes Lite 2 all channels are live
 import threading
 import time
 
-import rfmap_log as L
+import nt_log as L
 
 IDLE_STOP_S = 180         # free the radio when the browser stops asking for pictures (never during a recording)
 
 
 class SlicePreview:
+    @property
+    def warn(self):
+        return getattr(self, "_warn", {})
+
+    @warn.setter
+    def warn(self, value):
+        """Whenever a slot's message changes it is also written to the program log (so it can be read without the screen)."""
+        value = value or {}
+        seen = getattr(self, "_warn_logged", {})
+        for slot, msg in value.items():
+            if seen.get(slot) != msg:
+                try:
+                    L.warn("Slot %s: %s" % (slot, msg))
+                except Exception:
+                    pass
+        self._warn_logged = dict(value)
+        self._warn = value
+
     def __init__(self):
         self.lock = threading.Lock()
         self.thread = None
@@ -25,14 +43,15 @@ class SlicePreview:
         self.health = {}
         self.cfg = {}
         self.warn = {}
+        self.warn_base = {}
 
     def start(self, practice, channels, hl2_ip="", hl2_rate=96000, gain=None):
-        import rf_logger as RL
+        import nt_logger as RL
         self.stop()
         gain = gain or {}
         settings = {"channels": channels, "if_gain_db": gain.get("if_gain_db", 40),
                     "rf_gain_state": gain.get("rf_gain_state", 0), "hl2_gain_db": gain.get("hl2_gain_db", 15), "view_speed": gain.get("view_speed", "normal"),
-                    "rtl_gain_db": gain.get("rtl_gain_db") or {}}
+                    "rtl_gain_db": gain.get("rtl_gain_db") or {}, "cat_radios": gain.get("cat_radios") or []}
         try:
             if practice:
                 sdr = RL.SimSdr()
@@ -45,7 +64,7 @@ class SlicePreview:
         with RL.PAN_FRAME["lock"]:
             RL.PAN_FRAME["all"] = {}
         import hl2_audio
-        import rfmap_common as C
+        import nt_common as C
         with self.lock:
             self.cfg = settings
             self.running = True
@@ -55,6 +74,7 @@ class SlicePreview:
             self.sdr = sdr
             bad = getattr(sdr, "failed", {}) or {}          # a radio that would not open only takes down its own slots
             self.warn = {c.get("slot"): bad[c.get("radio")] for c in channels if c.get("slot") and c.get("radio") in bad}
+            self.warn_base = dict(self.warn)
         hl2_audio.SND.attach(lambda ch: RL.hl2_lookup(sdr, self.cfg.get("channels", []), ch),
                              C.sub_dir("Recordings"))
         self.thread = threading.Thread(target=self._loop, args=(sdr,), name="slices", daemon=True)
@@ -80,7 +100,7 @@ class SlicePreview:
         self.thread = None
 
     def get(self):
-        import rf_logger as RL
+        import nt_logger as RL
         self.last_poll = time.time()
         with RL.PAN_FRAME["lock"]:
             fr = [RL.PAN_FRAME["all"][k] for k in sorted(RL.PAN_FRAME["all"])]
@@ -96,7 +116,7 @@ class SlicePreview:
             return False
 
     def _loop(self, sdr):
-        import rf_logger as RL
+        import nt_logger as RL
         try:
             while self.running:
                 if time.time() - self.last_poll > IDLE_STOP_S and not self._recording():
@@ -112,6 +132,10 @@ class SlicePreview:
                     for (k, c), (_lv, _t, fr) in zip(act, res):
                         if fr:
                             RL.publish_spectrum(fr[0], fr[1], fr[2], c["mhz"] * 1e6, c["bw_khz"] * 1e3, fr[3], k, c.get("radio", ""))
+                        elif _lv == _lv and str(c.get("radio", "")).startswith("cat"):        # a CAT radio: a flat line at its meter level
+                            RL.publish_meter(_lv, c["mhz"] * 1e6, c["bw_khz"] * 1e3, k, c.get("radio", ""))
+                    if hasattr(sdr, "slot_notes"):                                           # a CAT radio says why it gave no reading
+                        self.warn = {**getattr(self, "warn_base", {}), **sdr.slot_notes([c for _, c in act])}
                     time.sleep({"smooth": 0.004, "light": 0.15}.get(cfg.get("view_speed"), 0.03))      # picture speed (a runtime choice)
                 else:
                     for k, ch in act:

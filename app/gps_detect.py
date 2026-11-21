@@ -9,7 +9,7 @@ What it does, in plain words:
      hears real lines like that, it has found the puck AND the right speed.
 
 Run it by itself:      python gps_detect.py
-or press 'Find my GPS' in the RF Noise Map window.
+or press 'Find my GPS' in the RFI Trail window.
 """
 
 import sys
@@ -172,7 +172,7 @@ def find_gps(budget_s=60, listen=2.5, progress=None, only_port=None):
         note = f"Found a GPS on {f['port']} at speed {f['baud']}, {fixtxt}."
     elif busy:
         note = ("Port(s) " + ", ".join(busy) + " are in use by another program, so I could not listen. "
-                "Close any other GPS or mapping program (and RF Noise Map's own logging), "
+                "Close any other GPS or mapping program (and RFI Trail's own logging), "
                 "or unplug the puck, wait 5 seconds and plug it in again.")
     else:
         note = ("No GPS was heard on: " + (", ".join(tried) if tried else "any port") + ". "
@@ -182,10 +182,10 @@ def find_gps(budget_s=60, listen=2.5, progress=None, only_port=None):
 
 
 def save_to_settings(port, baud):
-    """Remember the GPS in RF Noise Map's settings so the panel is already set up."""
+    """Remember the GPS in RFI Trail's settings so the panel is already set up."""
     import json
     import os
-    import rfmap_common as C
+    import nt_common as C
     path = os.path.join(C.sub_dir("Settings"), "config.json")
     cfg = {}
     try:
@@ -211,7 +211,7 @@ def main():
     if res["found"] and "--save" in sys.argv:
         try:
             p = save_to_settings(res["found"][0]["port"], res["found"][0]["baud"])
-            print(f"Saved to RF Noise Map's settings ({p}). The panel will already be set to USB GPS.")
+            print(f"Saved to RFI Trail's settings ({p}). The panel will already be set to USB GPS.")
         except Exception as e:
             print("Could not save the settings:", e)
     return 0 if res["found"] else 1

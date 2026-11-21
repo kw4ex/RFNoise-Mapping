@@ -1,0 +1,30 @@
+NOISE TRAIL __VER__ for Windows  -  START HERE
+==============================================
+
+Find where radio noise (power lines, poles, noisy buildings) is strongest: drive a route with a radio and a GPS,
+and the program draws the readings as coloured dots on a street map.
+
+TO INSTALL (about 5 minutes, internet needed)
+  1. Right-click the zip and choose  Extract All.  Keep  Install_RFI_Trail_Windows.bat  and the  app  folder
+     side by side.
+  2. Double-click  Install_RFI_Trail_Windows.bat.
+     If Windows says "Windows protected your PC": click  More info,  then  Run anyway.
+  3. Answer the questions (Y or n; pressing Enter means yes). No administrator password is needed.
+     Press Enter at the folder question to use C:\RadioScripts.
+  4. When it says DONE, double-click the "RFI Trail" icon on your Desktop.
+
+FIRST TRY (no radio needed)
+  (A red PRACTICE MODE banner means the radios, GPS and sound are pretend. Press "Turn practice off" before a real drive.)
+  In the page that opens press  Settings,  then  "Try a practice drive + map".
+
+ABOUT
+  RFI Trail is the successor to RF Noise Map, designed and tested on the air by KW4EX.
+  With thanks to Jeff Stuparits, W4DD, whose noise-mapping program and generous help inspired it.
+
+NEED HELP?
+  - In the program, point at anything and press the ? key (or F1) for a short explanation.
+  - The "Help & guide" button at the top of the program opens the full guide. A printable copy is in this
+    download: RFI_Trail_User_Guide.pdf (and RFI_Trail_Help.html).
+  - README_Windows.txt has the details (radios, firewall, updating, removing, problems).
+  - NOTE: this Windows installer is new and has not yet been tried on a real Windows PC. If a step fails it says
+    what happened; please send  Logs\install_log.txt  (in the install folder) to KW4EX.

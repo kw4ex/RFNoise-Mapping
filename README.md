@@ -1,112 +1,57 @@
-# RFNoise-Mapping
+# RFI Trail
 
-Find power-line and other radio noise by driving a route.
+Find power-line and other radio noise (RFI, radio-frequency interference) by driving a route.
 
-Up to four software-defined radios (an **SDRplay RSP1**, a **Hermes Lite 2**, and low-price **RTL-SDR dongles**, in any mix) and a **GPS** log the signal level on up to four frequencies about every 10 feet. The program then draws a **street map of colored dots, blue (weak) to red (strong)**, so you can see where the noise is loudest and drive straight to it. Live panadapters, one per frequency, let you see and hear the noise as you drive.
+RFI Trail logs the signal level on up to four frequencies you choose, together with your GPS position, and draws it as colored dots on a street map, so you can see where the noise is loudest and follow it to the source. It works with the radio you already own. RFI Trail is the successor to **RF Noise Map**.
 
-> **Status (1.6.0b):** tested with simulated hardware, and on a Windows 11 PC and a Mac with a real SDRplay RSP1, a real Hermes Lite 2, an **ANAN-7000DLE MkIII** and a GPS. **Not yet confirmed in a long real drive with every radio:** the USB GPS puck, the S-meters and Warning sounds with every radio, **Max speed test** with every radio type, and the new **RTL-SDR dongle support, which has only been tried with simulated dongles**. The Mac version is experimental. Shared as is, with **no warranty. Use at your own risk.** Design and on-air testing by KW4EX. Please report what you find.
->
-> **What is new in 1.6.0:** a much tidier, laptop-friendly screen. Each slot now has its own S-meter with Reset peak, one-line heading, Mute/Listen, Squelch, Record, Zoom, Lock and small pop-up boxes for Gain, Memory and Band view. The top bar is shorter, Drives & maps and Tools open as pop-up windows, and the top row shrinks to fit a narrower window. ANAN slots can now be listened to and recorded, with AGC and Zoom. See [the release notes](docs/release-notes/v1.6.0.md).
->
-> **Since 1.3.0:** up to four radios at once, any radio in any slot (RTL-SDR dongles), a bigger top bar with a hardware line, a separate **Hardware setup** window, **Max speed test**, **S-units** next to every dB value, four large **S-meters**, Hermes Lite 2 auto gain and gain per band, and a new Windows install layout (folder RFNoise_Mapping). See [the 1.4.0 notes](docs/release-notes/v1.4.0.md).
+![The RFI Trail control panel (in Practice mode, with a simulated FlexRadio)](docs/images/panel.png)
 
-![Control panel: route, radios, frequencies](docs/images/panel.png)
+> **Status (2.0.0, a testing release):** shared as is, no warranty, use at your own risk. Tested on a Windows 11 PC and an Apple-silicon MacBook with a real **ANAN-7000DLE MkIII** and a real **FLEX-6700** (and, in the RF Noise Map versions, a real SDRplay RSP1 and Hermes Lite 2). **RTL-SDR dongles and CAT radios (Icom, Yaesu, Kenwood, Elecraft) have been tried only against simulated radios.** A full real-world noise-hunting drive is the next milestone. Reports are welcome on the [Issues](../../issues) page.
 
-**New: [The Story of RF Noise Map](docs/The-Story-of-RF-Noise-Map.md)** ([download as PDF](docs/guides/The-Story-of-RF-Noise-Map.pdf)) — the idea, why distance, speed, several frequencies and a panadapter matter for finding noise, the problems we hit along the way, and what the product does today (with its limits). Inspired by the noise-hunting work of **Jeff Stuparits, W4DD**.
-
-## What it does
-
-- Reads up to **4 frequencies** you choose (for example 3.8 MHz, 7.1 MHz, 14.2 MHz, 50.1 MHz).
-- Logs a reading about every **10 feet** while you drive, with the position from your GPS.
-- Draws a **Leaflet street map**. Each dot is a reading: **blue = weak, red = strong**. Pick which frequency to look at. Ten backgrounds (street, satellite, terrain, topo, USGS, grey, dark, none), switchable **power lines and poles**, **heat glow**, a second frequency as rings, **drive replay**, and **Street View / navigate** links on every dot.
-- **RTL-SDR dongles (new in 1.4.0, untested on real dongles):** up to four low-price USB dongles (for example the RTL-SDR Blog V3). Any dongle can serve any of the four slots, and dongles read at the same time. Find my dongles, a gain slider per dongle, and automatic direct sampling for HF on the V3. See the guide.
-- **Hermes gain help:** an optional **Auto gain (listening only)** that backs off on overload, **Gain per band** that remembers your gain for each band, and a **Hermes picture** speed (Smooth / Normal / Light) you can change while the program runs.
-- Has a **practice mode** with pretend radio and GPS, so you can try everything at home.
-- Every frequency slot is a full **panadapter**: a live spectrum and waterfall of the band with a built-in receiver (AM, SAM, USB, LSB, CW, narrow and broadcast FM) so you can see and hear signals and pick frequencies to measure. (New, untested on the road.)
-- Works with the **SDRplay RSP1** (USB), the **Hermes Lite 2** and the **ANAN** (network cable), RTL-SDR dongles, or **several at once**: each of the four frequency slots picks which radio measures it. The Hermes Lite 2's receivers all run at the same time, so its frequencies are read at the same instant; the SDRplay covers VHF, airband and 70 cm. (Hermes Lite 2 support is new: tested against a simulated radio, not yet on a real one.)
-- Shows **four large slots**, stacked one under the other: each frequency is its own panadapter with a **waterfall**, labelled Slot 1-4 (a Compact view fits all four on one screen; **Pop out** opens one in its own tab). Each slot has a **Radio** chooser (**Off**, **Hermes**, **ANAN**, **SDRplay** or **RTL-SDR**), so any number of slots can be used. Hermes slots are always live and have sound and WAV recording even while driving. The SDRplay has one tuner, so one SDRplay slot at a time is **Live** (press its **Live** button) with every feature - centre and width of view, all modes, sound, recording, squelch, attenuation and auto gain - while the other SDRplay slots keep their settings and last picture. Controls a radio does not have are hidden.
-- Every slot can be **tuned on the spot**: type a frequency (in the slot or in the readings table - both change together), use the - / + buttons, the mouse wheel or the arrow keys, click a signal or a **known-frequency marker** (CB, WWV, calling frequencies...) on the picture, or use **Jump to band**; **Lock** a slot so it cannot change by accident; save and recall **memory frequencies** shared by all slots; set the filter, squelch and gain; and grab the **dB scale** with the mouse to move it, like Thetis or SmartSDR.
-- A **drive bar** under the title keeps Start / Stop, Pause, **Mark spot**, big **speed**, the **real dot spacing at your speed**, a GPS and data **health strip with an alarm**, an optional **noise tone**, a **live track map** and a passenger **car mode** always in view, with a one-press **Quick map**. Maps can be limited to chosen **slots, radios, frequencies, speeds or levels**, mark **flat channels**, and list **places where several frequencies rise together** (a strong sign of one noise source).
-- **Pause recording** at a traffic light: no dots are saved and every slot goes back to a full live picture (an SDRplay slot shows only its latest reading while mapping, because it must retune between frequencies). **Pause automatically** does it by itself after you have not moved for a number of seconds, and resumes when you move.
-- Saves every reading with its time to the millisecond, so a map can be made with **one dot every X feet** worked out from the clock, whatever speed you drove.
-- A **Close program** button sits at the top of the panel; if a drive is being recorded it asks first, then saves the drive and closes. The panel shows its version number, and warns you if new program files were installed while an older copy is still running.
-- Has built-in checks: **Health check**, **Find my GPS** and a one-minute **Full test**.
-
-![Example map (practice data)](docs/images/map-example.png)
-
-*The map above uses practice data, not a real drive.*
-
-![Slots 1-4: live panadapters with waterfalls](docs/images/slices.png)
-
-*Slots 1-4: a full panadapter with a waterfall per frequency, each with its own radio, tuning, gain, grab-to-move dB scale, volume, recording and Pop out. (Simulated radio shown.)*
-
-![The slices in their own tab, 2x2, for a second screen or full screen](docs/images/slices-fulltab.png)
-
-*"Open in its own tab" shows only the four slots, large, with a Full screen button - handy on a second screen in the car.*
-
-## How it works
-
-1. The **radio** (SDRplay RSP1, Hermes Lite 2, RTL-SDR dongles, or a mix, as you choose for each frequency) measures signal strength on each of your frequencies.
-2. The **GPS** (a USB puck, or an iPhone running the GPS2IP app) says where you are.
-3. The **logger** pairs each reading with a position and saves a CSV file in your drive folder.
-4. The **map maker** turns the CSV into a map (HTML file) you open in any web browser. Zoom in on the red spots.
-
-You control it from a simple page in your browser (the "control panel"). It runs on your own computer; nothing is sent over the internet except the map tiles.
+**Read the story:** [The Story of RFI Trail](docs/The-Story-of-RFI-Trail.md) ([PDF](docs/guides/The-Story-of-RFI-Trail.pdf)): the idea, the road bumps, and what it does today. **User guide:** [PDF](docs/guides/RFI_Trail_User_Guide.pdf) (it is also built into the program: press **Help & guide**).
 
 ## Download and install
 
-You do **not** need a GitHub account.
+Get the newest zip from the [**Releases**](../../releases) page.
 
-### Windows (main version, Windows 10 and 11)
+**Windows 10 / 11**
+1. Download `RFI_Trail_Windows_v2.0.0.zip` and unzip it.
+2. Double-click `Install_RFI_Trail_Windows.bat`. It tells you what it is about to do before each step, and the usual answer is just Enter.
+3. At the end, say yes to the firewall question if you use a network radio (ANAN, Hermes Lite 2, FlexRadio).
 
-1. Go to the [**Releases** page](../../releases) and open the newest version at the top of the list (**v1.6.0b**).
-2. Under **Assets**, click **Install_RFNoise_Windows.bat**. Your browser saves it, normally in **Downloads**. (If it warns that the file may be harmful, choose **Keep**.)
-3. Double-click it. If Windows says "Windows protected your PC", click **More info**, then **Run anyway**.
-4. Answer the short questions. It finds (or installs) the right Python, installs the helpers, finds your GPS, and puts icons on your Desktop. Suggested folder: `C:\RadioScripts`.
-5. Plug in the radio and GPS, and say **yes** to the full test at the end.
+**Mac**
+1. Download `RFI_Trail_Mac_v2.0.0.zip` and unzip it.
+2. Open the `mac` folder and double-click `Install_RFI_Trail.command`. (If macOS objects, right-click it and choose Open.)
 
-**Do not click "Source code (zip)" or "Source code (tar.gz)".** Those are for programmers.
+First try: press **Settings**, then **Try a practice drive + map**. No radio is needed.
 
-For the real radio you also need **SDRplay API** and **PothosSDR** from their own websites; the installer explains it. Practice mode needs neither.
+## What it does
 
-### Mac (experimental)
+- Logs up to **four frequencies** at once, saved **by distance** (for example every 10 feet) **or by time**, each reading timed to the millisecond, so a map can show one dot every X feet of route whatever speed you drove.
+- Draws a **street map** of colored dots (blue = weak, red = strong), exports to **Google Earth (.kml)**, and keeps backups.
+- Every frequency slot is a full **panadapter** (live spectrum and waterfall) with a built-in receiver (AM, SAM, USB, LSB, CW, narrow FM): click a signal to tune it, listen, record audio, and see its S-meter.
+- **Your radios, your mix.** SDRplay RSP1, Hermes Lite 2, ANAN, FlexRadio 6000/8000, RTL-SDR dongles, and CAT radios (Icom, Yaesu, Kenwood, Elecraft) in Follow (read only) or Control mode. Each slot picks its own radio; only radios that a slot uses are ever opened.
+- **Hardware setup** window with a radio scan, a "Ready to drive?" check, saved setups and per-slot calibration.
+- **Practice mode** with a pretend radio and GPS, and a loud banner whenever it is on.
+- **Context help**: point at anything and press **?** (or F1).
+- GPS from a USB puck or an iPhone (the GPS2IP app).
 
-**Hermes Lite 2 on a Mac (network changes):** plug the radio into a USB-to-Ethernet adapter and leave **Wi-Fi on**. Wait about 30 seconds until **System Settings > Network** shows the adapter with a green dot and a self-assigned address starting **169.254** (normal; keep *Configure IPv4: Using DHCP*, do not type an address). Allow **Local Network** access if macOS asks. Since 1.3.0b the program searches for the radio out of every network port, so nothing else needs changing. The program opens in **Google Chrome** (Safari holds the sound back); the *Open the program in* setting changes that. Full steps are in the guide and in [mac/README_Mac.txt](mac/README_Mac.txt).
+## Radio drivers
 
-1. On the Releases page, click **RFNoise_Mac_v1.6.0b.zip** under Assets. Double-click it in Downloads to unzip. Keep the `mac` and `app` folders together.
-2. Open the `mac` folder, right-click **Install_RFNoise.command**, choose **Open**, then **Open** again.
-3. Follow the steps in the window. See [mac/README_Mac.txt](mac/README_Mac.txt).
+Hermes Lite 2, ANAN and FlexRadio need no driver (on Windows the installer offers to allow their network data through the firewall). An SDRplay needs the SDRplay API (and PothosSDR on Windows) from their own sites; see the guide. Only one program can use a radio at a time, so close Thetis, SDR Console and similar first.
 
-### Full guide
+## Credits and history
 
-The **Install and User Guide (PDF)** is here: [docs/guides/RFNoise-Mapping-guide.pdf](docs/guides/RFNoise-Mapping-guide.pdf). It is also built into the program (**Help & guide** button).
+Designed and tested on the air by **KW4EX**.
 
-## If something does not work
+**With thanks to Jeff Stuparits, W4DD**, whose own noise-mapping program and generous help, to the author and to many other hams, inspired this one and many of its ideas.
 
-- **Health check** button: tells you in plain words what is missing (Python, radio library, radio, GPS).
-- **Find my GPS** button: finds a USB GPS puck and its speed by itself.
-- **Full test** (`Test_Everything.bat`): checks everything in about a minute, with a pretend drive and a map.
-- **Radio or GPS busy:** only one program can use the radio or a GPS port at a time. The program closes its own leftovers, and lists other SDR or GPS programs (SDRuno, SDRconnect, SDR Console, HDSDR, u-center and similar) with a button to close them. Nothing else is closed without your OK.
+RFI Trail grew from **RF Noise Map** (versions 1.x), which was published in this repository. The last RF Noise Map files remain available under the tag `rfnoise-mapping-final-1.6.0b`, and its release notes are in [docs/legacy](docs/legacy/). An earlier test version of RFI Trail was called "Noise Trail"; the installers move its data across for you.
 
-## Folders in this repository
+## Not made or approved by
 
-| Folder | What is in it |
-|---|---|
-| `app/` | The program (Python) and the control panel |
-| `installer-src/` | Source used to build `Install_RFNoise_Windows.bat` |
-| `mac/` | Mac installer (experimental) |
-| `docs/guides/` | Install and User Guide (PDF) |
-| `docs/release-notes/` | What changed in each version |
-| `docs/images/` | Screenshots |
+SDRplay, Apple, Microsoft, FlexRadio, Apache Labs, Icom, Yaesu, Kenwood, Elecraft, or any other radio maker.
 
-## No warranty
+## License
 
-Shared by one radio operator, "as is", with **no warranty**. Use at your own risk. Always drive safely: let a passenger watch the screen, or stop to look.
-
-Design and on-air testing by **KW4EX**.
-
-Not made, approved or supported by SDRplay, Elecraft, FlexRadio, Thetis, Zeus or NereusSDR. Those names belong to their owners.
-
-## Licence
-
-[MIT](LICENSE) - Copyright (c) 2026 KW4EX
+[MIT](LICENSE). Free to use and share.

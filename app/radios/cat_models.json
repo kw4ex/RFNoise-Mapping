@@ -1,0 +1,1184 @@
+{
+ "_about": "Radios that RFI Trail can read over a USB/serial CAT cable. One entry per model. To add a radio of a family that is already supported, copy a similar entry and change the id, name, address / digits and the meter table. 'meter' is a list of [raw reading, dB relative to S9] pairs; readings between two pairs are joined by a straight line. Sources: the makers' CAT / CI-V reference manuals for the commands, and the open-source Hamlib project for the meter tables. 'verified' stays false until someone has checked the entry against the real radio.",
+ "dialects": {
+  "icom_civ": "Icom CI-V binary frames. Frequency: command 03 (read) / 05 (set). S-meter: command 15 02, two BCD digits pairs 0000-0255.",
+  "text_cat": "Text commands ending in a semicolon (Kenwood, Elecraft, newer Yaesu). Frequency: FA; (read) / FAnnnnnnnnn; (set). S-meter: a short read command such as SM0;",
+  "flex_api": "FlexRadio SmartSDR network API (calibrated dBm from the radio's own LEVEL meter)"
+ },
+ "baud_choices": [
+  4800,
+  9600,
+  19200,
+  38400,
+  57600,
+  115200
+ ],
+ "models": [
+  {
+   "id": "ic7300",
+   "maker": "Icom",
+   "name": "IC-7300",
+   "dialect": "icom_civ",
+   "civ_addr": "0x94",
+   "baud": 19200,
+   "meter": [
+    [
+     0,
+     -54
+    ],
+    [
+     10,
+     -48
+    ],
+    [
+     30,
+     -36
+    ],
+    [
+     60,
+     -24
+    ],
+    [
+     90,
+     -12
+    ],
+    [
+     120,
+     0
+    ],
+    [
+     241,
+     64
+    ]
+   ],
+   "source": "Icom IC-7300 CI-V reference (0000=S0, 0120=S9, 0241=S9+60); Hamlib IC7300_STR_CAL",
+   "verified": false,
+   "notes": "In the radio: MENU > SET > Connectors > CI-V: set CI-V Address 94h, CI-V USB Port 'Unlink from [REMOTE]', and CI-V USB Baud Rate to match. Turn CI-V Transceive OFF."
+  },
+  {
+   "id": "ic705",
+   "maker": "Icom",
+   "name": "IC-705",
+   "dialect": "icom_civ",
+   "civ_addr": "0xA4",
+   "baud": 19200,
+   "meter": [
+    [
+     0,
+     -54
+    ],
+    [
+     10,
+     -48
+    ],
+    [
+     30,
+     -36
+    ],
+    [
+     60,
+     -24
+    ],
+    [
+     90,
+     -12
+    ],
+    [
+     120,
+     0
+    ],
+    [
+     241,
+     64
+    ]
+   ],
+   "source": "Icom IC-705 CI-V reference; Hamlib IC705_STR_CAL",
+   "verified": false,
+   "notes": "Set CI-V Address A4h, and CI-V Transceive OFF, in MENU > SET > Connectors."
+  },
+  {
+   "id": "ic7610",
+   "maker": "Icom",
+   "name": "IC-7610",
+   "dialect": "icom_civ",
+   "civ_addr": "0x98",
+   "baud": 19200,
+   "meter": [
+    [
+     0,
+     -54
+    ],
+    [
+     11,
+     -48
+    ],
+    [
+     21,
+     -42
+    ],
+    [
+     34,
+     -36
+    ],
+    [
+     50,
+     -30
+    ],
+    [
+     59,
+     -24
+    ],
+    [
+     75,
+     -18
+    ],
+    [
+     93,
+     -12
+    ],
+    [
+     103,
+     -6
+    ],
+    [
+     124,
+     0
+    ],
+    [
+     145,
+     10
+    ],
+    [
+     160,
+     20
+    ],
+    [
+     183,
+     30
+    ],
+    [
+     204,
+     40
+    ],
+    [
+     222,
+     50
+    ],
+    [
+     246,
+     60
+    ]
+   ],
+   "source": "Icom IC-7610 CI-V reference; Hamlib IC7610_STR_CAL",
+   "verified": false,
+   "notes": "CI-V Address 98h. Turn CI-V Transceive OFF."
+  },
+  {
+   "id": "ic9700",
+   "maker": "Icom",
+   "name": "IC-9700 (VHF/UHF)",
+   "dialect": "icom_civ",
+   "civ_addr": "0xA2",
+   "baud": 19200,
+   "meter": [
+    [
+     0,
+     -54
+    ],
+    [
+     120,
+     0
+    ],
+    [
+     241,
+     60
+    ]
+   ],
+   "source": "Icom IC-9700 CI-V reference (0000=S0, 0120=S9, 0241=S9+60 only; straight line between)",
+   "verified": false,
+   "notes": "CI-V Address A2h. Reads the main receiver."
+  },
+  {
+   "id": "ic7100",
+   "maker": "Icom",
+   "name": "IC-7100",
+   "dialect": "icom_civ",
+   "civ_addr": "0x88",
+   "baud": 19200,
+   "meter": [
+    [
+     0,
+     -54
+    ],
+    [
+     120,
+     0
+    ],
+    [
+     241,
+     60
+    ]
+   ],
+   "source": "Icom CI-V reference (S0 / S9 / S9+60 points only); default address from Hamlib",
+   "verified": false,
+   "notes": "CI-V Address 88h."
+  },
+  {
+   "id": "ic7600",
+   "maker": "Icom",
+   "name": "IC-7600",
+   "dialect": "icom_civ",
+   "civ_addr": "0x7A",
+   "baud": 19200,
+   "meter": [
+    [
+     0,
+     -54
+    ],
+    [
+     120,
+     0
+    ],
+    [
+     241,
+     60
+    ]
+   ],
+   "source": "Icom CI-V reference (S0 / S9 / S9+60 points only); default address from Hamlib",
+   "verified": false,
+   "notes": "CI-V Address 7Ah."
+  },
+  {
+   "id": "ft991a",
+   "maker": "Yaesu",
+   "name": "FT-991 / FT-991A",
+   "dialect": "text_cat",
+   "freq_digits": 9,
+   "baud": 38400,
+   "meter_cmd": "SM0;",
+   "meter_prefix": "SM0",
+   "meter": [
+    [
+     0,
+     -54
+    ],
+    [
+     12,
+     -48
+    ],
+    [
+     27,
+     -42
+    ],
+    [
+     40,
+     -36
+    ],
+    [
+     55,
+     -30
+    ],
+    [
+     65,
+     -24
+    ],
+    [
+     80,
+     -18
+    ],
+    [
+     95,
+     -12
+    ],
+    [
+     112,
+     -6
+    ],
+    [
+     130,
+     0
+    ],
+    [
+     150,
+     10
+    ],
+    [
+     172,
+     20
+    ],
+    [
+     190,
+     30
+    ],
+    [
+     220,
+     40
+    ],
+    [
+     240,
+     50
+    ],
+    [
+     255,
+     60
+    ]
+   ],
+   "source": "Yaesu FT-991A CAT Operation Reference (FA, SM0); Hamlib FT991_STR_CAL",
+   "verified": false,
+   "notes": "The baud rate must match MENU 031 CAT RATE in the radio (the factory setting is 4800)."
+  },
+  {
+   "id": "ft891",
+   "maker": "Yaesu",
+   "name": "FT-891",
+   "dialect": "text_cat",
+   "freq_digits": 9,
+   "baud": 4800,
+   "meter_cmd": "SM0;",
+   "meter_prefix": "SM0",
+   "meter": [
+    [
+     0,
+     -54
+    ],
+    [
+     12,
+     -48
+    ],
+    [
+     27,
+     -42
+    ],
+    [
+     40,
+     -36
+    ],
+    [
+     55,
+     -30
+    ],
+    [
+     65,
+     -24
+    ],
+    [
+     80,
+     -18
+    ],
+    [
+     95,
+     -12
+    ],
+    [
+     112,
+     -6
+    ],
+    [
+     130,
+     0
+    ],
+    [
+     150,
+     10
+    ],
+    [
+     172,
+     20
+    ],
+    [
+     190,
+     30
+    ],
+    [
+     220,
+     40
+    ],
+    [
+     240,
+     50
+    ],
+    [
+     255,
+     60
+    ]
+   ],
+   "source": "Yaesu FT-891 CAT Operation Reference Book; Hamlib FT891_STR_CAL",
+   "verified": false,
+   "notes": "The baud rate must match the CAT RATE menu in the radio."
+  },
+  {
+   "id": "ft710",
+   "maker": "Yaesu",
+   "name": "FT-710",
+   "dialect": "text_cat",
+   "freq_digits": 9,
+   "baud": 38400,
+   "meter_cmd": "SM0;",
+   "meter_prefix": "SM0",
+   "meter": [
+    [
+     0,
+     -54
+    ],
+    [
+     12,
+     -48
+    ],
+    [
+     27,
+     -42
+    ],
+    [
+     40,
+     -36
+    ],
+    [
+     55,
+     -30
+    ],
+    [
+     65,
+     -24
+    ],
+    [
+     80,
+     -18
+    ],
+    [
+     95,
+     -12
+    ],
+    [
+     112,
+     -6
+    ],
+    [
+     130,
+     0
+    ],
+    [
+     150,
+     10
+    ],
+    [
+     172,
+     20
+    ],
+    [
+     190,
+     30
+    ],
+    [
+     220,
+     40
+    ],
+    [
+     240,
+     50
+    ],
+    [
+     255,
+     60
+    ]
+   ],
+   "source": "Yaesu FT-710 CAT manual; Hamlib FT710_STR_CAL",
+   "verified": false,
+   "notes": "The baud rate must match the CAT RATE menu in the radio."
+  },
+  {
+   "id": "ftdx10",
+   "maker": "Yaesu",
+   "name": "FTDX10",
+   "dialect": "text_cat",
+   "freq_digits": 9,
+   "baud": 38400,
+   "meter_cmd": "SM0;",
+   "meter_prefix": "SM0",
+   "meter": [
+    [
+     0,
+     -54
+    ],
+    [
+     26,
+     -42
+    ],
+    [
+     51,
+     -30
+    ],
+    [
+     81,
+     -18
+    ],
+    [
+     105,
+     -9
+    ],
+    [
+     130,
+     0
+    ],
+    [
+     157,
+     12
+    ],
+    [
+     186,
+     25
+    ],
+    [
+     203,
+     35
+    ],
+    [
+     237,
+     50
+    ],
+    [
+     255,
+     60
+    ]
+   ],
+   "source": "Yaesu FTDX10 CAT Operation Reference; Hamlib default Yaesu table",
+   "verified": false,
+   "notes": "The baud rate must match the CAT RATE menu in the radio."
+  },
+  {
+   "id": "ftdx101",
+   "maker": "Yaesu",
+   "name": "FTDX101D / FTDX101MP",
+   "dialect": "text_cat",
+   "freq_digits": 9,
+   "baud": 38400,
+   "meter_cmd": "SM0;",
+   "meter_prefix": "SM0",
+   "meter": [
+    [
+     0,
+     -60
+    ],
+    [
+     17,
+     -54
+    ],
+    [
+     25,
+     -48
+    ],
+    [
+     34,
+     -42
+    ],
+    [
+     51,
+     -36
+    ],
+    [
+     68,
+     -30
+    ],
+    [
+     85,
+     -24
+    ],
+    [
+     102,
+     -18
+    ],
+    [
+     119,
+     -12
+    ],
+    [
+     136,
+     -6
+    ],
+    [
+     160,
+     0
+    ],
+    [
+     255,
+     60
+    ]
+   ],
+   "source": "Yaesu FTDX101 CAT Operation Reference; Hamlib FTDX101D_STR_CAL",
+   "verified": false,
+   "notes": "Reads the MAIN receiver. The baud rate must match the CAT RATE menu."
+  },
+  {
+   "id": "ft450d",
+   "maker": "Yaesu",
+   "name": "FT-450 / FT-450D",
+   "dialect": "text_cat",
+   "freq_digits": 8,
+   "baud": 4800,
+   "meter_cmd": "SM0;",
+   "meter_prefix": "SM0",
+   "meter": [
+    [
+     10,
+     -60
+    ],
+    [
+     125,
+     0
+    ],
+    [
+     240,
+     60
+    ]
+   ],
+   "source": "Yaesu FT-450 CAT reference; Hamlib FT450_STR_CAL (three points)",
+   "verified": false,
+   "notes": "Older Yaesu models use 8 digits in the frequency command. The baud rate must match the CAT RATE menu."
+  },
+  {
+   "id": "ts590",
+   "maker": "Kenwood",
+   "name": "TS-590S / TS-590SG",
+   "dialect": "text_cat",
+   "freq_digits": 11,
+   "baud": 115200,
+   "meter_cmd": "SM0;",
+   "meter_prefix": "SM0",
+   "meter": [
+    [
+     0,
+     -60
+    ],
+    [
+     3,
+     -48
+    ],
+    [
+     6,
+     -36
+    ],
+    [
+     9,
+     -24
+    ],
+    [
+     12,
+     -12
+    ],
+    [
+     15,
+     0
+    ],
+    [
+     20,
+     20
+    ],
+    [
+     25,
+     40
+    ],
+    [
+     30,
+     60
+    ]
+   ],
+   "source": "Kenwood TS-590S / TS-590SG PC Control Command Reference (FA, SM0 reads 0000-0030); Hamlib TS590_STR_CAL",
+   "verified": false,
+   "notes": "Over USB the baud rate in the program must match the radio's menu setting for the virtual COM port."
+  },
+  {
+   "id": "ts890",
+   "maker": "Kenwood",
+   "name": "TS-890S",
+   "dialect": "text_cat",
+   "freq_digits": 11,
+   "baud": 115200,
+   "meter_cmd": "SM0;",
+   "meter_prefix": "SM0",
+   "meter": [
+    [
+     0,
+     -54
+    ],
+    [
+     3,
+     -48
+    ],
+    [
+     11,
+     -36
+    ],
+    [
+     19,
+     -24
+    ],
+    [
+     27,
+     -12
+    ],
+    [
+     35,
+     0
+    ],
+    [
+     48,
+     20
+    ],
+    [
+     59,
+     40
+    ],
+    [
+     70,
+     60
+    ]
+   ],
+   "source": "Kenwood TS-890S PC Command Reference; Hamlib TS-890S IARU meter table",
+   "verified": false,
+   "notes": "Uses the IARU (6 dB per S-unit) scale. Set the radio's S-meter type to match if you change it."
+  },
+  {
+   "id": "ts480",
+   "maker": "Kenwood",
+   "name": "TS-480",
+   "dialect": "text_cat",
+   "freq_digits": 11,
+   "baud": 57600,
+   "meter_cmd": "SM0;",
+   "meter_prefix": "SM0",
+   "meter": [
+    [
+     0,
+     -60
+    ],
+    [
+     3,
+     -48
+    ],
+    [
+     5,
+     -36
+    ],
+    [
+     7,
+     -24
+    ],
+    [
+     9,
+     -12
+    ],
+    [
+     11,
+     0
+    ],
+    [
+     14,
+     20
+    ],
+    [
+     17,
+     40
+    ],
+    [
+     20,
+     60
+    ]
+   ],
+   "source": "Kenwood TS-480 command reference; Hamlib TS480_STR_CAL",
+   "verified": false,
+   "notes": "Check the baud rate in the radio's menu."
+  },
+  {
+   "id": "ts2000",
+   "maker": "Kenwood",
+   "name": "TS-2000",
+   "dialect": "text_cat",
+   "freq_digits": 11,
+   "baud": 57600,
+   "meter_cmd": "SM0;",
+   "meter_prefix": "SM0",
+   "meter": [
+    [
+     0,
+     -54
+    ],
+    [
+     3,
+     -48
+    ],
+    [
+     6,
+     -36
+    ],
+    [
+     9,
+     -24
+    ],
+    [
+     12,
+     -12
+    ],
+    [
+     15,
+     0
+    ],
+    [
+     20,
+     20
+    ],
+    [
+     25,
+     40
+    ],
+    [
+     30,
+     60
+    ]
+   ],
+   "source": "Kenwood TS-2000 command reference; Hamlib TS2000_STR_CAL",
+   "verified": false,
+   "notes": "Check the baud rate in the radio's menu."
+  },
+  {
+   "id": "ts990",
+   "maker": "Kenwood",
+   "name": "TS-990S",
+   "dialect": "text_cat",
+   "freq_digits": 11,
+   "baud": 115200,
+   "meter_cmd": "SM0;",
+   "meter_prefix": "SM0",
+   "meter": [
+    [
+     0,
+     -54
+    ],
+    [
+     4,
+     -48
+    ],
+    [
+     11,
+     -36
+    ],
+    [
+     19,
+     -24
+    ],
+    [
+     27,
+     -12
+    ],
+    [
+     35,
+     0
+    ],
+    [
+     70,
+     60
+    ]
+   ],
+   "source": "Kenwood TS-990S PC Control Command Reference; Hamlib TS990S_STR_CAL",
+   "verified": false,
+   "notes": "Reads the main receiver."
+  },
+  {
+   "id": "k3s",
+   "maker": "Elecraft",
+   "name": "K3 / K3S (firmware 4.37 or newer)",
+   "dialect": "text_cat",
+   "freq_digits": 11,
+   "baud": 38400,
+   "meter_cmd": "SMH;",
+   "meter_prefix": "SMH",
+   "meter": [
+    [
+     0,
+     -54
+    ],
+    [
+     5,
+     -48
+    ],
+    [
+     9,
+     -42
+    ],
+    [
+     14,
+     -36
+    ],
+    [
+     22,
+     -30
+    ],
+    [
+     24,
+     -24
+    ],
+    [
+     28,
+     -18
+    ],
+    [
+     33,
+     -12
+    ],
+    [
+     38,
+     -6
+    ],
+    [
+     42,
+     0
+    ],
+    [
+     47,
+     5
+    ],
+    [
+     53,
+     10
+    ],
+    [
+     58,
+     15
+    ],
+    [
+     63,
+     20
+    ],
+    [
+     68,
+     25
+    ],
+    [
+     73,
+     30
+    ],
+    [
+     78,
+     35
+    ],
+    [
+     83,
+     40
+    ],
+    [
+     88,
+     45
+    ],
+    [
+     93,
+     50
+    ],
+    [
+     98,
+     55
+    ],
+    [
+     103,
+     60
+    ]
+   ],
+   "source": "Elecraft K3S/K3/KX3/KX2 Programmer's Reference (FA, SMH high-resolution meter); Hamlib K3_SMH_CAL",
+   "verified": false,
+   "notes": "Set the radio's RS232 baud rate (CONFIG:RS232) to match."
+  },
+  {
+   "id": "kx3",
+   "maker": "Elecraft",
+   "name": "KX3 / KX2 / older K3",
+   "dialect": "text_cat",
+   "freq_digits": 11,
+   "baud": 38400,
+   "meter_cmd": "SM;",
+   "meter_prefix": "SM",
+   "meter": [
+    [
+     0,
+     -54
+    ],
+    [
+     1,
+     -42
+    ],
+    [
+     2,
+     -36
+    ],
+    [
+     3,
+     -24
+    ],
+    [
+     4,
+     -12
+    ],
+    [
+     5,
+     -6
+    ],
+    [
+     6,
+     0
+    ],
+    [
+     7,
+     10
+    ],
+    [
+     8,
+     15
+    ],
+    [
+     9,
+     20
+    ],
+    [
+     10,
+     30
+    ],
+    [
+     11,
+     35
+    ],
+    [
+     12,
+     40
+    ],
+    [
+     13,
+     50
+    ],
+    [
+     14,
+     55
+    ],
+    [
+     15,
+     60
+    ]
+   ],
+   "source": "Elecraft K3S/K3/KX3/KX2 Programmer's Reference (SM); Hamlib K3_SM_CAL",
+   "verified": false,
+   "notes": "Coarse meter (16 steps). Set the radio's RS232 baud rate to match."
+  },
+  {
+   "id": "flex6300",
+   "maker": "FlexRadio",
+   "name": "FLEX-6300",
+   "dialect": "flex_api",
+   "baud": 0,
+   "meter": [],
+   "meter_is_dbm": true,
+   "settle_s": 0.15,
+   "source": "FlexRadio SmartSDR API (TCP 4992, slice and meter status, LEVEL meter in dBm over UDP)",
+   "verified": false,
+   "notes": "No SmartSDR needed in Control mode: the program makes its own panadapter and slice, tunes it, and removes both when it closes. Follow mode only reads a slice that SmartSDR (or another program) already has open. The radio and this computer must be on the same network; allow RFI Trail / Python through the firewall (meters arrive by UDP)."
+  },
+  {
+   "id": "flex6400",
+   "maker": "FlexRadio",
+   "name": "FLEX-6400",
+   "dialect": "flex_api",
+   "baud": 0,
+   "meter": [],
+   "meter_is_dbm": true,
+   "settle_s": 0.15,
+   "source": "FlexRadio SmartSDR API (TCP 4992, slice and meter status, LEVEL meter in dBm over UDP)",
+   "verified": false,
+   "notes": "No SmartSDR needed in Control mode: the program makes its own panadapter and slice, tunes it, and removes both when it closes. Follow mode only reads a slice that SmartSDR (or another program) already has open. The radio and this computer must be on the same network; allow RFI Trail / Python through the firewall (meters arrive by UDP)."
+  },
+  {
+   "id": "flex6400m",
+   "maker": "FlexRadio",
+   "name": "FLEX-6400M",
+   "dialect": "flex_api",
+   "baud": 0,
+   "meter": [],
+   "meter_is_dbm": true,
+   "settle_s": 0.15,
+   "source": "FlexRadio SmartSDR API (TCP 4992, slice and meter status, LEVEL meter in dBm over UDP)",
+   "verified": false,
+   "notes": "No SmartSDR needed in Control mode: the program makes its own panadapter and slice, tunes it, and removes both when it closes. Follow mode only reads a slice that SmartSDR (or another program) already has open. The radio and this computer must be on the same network; allow RFI Trail / Python through the firewall (meters arrive by UDP)."
+  },
+  {
+   "id": "flex6500",
+   "maker": "FlexRadio",
+   "name": "FLEX-6500",
+   "dialect": "flex_api",
+   "baud": 0,
+   "meter": [],
+   "meter_is_dbm": true,
+   "settle_s": 0.15,
+   "source": "FlexRadio SmartSDR API (TCP 4992, slice and meter status, LEVEL meter in dBm over UDP)",
+   "verified": false,
+   "notes": "No SmartSDR needed in Control mode: the program makes its own panadapter and slice, tunes it, and removes both when it closes. Follow mode only reads a slice that SmartSDR (or another program) already has open. The radio and this computer must be on the same network; allow RFI Trail / Python through the firewall (meters arrive by UDP)."
+  },
+  {
+   "id": "flex6600",
+   "maker": "FlexRadio",
+   "name": "FLEX-6600",
+   "dialect": "flex_api",
+   "baud": 0,
+   "meter": [],
+   "meter_is_dbm": true,
+   "settle_s": 0.15,
+   "source": "FlexRadio SmartSDR API (TCP 4992, slice and meter status, LEVEL meter in dBm over UDP)",
+   "verified": false,
+   "notes": "No SmartSDR needed in Control mode: the program makes its own panadapter and slice, tunes it, and removes both when it closes. Follow mode only reads a slice that SmartSDR (or another program) already has open. The radio and this computer must be on the same network; allow RFI Trail / Python through the firewall (meters arrive by UDP)."
+  },
+  {
+   "id": "flex6600m",
+   "maker": "FlexRadio",
+   "name": "FLEX-6600M",
+   "dialect": "flex_api",
+   "baud": 0,
+   "meter": [],
+   "meter_is_dbm": true,
+   "settle_s": 0.15,
+   "source": "FlexRadio SmartSDR API (TCP 4992, slice and meter status, LEVEL meter in dBm over UDP)",
+   "verified": false,
+   "notes": "No SmartSDR needed in Control mode: the program makes its own panadapter and slice, tunes it, and removes both when it closes. Follow mode only reads a slice that SmartSDR (or another program) already has open. The radio and this computer must be on the same network; allow RFI Trail / Python through the firewall (meters arrive by UDP)."
+  },
+  {
+   "id": "flex6700",
+   "maker": "FlexRadio",
+   "name": "FLEX-6700",
+   "dialect": "flex_api",
+   "baud": 0,
+   "meter": [],
+   "meter_is_dbm": true,
+   "settle_s": 0.15,
+   "source": "FlexRadio SmartSDR API (TCP 4992, slice and meter status, LEVEL meter in dBm over UDP)",
+   "verified": false,
+   "notes": "No SmartSDR needed in Control mode: the program makes its own panadapter and slice, tunes it, and removes both when it closes. Follow mode only reads a slice that SmartSDR (or another program) already has open. The radio and this computer must be on the same network; allow RFI Trail / Python through the firewall (meters arrive by UDP)."
+  },
+  {
+   "id": "flex8400",
+   "maker": "FlexRadio",
+   "name": "FLEX-8400",
+   "dialect": "flex_api",
+   "baud": 0,
+   "meter": [],
+   "meter_is_dbm": true,
+   "settle_s": 0.15,
+   "source": "FlexRadio SmartSDR API (TCP 4992, slice and meter status, LEVEL meter in dBm over UDP)",
+   "verified": false,
+   "notes": "No SmartSDR needed in Control mode: the program makes its own panadapter and slice, tunes it, and removes both when it closes. Follow mode only reads a slice that SmartSDR (or another program) already has open. The radio and this computer must be on the same network; allow RFI Trail / Python through the firewall (meters arrive by UDP)."
+  },
+  {
+   "id": "flex8600",
+   "maker": "FlexRadio",
+   "name": "FLEX-8600",
+   "dialect": "flex_api",
+   "baud": 0,
+   "meter": [],
+   "meter_is_dbm": true,
+   "settle_s": 0.15,
+   "source": "FlexRadio SmartSDR API (TCP 4992, slice and meter status, LEVEL meter in dBm over UDP)",
+   "verified": false,
+   "notes": "No SmartSDR needed in Control mode: the program makes its own panadapter and slice, tunes it, and removes both when it closes. Follow mode only reads a slice that SmartSDR (or another program) already has open. The radio and this computer must be on the same network; allow RFI Trail / Python through the firewall (meters arrive by UDP)."
+  }
+ ]
+}

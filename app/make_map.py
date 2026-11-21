@@ -2,7 +2,7 @@
 """
 make_map.py - Turn drive logs (CSV) into a single-file street map with colored dots.
 
-You normally do NOT run this yourself: the "Make map" button in the RF Noise Map
+You normally do NOT run this yourself: the "Make map" button in the RFI Trail
 window calls it. Command line use (optional):
     python3 make_map.py "Drives/drive_2026....csv" -o my_map.html
 
@@ -24,12 +24,50 @@ import math
 import os
 import sys
 
-import rfmap_common as C
+import nt_common as C
 from datetime import datetime, timezone
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 STOPS = ["#313695", "#4575b4", "#74add1", "#abd9e9", "#ffffbf", "#fdae61", "#f46d43", "#d73027", "#a50026"]
+
+
+def help_block():
+    """The context help (the ? key and the ? Help button) as one <script> block, for map pages. 0.8.0"""
+    try:
+        with open(os.path.join(HERE, "help_map.js"), encoding="utf-8") as f:
+            data = f.read()
+        with open(os.path.join(HERE, "help_engine.js"), encoding="utf-8") as f:
+            eng = f.read()
+    except OSError:
+        return ""
+    return "<script>/*nt-help*/\n" + data.replace("</script>", "<\\/script>") + "\n" + eng.replace("</script>", "<\\/script>") + "\n</script>"
+
+
+MAP_BIG_CSS = """/*nt-big*/
+@media screen{
+.panel{font-size:16px;font-weight:650;color:#0b1a30}
+#ctl{width:370px}
+#ctl summary{font-size:17px;font-weight:800}
+#ctl label{font-size:16px}
+#ctl .sm{font-size:14.5px;font-weight:650;color:#2c3e50}
+#ctl select,#ctl input{font-size:16px;font-weight:700}
+#ctl input[type=number]{width:72px}
+#info{color:#2c3e50 !important;font-weight:650}
+#barlab,#pbarlab{font-size:14.5px;font-weight:800}
+#hot{width:320px;font-size:16px;max-height:42%}
+#hot div{font-weight:700;padding:3px 0}
+#multi{width:390px;font-size:15.5px;font-weight:650}
+#multi small{color:#1d2b3c;font-size:14.5px;font-weight:650}
+#flat{font-size:14px;font-weight:650}
+h4{font-size:18px;font-weight:850}
+button{font-size:15px;font-weight:750}
+.sw{width:12px;height:12px}
+#multi label{font-size:15px;font-weight:700;color:#0b1a30}
+.leaflet-control-scale-line{font-size:14px;font-weight:800;color:#0b1a30}
+.leaflet-control-attribution{font-size:12px}
+}
+"""
 
 
 def read_vendor(name, mode="r"):
@@ -408,7 +446,7 @@ button{font-size:13px;padding:3px 8px}
   #map{position:relative;inset:auto;height:150mm;width:100%;border:1px solid #888}
   *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 }
-</style></head><body>
+__NT_BIG__</style></head><body>
 <div id="printhdr">
  <h2>__TITLE__</h2>
  <div id="pline"></div>
@@ -491,11 +529,12 @@ const BASES={
  "No background (works offline)":L.layerGroup([])
 };
 let baseName="Street (OpenStreetMap)", baseLayer=null;
-try{ const b=localStorage.getItem("rfmapBase"); if(b&&BASES[b]) baseName=b; }catch(e){}
-function setBase(n){ if(!BASES[n]) return; if(baseLayer) map.removeLayer(baseLayer); baseLayer=BASES[n]; baseLayer.addTo(map); if(baseLayer.bringToBack) baseLayer.bringToBack(); baseName=n; try{localStorage.setItem("rfmapBase",n);}catch(e){} }
+try{ const b=localStorage.getItem("ntBase"); if(b&&BASES[b]) baseName=b; }catch(e){}
+function setBase(n){ if(!BASES[n]) return; if(baseLayer) map.removeLayer(baseLayer); baseLayer=BASES[n]; baseLayer.addTo(map); if(baseLayer.bringToBack) baseLayer.bringToBack(); baseName=n; try{localStorage.setItem("ntBase",n);}catch(e){} }
 const bsel=document.getElementById("basesel");
 Object.keys(BASES).forEach(n=>{const o=document.createElement("option");o.value=o.textContent=n;bsel.appendChild(o);});
 bsel.value=baseName; setBase(baseName); bsel.onchange=()=>setBase(bsel.value);
+function hesc(s){ return String(s==null?"":s).replace(/[&<>"']/g,function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }   // text from notes, drive names and OpenStreetMap must never become page code
 function geoLinks(la,lo){ const q=la.toFixed(6)+","+lo.toFixed(6), a=(u,t)=>'<a target="_blank" rel="noopener" href="'+u+'">'+t+'</a>';
   return '<div style="margin-top:4px">'+a("https://www.google.com/maps/@?api=1&map_action=pano&viewpoint="+q,"Street View")+' &middot; '+
     a("https://www.google.com/maps/dir/?api=1&destination="+q,"Navigate")+' &middot; '+a("https://maps.apple.com/?daddr="+q,"Apple Maps")+'</div>'; }
@@ -625,7 +664,7 @@ document.getElementById("hotmark").onchange=drawHot;
 const markLayer=L.layerGroup().addTo(map);
 MARKS.forEach(m=>{
   const ic=L.divIcon({className:"",html:'<div style="font-size:22px;line-height:22px;text-shadow:0 0 3px #fff,0 0 3px #fff">&#128681;</div>',iconSize:[22,22],iconAnchor:[4,20]});
-  L.marker([m[0],m[1]],{icon:ic}).bindPopup("<b>Mark "+m[2]+"</b>"+(m[3]?"<br>"+m[3].replace(/</g,"&lt;"):"")+"<br>"+(m[4]||"").replace("T"," ").replace("Z"," UTC")+(m[5]?"<br>"+m[5]:"")+geoLinks(m[0],m[1])).addTo(markLayer);
+  L.marker([m[0],m[1]],{icon:ic}).bindPopup("<b>Mark "+m[2]+"</b>"+(m[3]?"<br>"+hesc(m[3]):"")+"<br>"+(m[4]||"").replace("T"," ").replace("Z"," UTC")+(m[5]?"<br>"+hesc(m[5]):"")+geoLinks(m[0],m[1])).addTo(markLayer);
 });
 if(MARKS.length){ const mb=document.createElement("div"); mb.style.marginTop="4px"; mb.innerHTML="&#128681; "+MARKS.length+" spot"+(MARKS.length>1?"s":"")+" marked while driving"; document.getElementById("info").after(mb);
   document.getElementById("phot").insertAdjacentHTML("afterend","<div id='pmarks'><b>Marked spots:</b> "+MARKS.slice(0,8).map(m=>m[2]+") "+(m[3]||"(no note)").replace(/</g,"&lt;")+" at "+m[0].toFixed(5)+", "+m[1].toFixed(5)).join(" &nbsp; ")+"</div>"); }
@@ -667,9 +706,9 @@ async function loadPower(){
   if(!j){ pwMsg.textContent="Could not load power lines (needs internet). Untick and tick again to retry."; return; }
   let nl=0,np=0;
   (j.elements||[]).forEach(e=>{
-    const t=e.tags||{}, info=(t.power||"")+(t.voltage?", "+t.voltage+" V":"")+(t.operator?"<br>"+String(t.operator).replace(/</g,"&lt;"):"");
+    const t=e.tags||{}, info=hesc(t.power||"")+(t.voltage?", "+hesc(t.voltage)+" V":"")+(t.operator?"<br>"+hesc(t.operator):"");
     if(e.type==="way"&&e.geometry){ nl++; L.polyline(e.geometry.map(g=>[g.lat,g.lon]),{color:t.power==="line"?"#e67e00":"#b35900",weight:t.power==="line"?3.5:2.5,dashArray:t.power==="line"?null:"6 4",opacity:0.9}).bindPopup("<b>Power "+info+"</b>").addTo(powerLayer); }
-    else if(e.type==="node"&&e.lat!=null){ np++; L.circleMarker([e.lat,e.lon],{radius:t.power==="tower"?5:3.5,color:"#000",weight:1,fillColor:"#ffd400",fillOpacity:1}).bindPopup("<b>"+(t.power==="tower"?"Tower":"Pole")+"</b>"+(t.voltage?"<br>"+t.voltage+" V":"")+geoLinks(e.lat,e.lon)).addTo(powerLayer); }
+    else if(e.type==="node"&&e.lat!=null){ np++; L.circleMarker([e.lat,e.lon],{radius:t.power==="tower"?5:3.5,color:"#000",weight:1,fillColor:"#ffd400",fillOpacity:1}).bindPopup("<b>"+(t.power==="tower"?"Tower":"Pole")+"</b>"+(t.voltage?"<br>"+hesc(t.voltage)+" V":"")+geoLinks(e.lat,e.lon)).addTo(powerLayer); }
   });
   powerDone=true; pwMsg.textContent=nl+" line"+(nl==1?"":"s")+" and "+np+" pole/tower"+(np==1?"":"s")+" found (OpenStreetMap data: coverage varies, not every pole is mapped).";
 }
@@ -683,7 +722,7 @@ if(window.matchMedia){ const mq=window.matchMedia("print"); const f=e=>{ if(e.ma
   if(mq.addEventListener) mq.addEventListener("change",f); else if(mq.addListener) mq.addListener(f); }
 document.getElementById("print").onclick=doPrint;
 if(location.search.indexOf("print=1")>=0){ setTimeout(doPrint,3500); }   // lets the street tiles load first
-</script></body></html>
+</script>__NT_HELP__</body></html>
 """
 
 
@@ -705,7 +744,7 @@ def build_map(paths, out, title=None, spacing_ft=None, pick="peak", filters=None
         raise ValueError("No readings match those choices (speed / level). Loosen them and try again.")
     groups = group_rows(rows)
 
-    title = title or "RF noise map - " + os.path.basename(paths[0])
+    title = title or "RFI Trail - " + os.path.basename(paths[0])
     if spacing_ft:
         title += "  (one dot per %g ft, %s)" % (float(spacing_ft), "strongest" if pick != "average" else "average")
     if flt:
@@ -728,7 +767,7 @@ def build_map(paths, out, title=None, spacing_ft=None, pick="peak", filters=None
     safe_title = (title.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;"))
 
     html = (HTML.replace("__TITLE__", safe_title)
-                .replace("__LEAFLET_CSS__", css)
+                .replace("__LEAFLET_CSS__", css).replace("__NT_BIG__", MAP_BIG_CSS).replace("__NT_HELP__", help_block())
                 .replace("__LEAFLET_JS__", js.replace("</script>", "<\\/script>"))
                 .replace("__STOPS__", json.dumps(STOPS))
                 .replace("__MARKS__", json.dumps(marks, separators=(",", ":")).replace("</", "<\\/"))
@@ -748,7 +787,7 @@ def _kml_color(hexrgb, alpha="ff"):
     return alpha + b + g + r                      # KML wants aabbggrr
 
 
-def export_kml(paths, out, freq=None, title="RF noise map", spacing_ft=None, pick="peak", filters=None):
+def export_kml(paths, out, freq=None, title="RFI Trail", spacing_ft=None, pick="peak", filters=None):
     """Colored dots for Google Earth. One folder per frequency (or just `freq`)."""
     flt = clean_filters(filters)
     rows = filter_rows(load_rows(paths), flt, "pre")
@@ -805,7 +844,7 @@ def main():
     try:
         if args.kml:
             out = args.out or os.path.splitext(paths[0])[0] + ".kml"
-            export_kml(paths, out, title=args.title or "RF noise map", spacing_ft=args.spacing_ft, pick=args.pick)
+            export_kml(paths, out, title=args.title or "RFI Trail", spacing_ft=args.spacing_ft, pick=args.pick)
             print(f"KML written: {out}")
         else:
             out = args.out or os.path.splitext(paths[0])[0] + "_map.html"

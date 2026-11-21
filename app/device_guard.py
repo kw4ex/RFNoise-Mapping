@@ -6,7 +6,7 @@ Two kinds of programs are handled:
 
   * LEFTOVERS FROM THIS PROGRAM (an old logger or test still running): closed automatically at launch.
   * OTHER PROGRAMS from a fixed list of well-known SDR / GPS programs (SDRuno, SDRconnect, SDR Console,
-    HDSDR, SDRSharp, u-center ...): never closed silently. RF Noise Map shows them in a yellow box and
+    HDSDR, SDRSharp, u-center ...): never closed silently. RFI Trail shows them in a yellow box and
     closes them only when you press the button. It asks them to close politely first.
 
 It never touches the SDRplay API Service (the radio needs that), your browser, or anything not on the list.
@@ -29,7 +29,7 @@ OTHER_SDR_GPS = {
     "gpsd.exe": "gpsd", "gpsd": "gpsd", "sdr_server.exe": "SDR server", "rtl_tcp.exe": "rtl_tcp",
 }
 # scripts that belong to this program (matched on the command line of python processes)
-OWN_SCRIPTS = ("rf_logger.py", "gps_speed_test.py", "diag_radio.py", "full_test.py", "check_setup.py",
+OWN_SCRIPTS = ("nt_logger.py", "gps_speed_test.py", "diag_radio.py", "full_test.py", "check_setup.py",
                "gps_detect.py")
 
 
@@ -81,7 +81,7 @@ def find_blockers():
         cmd = p["cmd"].lower().replace("\\", "/")
         if name.startswith("python") and any(s in cmd for s in OWN_SCRIPTS):
             label = next(s for s in OWN_SCRIPTS if s in cmd)
-            own.append({"pid": p["pid"], "name": p["name"], "label": f"RF Noise Map helper ({label})"})
+            own.append({"pid": p["pid"], "name": p["name"], "label": f"RFI Trail helper ({label})"})
         elif name in OTHER_SDR_GPS:
             other.append({"pid": p["pid"], "name": p["name"], "label": OTHER_SDR_GPS[name]})
     return {"own": own, "other": other}
@@ -165,6 +165,6 @@ if __name__ == "__main__":
         names = describe(b)
         if names:
             print("Programs that may be using the radio or GPS: " + names)
-            print("(RF Noise Map can close them for you: yellow box in its window, or the installer.)")
+            print("(RFI Trail can close them for you: yellow box in its window, or the installer.)")
         else:
             print("No other SDR or GPS programs are open. Good.")

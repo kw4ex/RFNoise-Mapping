@@ -1,32 +1,50 @@
-RF Noise Map - Mac (experimental)
+RFI Trail 2.0.0 - Mac
 ================================================================
 Design and on-air testing by KW4EX. No warranty. Use at your own risk.
 Not made or approved by SDRplay, Apple or any radio maker.
 
-This Mac version has been installed and used on one Apple-silicon MacBook with an SDRplay RSP1.
-It has not yet been tried on an Intel Mac or on a long drive. Reports are welcome (open an issue).
+This Mac version has been used on an Apple-silicon MacBook (ANAN and SDRplay radios).
+It has not yet been tried on an Intel Mac or on a long drive. Reports are welcome: send them to KW4EX.
+
+ABOUT RFI TRAIL
+  RFI Trail is the successor to RF Noise Map (the same program, grown up). It has its own
+  folder (Applications/RFI Trail), its own data folder (~/RFI Trail) and its own ports (8790 and 8775).
+  If you used the earlier test version called "Noise Trail", the installer moves your drives, maps
+  and settings from ~/Noise Trail into ~/RFI Trail for you.
+  With thanks to Jeff Stuparits, W4DD, whose noise-mapping program and generous help inspired it.
+  New: radios are plug-ins. Radios with a CAT/USB cable (Icom, Yaesu, Kenwood, Elecraft)
+  can be added in Hardware setup > "Radios on a CAT cable", in Follow mode (read only) or
+  Control mode (the program tunes the radio), and mixed with dongles, SDRplay and Hermes.
+  FlexRadio 6000/8000 series is added the same way and connects over the
+  network (the SmartSDR interface, TCP 4992): press "Find on network" or type the radio's
+  address. Allow RFI Trail / Python through the Mac firewall (meter readings arrive by UDP).
+  In Control mode the Flex also gives a real spectrum picture, from a panadapter that RFI Trail
+  makes for itself (about 200 kHz wide, centred on the slot). In Follow mode, and for the other CAT
+  radios, the slot shows the level only. Radio audio (listening, recording) and filter controls are not
+  available for CAT/Flex slots yet.
+  Neither the CAT radio table nor the Flex support has been checked on real radios yet.
 
 WHAT YOU NEED
-  - A Mac, an SDRplay receiver, and a GPS (iPhone with the GPS2IP app, or a USB GPS).
+  - A Mac, a radio (SDRplay, Hermes Lite 2, ANAN, FlexRadio, RTL-SDR or a CAT radio), and a GPS (iPhone with the GPS2IP app, or a USB GPS).
   - Internet while installing (it downloads two small helper libraries).
   - For the real radio: the SDRplay API from sdrplay.com and the SoapySDR radio
     library (the installer offers to help). Practice mode and maps need neither.
 
 INSTALL - STEP BY STEP
-  1. Download the Mac zip (RFNoise_Mac_....zip) from the Releases page, Assets list.
-  2. Open Downloads and double-click the zip to unzip it. Keep the folders
+  1. You need the Mac download: RFI_Trail_Mac_v2.0.0 (a folder, or the zip of the same name).
+  2. If it is a zip, open Downloads and double-click it to unzip it. Keep the folders
      "mac" and "app" together.
-  3. Open the "mac" folder. Right-click  Install_RFNoise.command  and choose Open,
+  3. Open the "mac" folder. Right-click  Install_RFI_Trail.command  and choose Open,
      then Open again (first time only).
      If macOS says it "cannot be opened because Apple cannot check it": click Done
      (never "Move to Trash"). Then open System Settings > Privacy & Security, scroll down
-     to the message about Install_RFNoise.command, click "Open Anyway" and enter your
+     to the message about Install_RFI_Trail.command, click "Open Anyway" and enter your
      Mac password. (This only happens for the installer; it clears the warning for the
      other files in the folder, including the uninstaller.)
   4. Read each step in the window and answer y to go on. When it says DONE, an
-     "RF Noise Map" icon is on your Desktop and in Applications.
+     "RFI Trail" icon is on your Desktop and in Applications.
   5. If the file opens in a text editor: open Terminal, type  bash  and a space,
-     drag Install_RFNoise.command into the window, press Return.
+     drag Install_RFI_Trail.command into the window, press Return.
 
 WHAT THE INSTALLER MENU OFFERS (you can run it as often as you like)
   1) Install or update. This also repairs a broken install.
@@ -40,7 +58,7 @@ HERMES LITE 2 ON A MAC (NETWORK SETUP)
     1. Plug a USB-to-Ethernet adapter (or a dock with an Ethernet socket) into the
        Mac. Plug the radio's network cable into it, then power the radio.
     2. LEAVE WI-FI ON. The Mac may have Wi-Fi and the adapter connected at once.
-       Since version 1.3.0b the program searches for the radio out of every
+       The program searches for the radio out of every
        network port, so the order of the connections does not matter.
     3. Wait about 30 seconds. Open System Settings > Network. The adapter is
        listed with a green dot. With the radio connected directly (no router) the
@@ -56,36 +74,39 @@ HERMES LITE 2 ON A MAC (NETWORK SETUP)
        type the radio's address in the box.
   Only one program at a time can use the radio: close Thetis / SDR Console first.
 
-RTL-SDR DONGLES (NEW IN 1.4.0, NOT YET TRIED ON REAL DONGLES)
+RTL-SDR DONGLES (NOT YET TRIED ON REAL DONGLES)
   Up to four USB dongles (for example the RTL-SDR Blog V3), any dongle in any slot.
   In Terminal run:  brew install soapysdr soapyrtlsdr   (no driver swap on a Mac).
   In the program tick "RTL-SDR dongles" under Your radios and press "Find my
   dongles". Give each dongle its own serial number first, one dongle plugged in at
   a time:  rtl_eeprom -s 00000001   then unplug and replug. Use a powered USB hub.
 
+PRACTICE MODE: a red striped banner at the top (and [PRACTICE] in the browser tab) means the radios, GPS and sound are
+  pretend. The tick is remembered between runs: press "Turn practice off" before a real drive.
+
 BROWSER: the program opens in Google Chrome (Safari holds the sound back until the
   page gets a click). To use your normal browser choose it under "Open the program
   in" in the radio settings.
 
 IF SOMETHING GOES WRONG
-  * The installer keeps a log of every run in  ~/RF Noise Map/Logs  (the newest
-    copy is also  ~/RF Noise Map/install_log.txt). When a step fails it says what
+  * The installer keeps a log of every run in  ~/RFI Trail/Logs  (the newest
+    copy is also  ~/RFI Trail/install_log.txt). When a step fails it says what
     the likely cause is, what to do, and gives a web page for more help. It then
     offers to make ONE zip "support file" (logs only, nothing is sent anywhere).
   * While the program runs, any error is written to
-    ~/RF Noise Map/Logs/program_errors.log. In the program window go to
-    Tools > "Show recent problems" or "Make a support file (zip)".
+    ~/RFI Trail/Logs/program_errors.log. In the program window go to
+    Settings > "Show recent problems" or "Make a support file (zip)".
   * Common causes it recognises: missing Apple developer tools, incomplete compiler
     headers, Homebrew permissions, no internet, Rosetta (Intel) mode, a full disk,
     macOS privacy blocks, another copy already running, SDRplay not found.
-  * Send the support file to KW4EX or Claude, or open an issue:
-    https://github.com/kw4ex/RFNoise-Mapping/issues
+  * Send the support file to KW4EX or Claude.
 
 REMOVE IT LATER
-  Right-click  Uninstall_RFNoise.command  > Open (or choose 3 in the installer).
+  Right-click  Uninstall_RFI_Trail.command  > Open (or choose 3 in the installer).
   It shows what is installed and lets you choose: program only (recommended; your
   drives, maps, recordings and logs are kept), program plus data after saving a
   backup zip in your home folder, or everything with no backup. A record is kept
-  in ~/Library/Logs/RFNoiseMap_uninstall.log.
+  in ~/Library/Logs/RFI_Trail_uninstall.log.
 
-The full guide is in the app (Help & guide button) and docs/guides in the repository.
+The full guide is in the app (Help & guide button) and, to print, RFI_Trail_User_Guide.pdf next to the mac folder. In the program, point at anything and press the ? key (or F1)
+for a short explanation of it.

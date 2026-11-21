@@ -16,8 +16,8 @@ import os
 import sys
 import time
 
-import rfmap_common as C
-import rf_logger as RL
+import nt_common as C
+import nt_logger as RL
 
 CANDIDATES_MHZ = [3.7, 7.3, 14.2, 50.2, 88.5, 97.1, 100.1, 107.9, 118.0, 127.0, 146.52, 148.0]
 
@@ -115,9 +115,9 @@ def main():
         print(t)
         out.append(t)
 
-    say("RF Noise Map - switching test")
+    say("RFI Trail - switching test")
     say("=" * 60)
-    import rfmap_log as L
+    import nt_log as L
     L.setup("switchtest")
     settings = copy.deepcopy(RL.DEFAULT_SETTINGS)
     for cand in (os.path.join(C.data_dir(), "Settings", "settings.json"),
@@ -132,7 +132,7 @@ def main():
         sdr = RL.SoapySdr(settings)
     except SystemExit as e:
         say("Could not open the radio: " + str(e).strip())
-        say("Close SDRuno / SDRconnect / SDR Console / HDSDR and RF Noise Map, plug the radio in, and try again.")
+        say("Close SDRuno / SDRconnect / SDR Console / HDSDR and RFI Trail, plug the radio in, and try again.")
         return 1
     try:
         say("Step 1: finding a strong and a quiet frequency (about 20 seconds)...")

@@ -22,8 +22,8 @@ import time
 
 import numpy as np
 
-import rfmap_common as C
-import rf_logger as RL
+import nt_common as C
+import nt_logger as RL
 import hl2
 
 
@@ -50,9 +50,9 @@ def main(argv=None):
         print(t)
         out.append(t)
 
-    say("RF Noise Map - Hermes Lite 2 test")
+    say("RFI Trail - Hermes Lite 2 test")
     say("=" * 60)
-    import rfmap_log as L
+    import nt_log as L
     L.setup("hl2test")
     cfg = {}
     try:

@@ -21,7 +21,6 @@ Design and on-air testing: KW4EX. Shared as is, no warranty, use at your own ris
 """
 import socket
 import struct
-import sys
 import threading
 import time
 
@@ -36,7 +35,7 @@ class AnanError(Exception):
     pass
 
 
-Hl2Error = AnanError                      # the shared reading code (rf_logger) catches this name
+Hl2Error = AnanError                      # the shared reading code (nt_logger) catches this name
 
 
 def packet():

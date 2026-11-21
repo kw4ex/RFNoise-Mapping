@@ -2,7 +2,7 @@
 Panadapter: a live picture of a band of frequencies (spectrum + waterfall) with a
 built-in receiver (AM, USB, LSB, CW, narrow FM) so you can listen to what you see.
 
-It is used from the control panel (rfmap_app.py). It talks to the SDRplay through
+It is used from the control panel (nt_app.py). It talks to the SDRplay through
 SoapySDR, exactly like the logger does, or makes up fake signals in practice mode.
 
 The radio can only do ONE job at a time, so the panel stops the panadapter before
@@ -18,8 +18,8 @@ import time
 
 import numpy as np
 
-import rfmap_common as C
-import rfmap_log as L
+import nt_common as C
+import nt_log as L
 
 FFT_N = 4096                    # spectrum resolution (bins across the whole span)
 AUDIO_RATE = 62500              # samples per second of the audio sent to the browser
@@ -265,6 +265,7 @@ class Receiver:
         self.dc = 0.0
         self.agc_gain = 1.0
         self.lvl = 1e-4
+        self.hang = 0.0
         self.smeter = -120.0
 
     def set_rate(self, rate):
@@ -377,12 +378,20 @@ class Receiver:
             self.agc_gain = max(self.agc_gain * 0.9, 1.0)
             return np.zeros(L, np.int16), p
         pk = float(np.max(np.abs(a))) + 1e-9
-        self.lvl = max(pk, self.lvl * 0.97)         # fast attack, slow decay
+        dt = L / float(AUDIO_RATE)                  # fast attack, a short hang, then a smooth recovery (about 0.6 s for 20 dB)
+        if pk >= self.lvl * 0.5:
+            self.lvl = pk if self.lvl < 2e-3 else max(self.lvl, min(pk, self.lvl * 1.41))     # a burst cannot turn the volume down by more than ~3 dB per step
+            self.hang = 0.02
+        elif self.hang > 0.0:
+            self.hang -= dt
+        else:
+            self.lvl = max(pk, self.lvl * (0.1 ** (dt / 0.09)))
+        self.lvl = max(self.lvl, 1e-6)
         target = 0.35 / max(self.lvl, 1e-6)
         g1 = min(target, 3e4)
         ramp = np.linspace(self.agc_gain, g1, L, dtype=np.float32)
         self.agc_gain = g1
-        out = np.clip(a * ramp, -1.0, 1.0)
+        out = np.tanh(a * ramp * 0.9) / 0.9 * 0.85       # soft limiter: a loud burst is rounded off, not clipped
         return (out * 32000).astype(np.int16), p
 
 

@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>RF Noise Map</title>
+<title>RFI Trail</title>
 <style>
 :root{--ink:#1d2733;--mut:#5b6877;--line:#d9dfe6;--bg:#f3f5f8;--card:#fff;--acc:#1b5fd6;--ok:#1a8a4a;--bad:#c0392b;--warn:#b7791f}
 *{box-sizing:border-box}
@@ -287,6 +287,13 @@ body.only-slices #staleBanner,body.only-slices #warnBanner,body.only-slices #blo
 #busy .sp{display:inline-block;width:14px;height:14px;border:3px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:bspin .8s linear infinite;vertical-align:-2px;margin-right:9px}
 @keyframes bspin{to{transform:rotate(360deg)}}
 .pcan{width:100%;display:block;border-radius:6px;background:#0b1522}
+/* the big frequency readout you can drag around a picture and size (0.7.0c) */
+.vfobox{position:absolute;z-index:6;display:flex;align-items:baseline;gap:.25em;padding:.08em .45em .12em .4em;border-radius:8px;background:rgba(8,16,24,.62);border:1px solid rgba(160,230,170,.35);color:#9dffb0;font-family:ui-monospace,Menlo,Consolas,monospace;font-weight:700;line-height:1.1;cursor:grab;user-select:none;touch-action:none;white-space:nowrap;text-shadow:0 0 6px rgba(0,0,0,.8)}
+.vfobox.drag{cursor:grabbing;border-color:#9dffb0}
+.vfobox .vfou{font-size:.38em;font-weight:600;opacity:.75}
+.vfobox .vfox{position:absolute;top:-9px;right:-9px;width:18px;height:18px;border-radius:9px;background:#223445;color:#cfe3f3;font:700 12px/18px sans-serif;text-align:center;cursor:pointer;display:none;text-shadow:none}
+.vfobox .vfog{position:absolute;right:-6px;bottom:-6px;width:16px;height:16px;border-radius:4px;background:#9dffb0;opacity:.55;cursor:nwse-resize;display:none;clip-path:polygon(100% 0,100% 100%,0 100%)}
+.vfobox:hover .vfox,.vfobox:hover .vfog,.vfobox.drag .vfog{display:block}
 #panWrap{position:relative;margin-top:8px}
 #cvOv{position:absolute;left:0;top:0;width:100%;height:100%;cursor:crosshair}
 .seg button{border-radius:0;margin-left:-1px}
@@ -305,16 +312,20 @@ body.only-slices #staleBanner,body.only-slices #warnBanner,body.only-slices #blo
 #alPop .alr select{flex:1}#alPop .alr input[type=range]{flex:1}#alPop .alr b{width:3ch;text-align:right}
 .slbottom{display:flex;gap:10px;align-items:flex-start}
 .slleft{flex:1;min-width:0}
-.slmtr{--mw:230px;flex:none;width:230px}
-@media(max-width:1500px){.slmtr{width:200px}.slmtr .mbox .mS{font-size:20px}}
+.slmtr{--mw:230px;flex:none;width:230px;position:absolute;z-index:6;cursor:grab;touch-action:none;user-select:none}
+.slmtr.drag{cursor:grabbing}
+.slmtr .vfog{position:absolute;right:-6px;bottom:-6px;width:18px;height:18px;border-radius:4px;background:#14233a;opacity:.55;cursor:nwse-resize;display:none;clip-path:polygon(100% 0,100% 100%,0 100%);z-index:3}
+.slmtr .vfox{position:absolute;top:-8px;right:-8px;width:18px;height:18px;border-radius:9px;background:#223445;color:#fff;font:700 12px/18px sans-serif;text-align:center;cursor:pointer;display:none;z-index:3}
+.slmtr:hover .vfog,.slmtr:hover .vfox,.slmtr.drag .vfog{display:block}
+
 .slmtr .mbox{padding:0;border:0;border-radius:0;background:none}
 .slmtr .mh,.slmtr .mgrip{display:none}
 .mbox .mrst{display:none}
-.slmtr .mbox .mrst{display:block;position:absolute;left:8px;bottom:5px;padding:1px 7px;font-size:10.5px;line-height:1.3}
-.slmtr .mbox .mr{position:absolute;left:9px;right:9px;top:5px;display:grid;grid-template-columns:auto 1fr;column-gap:6px;align-items:start;pointer-events:none}
-.slmtr .mbox .mS{grid-row:1/3;width:auto;font-size:22px;line-height:1;text-shadow:0 0 3px #fff9dc}
-.slmtr .mbox .mDb{width:auto;text-align:right;font-size:11px;line-height:1.2}
-.slmtr .mbox .mPk{flex:none;min-height:0;text-align:right;font-size:10px;line-height:1.2;white-space:nowrap}
+.slmtr .mbox .mrst{display:block;position:absolute;left:8px;top:4px;padding:0 6px;font-size:calc(7px + var(--mw)*.03);line-height:1.3}
+.slmtr .mbox .mr{position:absolute;left:9px;right:9px;bottom:4px;display:flex;justify-content:space-between;align-items:flex-end;pointer-events:none}
+.slmtr .mbox .mS{width:auto;font-size:calc(var(--mw)*.15);line-height:.95;font-weight:900;color:#0b1a30;text-shadow:0 0 4px #fff9dc,0 0 2px #fff9dc}
+.slmtr .mbox .mDb{width:auto;text-align:right;font-size:calc(8px + var(--mw)*.05);line-height:1.1;font-weight:800;color:#0b1a30;text-shadow:0 0 4px #fff9dc,0 0 2px #fff9dc}
+.slmtr .mbox .mPk{display:none}
 #slGrid.nometers .slmtr{display:none}
 .slbox.empty .slmtr{display:none}
 @media(max-width:900px){.slbottom{flex-wrap:wrap}.slmtr{width:100%;max-width:230px}}
@@ -327,15 +338,206 @@ body.win-dm #setBack,body.win-tools #setBack{display:block}
 #setBack{display:none;position:fixed;inset:0;background:rgba(20,35,58,.45);z-index:55}
 body.setwin #setBack{display:block}
 #cCollect .setX{float:right}
+/* 0.7.0d: larger, bolder text around each panadapter */
+.slbox .slh{font-size:15px;font-weight:700;color:#14233a}
+.slbox .slrow .rn{font-size:14px;font-weight:800}
+.slbox .slrow label,.slbox .slrow .mut,.slquick,.slquick label,.slh .hlonly{font-size:14px;font-weight:700;color:#2c3e50}
+.slbox .slrow input,.slbox .slrow select,.slquick select.sm,.slbox .slh select.slR,.slbox .slbottom select,.slbox .slbottom input{font-size:15px;font-weight:700}
+.slquick button.sm,.slbox .slrow button.sm,.slh button,.slbox .slbottom button{font-size:14px;font-weight:700}
+.slbox .slmsg{font-size:15px;font-weight:700}
+.slbottom .sltune .slF{width:86px !important}
+.slbottom .sltune select.slStep{width:80px}
+.slbottom .sltune select.slsMode{width:76px}
+.slquick select.sm{max-width:100px}
+.slbox .slhr select.slR{max-width:104px}
+/* 0.7.0e: larger, bolder text across the whole page */
+body{font-size:16px;font-weight:500}
+header h1{font-size:20px;font-weight:750}
+.pill{font-size:14px;font-weight:650}
+.card h2{font-size:19px;font-weight:800}
+.card .sub{font-size:15px;font-weight:550;color:#4a5868}
+label{font-size:15px;font-weight:650;color:#3d4b5a}
+input[type=text],input[type=number],select,textarea{font-size:16px;font-weight:600}
+button{font-size:15.5px;font-weight:650}
+button.sm{font-size:14px;font-weight:650}
+.num{font-size:14px;font-weight:700}
+#barStat{font-size:15px;font-weight:700}
+#driveBar .jump{font-size:14px;font-weight:600}
+#cTrack .trh{font-size:15px;font-weight:600}
+details.filt summary{font-size:16px;font-weight:700}
+#hwWin table.hwt td,#hwWin table.hwt th{font-size:16px;font-weight:600}
+#hwWin table.hwt th{font-weight:800}
+.hwdev{font-size:16px;font-weight:600}
+.hwplan{font-size:15px;font-weight:600;color:#6b7785}
+.hwv{font-size:17px}
+#spWarn{font-size:14px;font-weight:700}
+#hwWin .hwhead b{font-size:21px}
+table{font-size:15.5px}
+th{font-weight:800}
+td{font-weight:550}
+/* 0.7.0f: markers, memories, recordings and every grey helper text */
+.mut{font-size:15px;font-weight:600;color:#4a5868}
+small{font-size:14px;font-weight:600}
+.mem button{font-size:16px;font-weight:700;padding:7px 12px}
+.mem button b{font-size:17px;font-weight:800}
+.mem .memx{font-size:17px;font-weight:800}
+.chk,.chk span{font-size:15.5px;font-weight:650}
+#cMk label.chk{font-size:15.5px;font-weight:700;color:#2c3e50}
+#cRec td,#cRec th{font-size:15.5px;font-weight:650}
+#cRec table button,#cRec table a{font-size:15px;font-weight:700}
+.tag{font-size:13.5px;font-weight:700}
+.note{font-size:15px;font-weight:600}
+/* 0.7.0g: bolder top header and Drive bar */
+header,header *{font-weight:700}
+header h1{font-weight:850}
+header .pill{font-weight:750;color:#fff}
+header button,header select,header input{font-weight:750}
+#driveBar,#driveBar label,#driveBar span,#driveBar .chk span{font-weight:700}
+#driveBar button,#driveBar select,#driveBar input[type=text]{font-weight:750}
+#driveBar button.pri,#driveBar button.stop{font-weight:850}
+#barStat,#driveBar .jump,#driveBar .jump a{font-weight:750}
+#barLive .bbox,#barHw .bbox{font-weight:700;color:#0f1c2e}
+#barLive .bbox .lab,#barHw .bbox .lab{font-weight:800;color:#3d4b5a}
+#barHw .bbox .sub2,#barHw .slb .sdb{font-weight:700;color:#3d4b5a}
+#bigSpeed b{font-weight:900}
+#bigSpeed span{font-weight:750}
+/* 0.7.0h: Settings page - much bolder text and a tidier arrangement */
+#cCollect{font-weight:650;color:#0f1c2e;line-height:1.45}
+#cCollect b{font-weight:850;color:#0b1a30}
+#cCollect .mut{font-size:15.5px;font-weight:650;color:#3d4b5a}
+#cCollect .sub{font-size:16px;font-weight:700;color:#2c3e50}
+#cCollect label,#cCollect .chk span{font-size:16px;font-weight:700;color:#14233a}
+#cCollect label.mut{font-size:16px}
+#cCollect input[type=text],#cCollect input[type=number],#cCollect select{font-size:16px;font-weight:700}
+#cCollect button{font-size:15.5px;font-weight:750}
+#cCollect h2{font-size:21px;font-weight:850;padding-bottom:8px;border-bottom:2px solid #14233a;margin-bottom:10px}
+#cCollect #dispBox>b:first-child,#cCollect #radioBox>b:first-child,#cCollect #gpsBox>b:first-child{display:block;font-size:19px;font-weight:850;margin:0 0 4px;padding:6px 10px;background:#e8eef7;border-left:5px solid #1b5fd6;border-radius:6px}
+#cCollect #dispBox>.mut,#cCollect #radioBox>.mut{display:block;margin:2px 2px 8px}
+#cCollect #dispBox,#cCollect #radioBox{margin:18px 0 10px}
+#cCollect #radioBox>.row:first-of-type{display:grid;grid-template-columns:repeat(auto-fit,minmax(310px,1fr));gap:12px}
+#cCollect #radioBox>.row:first-of-type>label.chk{border:2px solid #c3ccd6;border-radius:10px;padding:10px 12px;background:#fafbfd;margin:0}
+#cCollect #radioBox>.row:first-of-type>label.chk:has(input:checked){border-color:#1b5fd6;background:#eaf1ff}
+#cCollect #radioBox input[type=checkbox],#cCollect .chk input{width:20px;height:20px;margin-top:3px;flex:none}
+#cCollect #dispBox .row{gap:12px 20px}
+#cCollect .grid{gap:22px;margin-top:14px}
+#cCollect #gpsBox .chk{margin-top:12px}
+#cCollect table td,#cCollect table th{font-size:16px;font-weight:700}
+#cCollect h3{font-size:19px;font-weight:850;margin:20px 0 6px !important;padding:6px 10px;background:#e8eef7;border-left:5px solid #1b5fd6;border-radius:6px}
+#cCollect label.rdHd{display:block;font-size:19px;font-weight:850;margin:0 0 4px;padding:6px 10px;background:#e8eef7;border-left:5px solid #1b5fd6;border-radius:6px}
+/* 0.7.0m: Hardware setup - bolder text, Flex card */
+#hwWin{font-weight:650;color:#0f1c2e}
+#hwWin .hwhead span{font-size:15px !important;font-weight:650;opacity:1 !important}
+#hwWin .hwhead b{font-weight:850;color:#fff}
+#hwWin h2{font-size:21px;font-weight:850;padding-bottom:8px;border-bottom:2px solid #14233a;margin-bottom:10px}
+#hwWin h3{font-size:19px;font-weight:850}
+#hwWin b{font-weight:850;color:#0b1a30}
+#hwWin .mut{font-size:15.5px;font-weight:650;color:#3d4b5a}
+#hwWin .sub{font-size:16px;font-weight:700;color:#2c3e50}
+#hwWin label{font-size:16px;font-weight:700;color:#14233a}
+#hwWin input[type=text],#hwWin input[type=number],#hwWin select{font-size:16px;font-weight:700}
+#hwWin button{font-size:15.5px;font-weight:750}
+#hwWin .hwsub,#hwWin #radioBox{margin:14px 0;padding:10px 12px;border:2px solid #c3ccd6;border-radius:10px;background:#fafbfd}
+#hwWin .hwsub>b:first-child,#hwWin #radioBox>b:first-child{display:block;font-size:19px;margin-bottom:4px}
+#hwWin .hwdev{margin:6px 0;padding:6px 0}
+#hwWin #radioBox>.row:first-of-type{display:grid;grid-template-columns:repeat(auto-fit,minmax(310px,1fr));gap:12px}
+#hwWin #radioBox>.row:first-of-type>label.chk{border:2px solid #c3ccd6;border-radius:10px;padding:10px 12px;background:#fff;margin:0}
+#hwWin #radioBox>.row:first-of-type>label.chk:has(input:checked){border-color:#1b5fd6;background:#eaf1ff}
+#hwWin .chk input{width:20px;height:20px;margin-top:3px;flex:none}
+#hwWin .hwtile{grid-column:1/-1;margin:12px 0 4px;padding:10px 12px;border:2px solid #c3ccd6;border-radius:10px;background:#fff}
+#hwWin .hwtile>b:first-child{display:block;font-size:17px;margin-bottom:4px}
+#hwWin .hwtile:has(.hwdev){border-color:#1b5fd6;background:#eaf1ff}
+/* 0.7.0m: car mode - one compact status row, no S-meter explanation box, bolder (not bigger) text, bigger map */
+body.car #cMeters{display:none !important}
+body.car #driveBar{display:flex;flex-wrap:wrap;align-items:stretch;gap:6px 10px;padding:6px 14px}
+body.car #driveBar>#drvRow1{flex:1 1 100%}
+body.car #driveBar #barLive,body.car #driveBar #barHw{display:contents}
+body.car #driveBar #barLive>.bbox,body.car #driveBar #barHw>.bbox{margin:0}
+body.car #driveBar #barHw .slb,body.car #driveBar #barHw .hwx{display:none !important}
+body.car #driveBar>#alPop,body.car #driveBar>#alarmBar,body.car #driveBar>#startErr{flex:1 1 100%}
+body.car #driveBar .bbox{font-weight:800;color:#0b1a30;border:2px solid #9fb0c4;background:#f4f7fb}
+body.car #driveBar .bbox .lab{font-weight:900;color:#2c3e50}
+body.car #driveBar .bbox .sub2,body.car #driveBar .bbox .hwl{font-weight:800;color:#1d2b3c}
+body.car #bigSpeed{border-width:3px}
+body.car #cTrack{padding:6px 10px;margin-bottom:6px}
+body.car #cTrack .trh{margin-bottom:4px;font-size:15px;font-weight:800}
+body.car #trInfo{display:none}
+body.car #liveMap{height:max(46vh,calc(100vh - 330px))}
+/* 0.7.0m: car mode - the seven status boxes: larger and much bolder text */
+body.car #driveBar .bbox{font-size:19px;font-weight:900;color:#050d18;line-height:1.2;padding:6px 12px}
+body.car #driveBar .bbox *{font-weight:900}
+body.car #driveBar .bbox .lab{font-size:15px;color:#1f2f42;letter-spacing:.03em}
+body.car #driveBar .bbox .sub2,body.car #driveBar #barHw .bbox .sub2{font-size:16px;color:#0b1a30}
+body.car #driveBar .bbox .hwl,body.car #driveBar #barHw .bbox span.hwl{font-size:21px}
+body.car #driveBar #barHw .mstS{font-size:44px;line-height:1.05}
+body.car #driveBar #barHw .mstsvg{width:120px}
+body.car #driveBar .bbox select,body.car #driveBar .bbox input,body.car #driveBar .bbox label{font-size:17px;font-weight:900;color:#050d18}
+body.car #driveBar #dotSp,body.car #driveBar #hwMax{font-size:21px}
+body.car #bigSpeed b{font-weight:900}
+body.car #bigSpeed span{font-size:30px;font-weight:900;color:#1f2f42}
+body.car #driveBar #barHw .bbox{white-space:normal;overflow:visible;min-width:0}
+body.car #driveBar #barHw .bbox .sub2,body.car #driveBar #barHw .bbox .hwl{white-space:normal;overflow:visible;text-overflow:clip}
+body.car #driveBar #barHw .bbox:first-child{max-width:300px}
+body.car #driveBar .bbox.snd select{font-size:17px !important;padding:2px 4px !important}
+body.car #driveBar .bbox.snd .lab{width:auto;margin-bottom:2px}
+body.car #driveBar #barLive .bbox.snd{flex-direction:column;align-items:flex-start;flex-wrap:nowrap;gap:4px}
+body.car #driveBar .bbox.snd .lab{width:100%}
+body.car #driveBar #barHw .bbox:first-child{max-width:270px}
+body.car #bigSpeed{min-width:130px;padding:0 10px}
+/* 0.8.0: car mode - all seven boxes always share ONE row (the speed box keeps its natural width, the others share the rest) */
+body.car #driveBar #bigSpeed{flex:0 0 auto}
+body.car #driveBar .bbox{flex:1.2 1 0;min-width:0}
+body.car #driveBar #barLive .bbox.snd{flex:2 1 0}
+body.car #driveBar #barHw .bbox:first-child{flex:2.2 1 0;max-width:none}
+body.car #driveBar #hwMst{flex:1.9 1 0}
+body.car #driveBar #barHw .mstsvg{width:100px;flex:none}
+body.car #driveBar #barHw .mstt{min-width:0;overflow:visible}
+body.car #driveBar .bbox .sub2,body.car #driveBar .bbox .lab{white-space:normal;overflow-wrap:anywhere}
+body.car #driveBar #hwMst{flex:1.5 0 285px;min-width:285px}
+body.car #driveBar #barHw .mstS{font-size:40px}
+body.car #driveBar #barLive .bbox.snd{flex:1.6 1 0}
+body.car #driveBar #barHw .bbox:first-child{flex:1.8 1 0}
+body.car #driveBar #hwMst{flex:0 0 300px;min-width:300px}
+/* 0.9.0: the status boxes under the drive bar (normal mode only): larger, much bolder */
+body:not(.car) #driveBar{--bz2:max(1.08,calc(var(--bz)*.8))}
+body:not(.car) #barLive .bbox,body:not(.car) #barHw .bbox{font-weight:800;color:#0b1626;border:2px solid #b9c6d6;background:#f4f7fb;padding:6px 12px}
+body:not(.car) #barLive .bbox .lab,body:not(.car) #barHw .bbox .lab{font-weight:900;color:#2c3a4b;letter-spacing:.05em}
+body:not(.car) #barHw .slb .fq{font-weight:900}
+body:not(.car) #barHw .slb .sx{font-weight:900;font-size:1.4em}
+body:not(.car) #barHw .slb .sdb,body:not(.car) #barHw .bbox .sub2{font-weight:800;color:#2c3a4b}
+body:not(.car) #bigSpeed{font-weight:900}
+/* 0.9.0: hardware window: status line, Ready check, setups, calibration colours, bigger slots table */
+#hwWin #hwTop{padding:12px 14px}
+#hwStatus{display:flex;flex-wrap:wrap;gap:8px 12px}
+#hwWin .hwchip{display:inline-flex;align-items:center;gap:2px;border:2px solid #b9c6d6;border-radius:999px;background:#f4f7fb;padding:5px 14px;font-size:16.5px;font-weight:700;color:#0b1626}
+#hwWin .hwchip .hdot{width:13px;height:13px;margin-right:7px}
+#hwWin #hwTop select{font-size:15.5px;font-weight:700;padding:5px 8px;min-width:190px}
+#hwWin .hwready{margin-top:10px;border:2px solid;border-radius:10px;padding:10px 14px;font-size:16.5px}
+#hwWin .hwready.good{border-color:#2fb86a;background:#eaf8f0}#hwWin .hwready.warn{border-color:#f0a92d;background:#fff6e0}#hwWin .hwready.bad{border-color:#e0402f;background:#fdeceb}
+#hwWin .hwready>b{display:block;font-size:18.5px;margin-bottom:4px}
+#hwWin .hwr{margin:3px 0;font-weight:650}#hwWin .hwr.g{color:#14693a}#hwWin .hwr.w{color:#8a5a00}#hwWin .hwr.r{color:#a5281b}
+#hwWin .hwhidenote{margin:8px 0 2px;padding:6px 10px;border:1px dashed #98a7b9;border-radius:8px;background:#f7f9fc;font-size:15px;font-weight:600}
+#hwWin .hwhidenote a{color:var(--acc);font-weight:800}
+#hwWin table.hwt td,#hwWin table.hwt th{font-size:17px;font-weight:700}
+#hwWin table.hwt th{font-weight:850;color:#14233a}
+#hwWin table.hwt input,#hwWin table.hwt select{font-size:16.5px;font-weight:700;padding:4px 6px}
+#hwWin table.hwt tr>td:first-child b{font-size:20px}
+#hwWin .hwcal{display:inline-block;border-radius:999px;padding:3px 12px;font-size:15px;font-weight:850;white-space:nowrap}
+#hwWin .hwcal.ok{background:#d9f3e4;color:#0f5a30;border:2px solid #2fb86a}#hwWin .hwcal.warn{background:#fff0cc;color:#7a4d00;border:2px solid #f0a92d}#hwWin .hwcal.off{background:#e8ecf1;color:#55616f;border:2px solid #b4bfcc}
+/* 0.9.0a: Practice banner */
+#pracBanner{display:flex;align-items:center;gap:6px 16px;flex-wrap:wrap;margin:-2px -6px 8px;padding:8px 14px;border-radius:8px;border:3px solid #8a1d12;background:repeating-linear-gradient(45deg,#ffd9d4,#ffd9d4 14px,#ffe9e6 14px,#ffe9e6 28px);color:#5a0f08;font-size:17px;font-weight:800}
+#pracBanner b{font-size:22px;letter-spacing:.06em;color:#b3180a}
+#pracBanner span{flex:1 1 320px}
+#pracBanner button{font-size:16px;font-weight:850}
+body.only-slot #pracBanner{display:none !important}
 </style></head><body>
 <header>
- <h1>RF Noise Map</h1>
+ <h1>RFI Trail</h1>
  <span class="pill"><span class="dot" id="dLog"></span><span id="tLog">Not logging</span></span>
  <span class="pill"><span class="dot" id="dGps"></span><span id="tGps">GPS: idle</span></span>
  <span class="pill" title="The version of the program that is running now"><span id="tVer">v?</span></span>
  <span class="pill" id="pOv" style="display:none;background:#8a1f1f" title="A strong signal is overloading the Hermes. Lower its gain (see the slices box).">&#9888; Radio overload - lower the gain</span>
  <span class="sp"></span>
- <button class="sm" onclick="setOpen()" title="Your radios, the GPS, how often to take a reading (distance or time), pause when stopped, gain and every other setting">Settings&hellip;</button>
+ <button class="sm" onclick="setOpen()" title="Your radios, the GPS, how often to take a reading, gain, the iPhone/iPad address (QR code), tests, backup and help files">Settings&hellip;</button>
  <button class="sm" onclick="hwOpen()" title="GPS, radios and which radio measures each slot">Hardware setup&hellip;</button>
  <span title="Make the numbers in the bar below smaller or larger"><button class="sm szb" onclick="barSize(-1)">A&minus;</button><button class="sm szb" onclick="barSize(1)">A+</button></span>
  <button class="sm" id="bRestartTop" style="border-color:#e0b36a;color:#8a5a00;font-weight:600" title="Stops any drive that is being recorded (saving it), closes the program and starts it again with a fresh browser tab" onclick="restartApp()">Restart</button>
@@ -345,6 +547,7 @@ body.setwin #setBack{display:block}
 
 <!-- ======================= DRIVE BAR (always in view) ======================= -->
 <div id="driveBar">
+ <div id="pracBanner" style="display:none"><b>PRACTICE MODE</b><span>The radios, the GPS and the sound are pretend, so none of these readings are real.</span> <button type="button" class="pri" id="pracOff" onclick="pracOff()" title="Untick Practice so the program uses your real radios and GPS">Turn practice off</button></div>
  <div class="dbrow" id="drvRow1">
   <input type="text" id="route" placeholder="Route name" title="Optional. Goes into the drive's file name">
   <label class="chk" title="Pretend radio and GPS, no hardware needed"><input type="checkbox" id="practice"> <span>Practice</span></label>
@@ -359,7 +562,6 @@ body.setwin #setBack{display:block}
   <label class="chk" title="When you press Stop, a map of that drive opens by itself"><input type="checkbox" id="autoMap"> <span>Map when I stop</span></label>
   <button class="dbq" onclick="quickMap()" title="One press: a map of the drive being recorded now (or your newest drive) with all slots, using the dot spacing chosen in the Drives box">&#9889; Quick map</button>
   <button class="carhide" onclick="winOpen('dm')" title="Your recorded drives, the choices for a map (dots, slots, speeds), and the maps you have made">Drives &amp; maps&hellip;</button>
-  <button class="carhide" onclick="winOpen('tools')" title="Open the data folder, back up, practice drive, full test, logs and support file">Tools&hellip;</button>
   <button id="bCar" onclick="carMode()" title="Big buttons and big numbers for the passenger seat: only Start, Pause, Mark, speed, health and the live map">Car mode</button>
   </div>
  <div class="dbrow" id="barLive">
@@ -372,7 +574,7 @@ body.setwin #setBack{display:block}
   <div class="bbox carhide"><span class="lab">This drive</span><span><b id="tEl">0:00</b> &middot; <b id="tMi">0.00</b> mi &middot; <b id="tDots">0</b> dots &middot; <b id="tMarks">0</b> marks</span></div>
   <div class="bbox carhide"><span class="lab">Spacing (ft)</span><span class="seg"><button class="sm" onclick="setSpacing(5)">5</button><button class="sm" onclick="setSpacing(10)">10</button><button class="sm" onclick="setSpacing(20)">20</button><button class="sm" onclick="setSpacing(50)">50</button></span></div>
   <div class="bbox snd"><span class="lab">Noise tone</span>
-   <label class="chk" title="A short tone each time the chosen slot rises well above its usual level; the higher the rise, the higher the pitch"><input type="checkbox" id="toneOn" onchange="toneToggle()"> <span>slot <select id="toneSlot" style="font-size:12px;padding:1px 3px"><option>1</option><option>2</option><option>3</option><option>4</option></select> rise <select id="toneThr" style="font-size:12px;padding:1px 3px"><option value="4">4 dB</option><option value="6" selected>6 dB</option><option value="10">10 dB</option></select></span></label></div>
+   <label class="chk" title="A short tone each time a slot rises well above its usual level (All = the loudest rise of the four slots); the higher the rise, the higher the pitch"><input type="checkbox" id="toneOn" onchange="toneToggle()"> <span>slot <select id="toneSlot" style="font-size:12px;padding:1px 3px"><option value="all" selected>All</option><option>1</option><option>2</option><option>3</option><option>4</option></select> rise <select id="toneThr" style="font-size:12px;padding:1px 3px"><option value="4">4 dB</option><option value="6" selected>6 dB</option><option value="10">10 dB</option></select></span></label></div>
  </div>
  <div class="dbrow" id="barHw" title="Your GPS and the radio, frequency and live S-reading of each slot, always in view">
   <div class="bbox"><span class="lab">GPS</span><span class="hwl"><span class="hdot" id="hwGd"></span><b id="hwGt">&ndash;</b></span><span class="sub2" id="hwGc">&nbsp;</span></div>
@@ -404,6 +606,19 @@ body.setwin #setBack{display:block}
 <div id="hwWin">
  <div class="hwhead"><b>Hardware setup</b><span style="opacity:.8;font-size:13.5px">GPS &middot; radios &middot; which radio measures each slot</span><span style="flex:1"></span><button class="pri" onclick="hwClose()">Close this window</button></div>
  <div class="hwbody">
+   <section class="card" id="hwTop">
+    <div id="hwStatus"></div>
+    <div class="row" style="align-items:center;gap:10px;margin-top:8px">
+     <button class="pri" id="btnReady" onclick="hwReady()" title="Checks the GPS, radios, slots and calibration and lists anything missing, in plain words">Ready to drive?</button>
+     <span style="flex:1"></span>
+     <b>Saved setups:</b> <select id="hwProf" onchange="hwProfSel()"></select>
+     <button class="sm" id="btnProfLoad" onclick="hwProfLoad()" title="Switch to the setup chosen in the list (radios, GPS and slots)">Load</button>
+     <button class="sm" id="btnProfSave" onclick="hwProfSave()" title="Save the radios, GPS and slots as they are now under a name">Save current setup as...</button>
+     <button class="sm" id="btnProfDel" onclick="hwProfDel()" title="Delete the setup chosen in the list">Delete</button>
+    </div>
+    <div id="hwReadyOut"></div>
+    <div class="mut" id="hwProfMsg"></div>
+   </section>
   <section class="card" id="hwGpsCard"><h2><span class="num">1</span>GPS</h2>
    <div id="hwGpsBig"><span><span class="hdot" id="hwGd2"></span><b id="hwGt2">&ndash;</b></span><span>Satellites <b id="hwSat">&ndash;</b></span><span>Position <b id="hwPos" style="font-size:20px">&ndash;</b></span><span>Speed <b id="hwSpd" style="font-size:20px">&ndash;</b></span></div>
    <div class="mut" id="hwGpsMsg"></div>
@@ -411,7 +626,14 @@ body.setwin #setBack{display:block}
   </section>
   <section class="card" id="hwRadCard"><h2><span class="num">2</span>Radios</h2>
    <div id="hwRadHold"></div>
-   <div class="row" style="margin-top:8px;align-items:center"><button class="pri" id="btnScan" onclick="hwScan()">Scan for radios</button> <span class="mut">Looks for every radio type the program knows. Takes a few seconds; not possible while recording.</span></div>
+   <div id="hwCatBox" class="hwsub">
+    <b>Radios on a CAT cable</b> <span class="mut">&mdash; Icom, Yaesu, Kenwood, Elecraft (USB serial port). These mostly just report their S-meter reading to the program. Added here, then pick them in a slot's Radio menu.</span>
+    <div class="mut" style="margin:4px 0">The program reads the radio's own S-meter, one frequency at a time. <b>Follow</b> never changes the radio: you tune it and the slot checks it is on the slot's frequency. <b>Control</b> lets the program tune the radio to the slot's frequency. Not yet checked on real radios.</div>
+    <div id="catList"></div>
+    <div class="row" style="margin-top:6px"><button class="pri" id="catAddBtn" onclick="catAdd()">Add a CAT radio</button> <span class="mut" id="catMsg"></span></div>
+   </div>
+   <div class="row" style="margin-top:8px;align-items:center"><button class="pri" id="btnScan" onclick="hwScan()">Scan for radios</button> <button class="pri" id="btnRebuild" onclick="hwRebuild()" title="Forgets every radio that is not connected right now, adds the ones that are, and fixes the slots">Scan and set up for me</button> <span class="mut">Scan only looks. <b>Scan and set up for me</b> also removes radios that are not there, adds the ones that are, and moves any slot that used a missing radio to 'auto'. Takes a few seconds; not possible while recording.</span></div>
+   <div id="hwRebuildMsg" style="margin-top:6px"></div>
    <div id="hwRadList" style="margin-top:8px"></div>
    <h3 style="margin:14px 0 4px">Coming later</h3><div id="hwPlanned"></div>
   </section>
@@ -430,7 +652,7 @@ body.setwin #setBack{display:block}
 
 <main>
 <div id="staleBanner" style="display:none;background:#fff4cc;border:1px solid #e0b400;border-radius:8px;padding:10px 12px;margin:10px 0">
- <b>New program files were installed, but the old program is still running.</b> To use the new version: click <b>Close program</b> (top right), then open RF Noise Map again from its Desktop icon.
+ <b>New program files were installed, but the old program is still running.</b> To use the new version: click <b>Close program</b> (top right), then open RFI Trail again from its Desktop icon.
 </div>
 <div id="warnBanner" style="display:none;background:#ffe3e0;border:1px solid #d04a3a;border-radius:8px;padding:10px 12px;margin:10px 0"></div>
 <div id="blockBanner" style="display:none;background:#fff4cc;border:1px solid #e0b400;border-radius:8px;padding:10px 12px;margin:10px 0">
@@ -461,7 +683,7 @@ body.setwin #setBack{display:block}
 <!-- ======================= 1. COLLECT ======================= -->
 <div id="setBack" onclick="setClose()"></div>
 <section class="card" id="cCollect">
- <h2><span class="num">1</span>Settings: radios, GPS, readings <button class="pri setX" onclick="setClose()">Close this window</button></h2>
+ <h2><span class="num">1</span>Settings and tools: radios, GPS, readings, iPhone, tests <button class="pri setX" onclick="setClose()">Close this window</button></h2>
  <p class="sub">Drive your route while this runs. A reading is saved about every 10&nbsp;ft along the way.</p>
 
  <p class="mut" style="margin:0 0 6px">The route name, <b>Practice</b> mode and the <b>Start / Stop / Pause</b> buttons are in the bar at the top of the page, always in view. <b>GPS, your radios and which radio measures each slot</b> are in <a href="#" onclick="hwOpen();return false">Hardware setup</a> (button at the top), so they stay out of the way while you drive.</p>
@@ -476,13 +698,20 @@ body.setwin #setBack{display:block}
   </div>
  </div>
  <div id="radioBox" style="margin:10px 0 4px">
-  <b>Your radios</b> <span class="mut">&mdash; tick what you have; each frequency slot can pick which one measures it</span>
+  <b>Your radios</b> <span class="mut">(controllable) &mdash; the program controls these. Tick what you have; each frequency slot can pick which one measures it</span>
   <div class="row" style="align-items:flex-start;gap:22px;margin-top:4px">
    <label class="chk"><input type="checkbox" id="useSdr" onchange="radioChanged()"> <span><b>SDRplay RSP1</b> (USB cable)<br><span class="mut">One receiver: its frequencies take turns. Covers VHF, airband and the FM band too.</span></span></label>
    <label class="chk"><input type="checkbox" id="useHl2" onchange="radioChanged()"> <span><b>Hermes Lite 2</b> (network cable)<br><span class="mut">Several receivers at once: its frequencies are all read at the same instant. HF only (about 0.1&ndash;38&nbsp;MHz).</span></span></label>
    <label class="chk"><input type="checkbox" id="useAnan" onchange="radioChanged()"> <span><b>ANAN</b> (Apache Labs / OpenHPSDR Protocol 2, network cable) <span class="mut">&mdash; new, testing</span><br><span class="mut">Four receivers read at the same instant, like the Hermes Lite 2. Close Thetis first (one program at a time). Levels are shown in dBFS, not yet calibrated to dBm. Run Tools\Allow_ANAN_Firewall.bat once on Windows.</span></span></label>
    <label class="chk"><input type="checkbox" id="useRtl" onchange="radioChanged()"> <span><b>RTL-SDR dongles</b> (USB, up to four) <span class="mut">&mdash; new, not yet tried on real dongles</span><br><span class="mut">Low price. Each dongle is one receiver and works on its own, so several dongles read at the same time. Pick <b>RTL-SDR 1</b> to <b>4</b> in any slot's Radio chooser.</span></span></label>
   </div>
+   <div class="hwhidenote" id="hwHideNote" style="display:none"></div>
+  <div id="hwFlexBox" class="hwtile">
+    <b>FlexRadio 6000 / 8000</b> (network cable) <span class="mut">&mdash; no tick box: press <b>Add a FlexRadio</b>. Found on the network like the ANAN, and each slot can have its own receiver. Then pick it in a slot's Radio menu.</span>
+    <div class="mut" style="margin:4px 0"><b>Control</b> lets the program tune the radio for each slot and give it its own picture. <b>Follow</b> never changes the radio: you tune it and the slot checks it is on the slot's frequency.</div>
+    <div id="flexList"></div>
+    <div class="row" style="margin-top:6px"><button class="pri" id="flexAddBtn" onclick="catAddFlex()">Add a FlexRadio</button> <span class="mut" id="flexMsg"></span></div>
+   </div>
   <div id="hl2Box" class="row" style="margin-top:8px;display:none;align-items:flex-end">
    <div><label>Radio's address</label><br><input type="text" id="hl2ip" size="16" placeholder="(leave empty to search)" onchange="radioChanged()"></div>
    <div><button class="sm" id="btnFindHl2" onclick="findHl2()">Find my radio</button></div>
@@ -518,7 +747,7 @@ body.setwin #setBack{display:block}
    <table id="chTable" style="display:none"></table>
    <div class="mut">Low bands (0.75, 3.7, 7.3&nbsp;MHz) show the general area. A VHF or <b>AM airband</b> (118&ndash;137&nbsp;MHz) channel pinpoints a pole or house. Pick a quiet channel with no stations. You can change these <b>while driving</b>.</div>
    <div class="row" style="margin-top:10px">
-     <div><label><b>Take a reading</b>:</label><br>
+     <div><label class="rdHd"><b>Take a reading</b>:</label><br>
        <label><input type="radio" name="smode" value="distance" onchange="spacingChanged()"> by <b>distance</b> (every</label>
        <input type="number" id="spacing" min="2" max="5280" step="1" style="width:80px" onchange="spacingChanged()"> ft) <span class="mut" id="spacingM"></span><br>
        <label><input type="radio" name="smode" value="time" onchange="spacingChanged()"> by <b>time</b> (every</label>
@@ -552,6 +781,44 @@ body.setwin #setBack{display:block}
   <div class="mut" id="liveLine"></div>
   <div class="live" id="liveCards"></div>
  </div>
+
+ <div id="cTools">
+ <div id="phoneBox" style="margin:14px 0 4px;border-top:1px solid #d5dbe6;padding-top:8px">
+  <h3 style="margin:0 0 4px">iPhone / iPad</h3>
+  <div class="chk"><input type="checkbox" id="phoneAccess"><label for="phoneAccess">Let my iPhone/iPad open this window too (same Wi-Fi or hotspot). Takes effect after you press <b>Restart</b>.</label></div>
+  <div id="phoneUrl" class="mut" style="display:none">
+   <div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap;margin-top:6px">
+    <div id="phoneQr" style="width:190px;height:190px;background:#fff;border:1px solid #cfd6e3;border-radius:6px"></div>
+    <div style="flex:1 1 260px">
+     <div><b>Point the iPhone camera at this square</b> and tap the link that pops up.</div>
+     <div style="margin-top:6px">The computer and the iPhone must be on the same Wi-Fi or hotspot.</div>
+     <div style="margin-top:8px"><button class="sm" onclick="phoneCopy()">Copy address</button> <span class="mut" id="phoneCopied"></span></div>
+     <div class="mut" id="phoneTxt" style="margin-top:6px;word-break:break-all;font-size:12px"></div>
+    </div>
+   </div>
+  </div>
+ </div>
+ <h3 style="margin:14px 0 4px">Tests, backup and help</h3>
+ <div class="row">
+  <button onclick="openFolder('data')">Open my data folder</button>
+  <button onclick="doBackup()">Back up everything (zip)</button>
+  <button onclick="doDemo()">Try a practice drive + map</button>
+  <button onclick="perfRun()" title="Records for a few seconds, times your radios and works out how fast you can drive">Max speed test</button>
+  <button onclick="runCheck()">Health check</button>
+  <button onclick="runFull()">Full test (about 1 minute)</button>
+  <button onclick="quitApp()">Quit RFI Trail</button>
+ </div>
+ <div class="row" style="margin-top:2px">
+  <b>If something goes wrong:</b>
+  <button onclick="showLog()">Show recent problems</button>
+  <button onclick="openFolder('logs')">Open the logs folder</button>
+  <button class="pri" onclick="makeSupport()">Make a support file (zip)</button>
+ </div>
+ <p class="mut" style="margin-top:10px"><b>About RFI Trail (<span id="aboutVer"></span>):</b> designed and tested on the air by KW4EX. With thanks to <b>Jeff Stuparits, W4DD</b>, whose noise-mapping program and generous help inspired it.</p>
+ <div id="logBox" style="display:none;margin-top:6px"><div class="mut" id="logInfo"></div>
+  <textarea id="logText" readonly style="min-height:150px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px"></textarea></div>
+ <div class="mut">Data folder: <span id="pData"></span></div>
+</div>
 </section>
 
 
@@ -601,7 +868,7 @@ body.setwin #setBack{display:block}
    <div><label>Jump to band</label><br><select id="panBand" onchange="panBand(this.value)"></select><br><label class="chk" style="margin-top:4px" title="When ticked, choosing a band sets the Width of view so the whole band fits on screen"><input type="checkbox" id="panWide" onchange="panWideChanged()"> <span>Widen the view to show the whole band</span></label></div>
    <div><label>Centre (MHz)</label><br><input type="number" id="panCenter" step="0.1" style="width:130px" onkeydown="panCenterKey(event)" onchange="panGoCenter()"> <button class="sm" onclick="panGoCenter()">Go</button></div>
    <div><label>Width of view: <b id="panSpanTxt">2 MHz</b></label><br><span style="font-size:12px">narrow</span> <input type="range" id="panSpan" min="0" max="5" step="1" value="3" style="width:190px;vertical-align:middle" oninput="panSpanSlide()"> <span style="font-size:12px">wide</span></div>
-   <div><label>Move view</label><br><button class="sm" onclick="panShift(-0.25)">&#9664; left</button> <button class="sm" onclick="panShift(0.25)">right &#9654;</button> <button class="sm" onclick="panRecentre()">Centre on tuned</button></div>
+   <div><label>Move view</label><br><button class="sm" onclick="panShift(-0.25)">&#9664; left</button> <button class="sm" onclick="panShift(0.25)">right &#9654;</button> <button class="sm" onclick="panRecentre()">Centre on tuned</button> <button class="sm" id="panVfoBtn" title="Show or hide the big frequency readout on the picture. Drag it anywhere; drag its bottom-right corner to resize.">Big VFO</button></div>
   </div>
   <div class="row">
    <div class="rxonly"><label>Frequency lock</label><br><button id="panLock" class="lock" onclick="panToggleLock()" title="Locks the tuned frequency so it cannot be changed by accident (clicks, mouse wheel, keys, memories). Moving the view still works.">&#128275; VFO UNLOCKED</button></div>
@@ -644,7 +911,7 @@ body.setwin #setBack{display:block}
 
 <section class="card" id="cRec">
  <h2>Audio recordings</h2>
- <p class="sub">Recordings made with the <b>&#9679; Record audio</b> button in the panadapter. They are kept in the <b>Recordings</b> folder inside your RF Noise Map folder. They are small files (about 29 MB per hour, 8,000 samples a second) in the universal WAV format, so they play on any computer or phone and are fine for voice and CW.</p>
+ <p class="sub">Recordings made with the <b>&#9679; Record audio</b> button in the panadapter. They are kept in the <b>Recordings</b> folder inside your RFI Trail folder. They are small files (about 29 MB per hour, 8,000 samples a second) in the universal WAV format, so they play on any computer or phone and are fine for voice and CW.</p>
  <div class="row" style="align-items:center"><audio id="recPlayer" controls preload="none" style="width:min(520px,100%)"></audio> <span class="mut" id="recNow"></span>
   <button class="sm" onclick="openFolder('recordings')">Open the Recordings folder</button></div>
  <div id="recEmpty" class="mut">No recordings yet.</div>
@@ -694,32 +961,7 @@ body.setwin #setBack{display:block}
 
 
 </div>
-<div id="winTools" class="winbox narrow"><div class="winhd"><b>Tools</b><button class="pri" onclick="winClose()">Close this window</button></div>
-<!-- ======================= TOOLS ======================= -->
-<section class="card" id="cTools">
- <h2>Tools</h2>
- <div class="row">
-  <button onclick="openFolder('data')">Open my data folder</button>
-  <button onclick="doBackup()">Back up everything (zip)</button>
-  <button onclick="doDemo()">Try a practice drive + map</button>
-  <button onclick="perfRun()" title="Records for a few seconds, times your radios and works out how fast you can drive">Max speed test</button>
-  <button onclick="runCheck()">Health check</button>
-  <button onclick="runFull()">Full test (about 1 minute)</button>
-  <button onclick="quitApp()">Quit RF Noise Map</button>
- </div>
- <div class="row" style="margin-top:2px">
-  <b>If something goes wrong:</b>
-  <button onclick="showLog()">Show recent problems</button>
-  <button onclick="openFolder('logs')">Open the logs folder</button>
-  <button class="pri" onclick="makeSupport()">Make a support file (zip)</button>
- </div>
- <div id="logBox" style="display:none;margin-top:6px"><div class="mut" id="logInfo"></div>
-  <textarea id="logText" readonly style="min-height:150px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px"></textarea></div>
- <div class="chk"><input type="checkbox" id="phoneAccess"><label for="phoneAccess">Let my iPhone/iPad open this window too (same Wi-Fi or hotspot). Takes effect after you quit and reopen.</label></div>
- <div id="phoneUrl" class="mut" style="display:none"></div>
- <div class="mut">Data folder: <span id="pData"></span></div>
-</section>
-</div>
+
 </main>
 
 <div id="busy"></div>
@@ -761,7 +1003,7 @@ const $=id=>document.getElementById(id);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 let S=null, formFilled=false, wasLogging=false, stoppedByUser=false, emailFile=null, notesFile=null, tToast=null;
 
-const BUSY_MSG={"/api/logs/bundle":"Collecting the logs and settings into a support file","/api/fulltest":"Full test running: checking the software, radio and GPS, then making a practice map. About a minute, please wait",
+const BUSY_MSG={"/api/cat/flex_find":"Listening for Flex radios on the network (about 3 seconds)","/api/cat/test":"Talking to the radio (it can try several speeds, up to about 20 seconds)","/api/logs/bundle":"Collecting the logs and settings into a support file","/api/fulltest":"Full test running: checking the software, radio and GPS, then making a practice map. About a minute, please wait",
  "/api/check":"Checking your setup (a GPS test takes a few seconds)",
  "/api/map":"Building your map. Large drives can take a minute",
  "/api/demo":"Running a practice drive and building its map",
@@ -781,6 +1023,7 @@ const BUSY_MSG={"/api/logs/bundle":"Collecting the logs and settings into a supp
  "/api/slices/listen":"Starting the sound for this slice",
  "/api/slices/rec":"Starting the recording for this slice",
  "/api/hardware/scan":"Looking for radios (a few seconds)",
+ "/api/hardware/rebuild":"Looking at what is connected and setting up the radios (up to 20 seconds)",
  "/api/perftest":"Testing your setup: recording a few seconds and timing the radios (up to 40 seconds)",
  "/api/quit":"Saving your drive and closing the program"};
 let busyN=0, busyT=null, busyTick=null, busyStart=0, busyTxt="";
@@ -795,9 +1038,9 @@ async function api(path,body){
   try{ return await api0(path,body); } finally { if(tracked) busyEnd(); }
 }
 async function api0(path,body){
-  const r=await fetch(path,{method:body===undefined?"GET":"POST",headers:{"X-RFMap":"1","Content-Type":"application/json"},
+  const r=await fetch(path,{method:body===undefined?"GET":"POST",headers:{"X-NT":"1","Content-Type":"application/json"},
                             body:body===undefined?undefined:JSON.stringify(body)});
-  let j; try{j=await r.json();}catch(e){throw new Error("The program did not answer. Is RF Noise Map still running?");}
+  let j; try{j=await r.json();}catch(e){throw new Error("The program did not answer. Is RFI Trail still running?");}
   if(!r.ok||j.ok===false) throw new Error(j.error||"Something went wrong");
   return j;
 }
@@ -806,13 +1049,13 @@ function s9(m){ return (parseFloat(m)||0)<30?-73:-93; }
 function sTxt(v,m){ const o=v-s9(m); if(o>=1) return "S9+"+Math.round(o); const n=Math.round(9+o/6); return n<1?"S0":"S"+n; }
 function calOf(i){ const e=document.querySelectorAll(".cc")[i]; return e?(+e.value||0):0; }
 function sSpan(v,m,i){ if(v==null) return ""; const un=(i!=null&&i>=0)?calOf(i)===0:false;
-  return '<span class="sU"'+(un?' title="Not calibrated yet: the S-unit is a rough guide. Calibrate the slot in Hardware setup."':'')+'>'+(un?"~":"")+sTxt(v,m)+'</span>'; }
+  return '<span class="sU"'+(un?' title="Not calibrated yet: the S-unit is a rough guide. Calibrate the slot in Hardware setup."':'')+'>'+sTxt(v,m)+'</span>'; }
 function sParse(t,m){ t=String(t).trim(); const x=/^s\s*(\d)\s*(?:\+\s*(\d+))?$/i.exec(t); if(x){ const n=+x[1]; return n>=9?s9(m)+(+x[2]||0):s9(m)-(9-n)*6; } const v=parseFloat(t); return isNaN(v)?null:v; }
 function toast(html,ms=6000){const t=$("toast");t.innerHTML=html;t.style.display="block";clearTimeout(tToast);tToast=setTimeout(()=>t.style.display="none",ms);}
 async function guard(fn){try{return await fn();}catch(e){toast("&#9888; "+esc(e.message),9000);}}
 
 /* ---------- form <-> config ---------- */
-function radNorm(c){ const r=c.radio||"auto"; if(String(c.mhz===undefined?"":c.mhz).trim()==="") return "off"; if(r==="hl2"||r==="anan"||r==="sdrplay"||r==="off"||/^rtl[1-4]$/.test(r)) return r;
+function radNorm(c){ const r=c.radio||"auto"; if(String(c.mhz===undefined?"":c.mhz).trim()==="") return "off"; if(r==="hl2"||r==="anan"||r==="sdrplay"||r==="off"||/^rtl[1-4]$/.test(r)||/^cat[1-4]$/.test(r)) return r;
   const hl=!!($("useHl2")&&$("useHl2").checked), an=!!($("useAnan")&&$("useAnan").checked), m=+c.mhz;      // "auto": the Hermes first, then the ANAN, then the SDRplay
   if(hl&&m<=38) return "hl2"; if(an&&m<=55) return "anan"; return "sdrplay"; }
 function chRow(c,i){const r=radNorm(c), md=(c.mode||"AM").toUpperCase();
@@ -821,7 +1064,7 @@ function chRow(c,i){const r=radNorm(c), md=(c.mode||"AM").toUpperCase();
  <td><input type="number" step="any" class="cb" value="${esc(c.bw_khz)}" onchange="chEdited()"></td>
  <td><select class="cmd" onchange="chEdited()" title="Sets which side of the frequency is measured: below for LSB, above for USB, both sides for AM / SAM / NFM. Also the listening mode.">${["AM","SAM","USB","LSB","NFM"].map(m=>`<option ${m===md?"selected":""}>${m}</option>`).join("")}</select></td>
  <td><input type="number" step="any" class="cc" value="${esc(c.cal_db)}" onchange="chEdited()"></td>
- <td class="radcol"><select class="cr" onchange="chEdited()">${opt("off","Off (skip)")}${opt("hl2","Hermes")}${opt("sdrplay","SDRplay")}${(($("useAnan")&&$("useAnan").checked)||r==="anan")?opt("anan","ANAN"):""}${(($("useRtl")&&$("useRtl").checked)||/^rtl/.test(r))?[1,2,3,4].map(k=>opt("rtl"+k,"RTL-SDR "+k)).join(""):""}</select></td>
+ <td class="radcol"><select class="cr" onchange="chEdited()">${opt("off","Off (skip)")}${opt("hl2","Hermes")}${opt("sdrplay","SDRplay")}${(($("useAnan")&&$("useAnan").checked)||r==="anan")?opt("anan","ANAN"):""}${(($("useRtl")&&$("useRtl").checked)||/^rtl/.test(r))?[1,2,3,4].map(k=>opt("rtl"+k,"RTL-SDR "+k)).join(""):""}${CAT.map((e,k)=>e.model?opt("cat"+(k+1),esc(catLabel("cat"+(k+1)))):"").join("")}${(/^cat/.test(r)&&!CAT[+r.slice(3)-1])?opt(r,r):""}</select></td>
  <td class="lvlcell" id="lvl${i}" style="min-width:215px;white-space:nowrap"><span class="mut">&ndash;</span></td>
  <td id="lt${i}" class="mut" style="min-width:84px">&ndash;</td></tr>`;}
 function $$cm(i){ const e=document.querySelectorAll(".cm")[i]; return e?e.value:0; }
@@ -840,13 +1083,15 @@ function showRadioFields(){ const hl=useHl2(), sd=useSdr(); $("rtlBox").style.di
     else if(!useRtl()&&has&&!RTL_RE.test(sel.value)){ sel.querySelectorAll('option[value^="rtl"]').forEach(o=>o.remove()); }
     const ha=!!sel.querySelector('option[value="anan"]');                      // the ANAN choice follows its tick box
     if(useAnan()&&!ha){ const o=document.createElement("option"); o.value="anan"; o.textContent="ANAN"; const r1=sel.querySelector('option[value="rtl1"]'); sel.insertBefore(o,r1||null); }
-    else if(!useAnan()&&ha&&sel.value!=="anan"){ sel.querySelector('option[value="anan"]').remove(); } });
+    else if(!useAnan()&&ha&&sel.value!=="anan"){ sel.querySelector('option[value="anan"]').remove(); }
+    sel.querySelectorAll('option[value^="cat"]').forEach(o=>{ const k=+o.value.slice(3)-1; if((!CAT[k]||!CAT[k].model)&&sel.value!==o.value) o.remove(); else if(CAT[k]) o.textContent=catLabel(o.value); });      // CAT radios follow the list in Hardware setup
+    CAT.forEach((e,k)=>{ if(!e.model) return; const v="cat"+(k+1); if(!sel.querySelector('option[value="'+v+'"]')){ const o=document.createElement("option"); o.value=v; o.textContent=catLabel(v); sel.appendChild(o); } }); });
 }
 function radioChanged(){ showRadioFields();
-  if(!useSdr()&&!useHl2()&&!useRtl()&&!useAnan()) toast("&#9888; No radio is ticked. Tick at least one (or use Practice mode).",7000);
+  if(!useSdr()&&!useHl2()&&!useRtl()&&!useAnan()&&!CAT.some(c=>c.model)) toast("&#9888; No radio is ticked. Tick at least one (or use Practice mode).",7000);
   else if(useHl2()&&!useSdr()){ const hi=[...document.querySelectorAll(".cm")].map(x=>+x.value).filter(v=>v>38);
     if(hi.length) toast("&#9888; "+hi[0]+" MHz is above what the Hermes Lite 2 can receive (about 38 MHz). Change that frequency, or tick the SDRplay too.",9000); }
-  guard(async()=>{ await api("/api/config",{use_sdrplay:useSdr(),use_hl2:useHl2(),use_rtl:useRtl(),use_anan:useAnan(),hl2_ip:$("hl2ip").value.trim(),hl2_rate:+$("hl2rate").value}); await slRestart(); }); }
+  guard(async()=>{ await api("/api/config",{use_sdrplay:useSdr(),use_hl2:useHl2(),use_rtl:useRtl(),use_anan:useAnan(),use_cat:CAT.some(c=>c.model),cat_radios:CAT.filter(c=>c.model),hl2_ip:$("hl2ip").value.trim(),hl2_rate:+$("hl2rate").value}); await slRestart(); }); }
 async function findRtl(){
   const b=$("btnFindRtl"); b.disabled=true; const old=b.textContent; b.textContent="Looking for dongles... (a few seconds)"; $("rtlMsg").textContent="";
   try{
@@ -869,26 +1114,26 @@ async function findHl2(){
 function hl2GainReset(){ $("hl2g").value=15; gainChanged("hl2"); }
 
 /* ---------- slots: four live panadapters ---------- */
-const PAGE_VER="1.6.0b";        /* the version of this page: it must match the program version shown in the top bar */
+const PAGE_VER="2.0.0";        /* the version of this page: it must match the program version shown in the top bar */ try{ document.getElementById("aboutVer").textContent="v"+PAGE_VER; }catch(e){}
 const SL={logging:false,live:false,busy:false,starting:false,manualStop:false,lastTry:0,health:{},byCh:{},startErr:"",radio:"",lastSync:0,seen:{},last:{},paused:false,autoPaused:false};
 const SLH={0:[],1:[],2:[],3:[]};      // the last readings saved for each slot (for the readout shown when a slot's radio is busy mapping)
 const ONLY_SLICES=new URLSearchParams(location.search).get("view")==="slices";
 const POPSLOT=Math.min(4,Math.max(0,+new URLSearchParams(location.search).get("slot")||0));
-if(POPSLOT){ document.body.classList.add("only-slot"); document.title="RF Noise Map - Slot "+POPSLOT; }
-else { try{ if(!ONLY_SLICES) localStorage.removeItem("rfmapManualStop"); }catch(e){} }
+if(POPSLOT){ document.body.classList.add("only-slot"); document.title="RFI Trail - Slot "+POPSLOT; }
+else { try{ if(!ONLY_SLICES) localStorage.removeItem("ntManualStop"); }catch(e){} }
 function slPopOut(i){ window.open("/?slot="+(i+1),"rfslot"+(i+1)); }
-if(POPSLOT||ONLY_SLICES) setInterval(()=>{ const t=String(Date.now()); try{ if(POPSLOT) localStorage.setItem("rfmapPop"+POPSLOT,t); else for(let k=1;k<=4;k++) localStorage.setItem("rfmapPop"+k,t); }catch(e){} },2000);
-function popClaimed(i){ if(POPSLOT||ONLY_SLICES) return false; try{ const t=+localStorage.getItem("rfmapPop"+(i+1)); return t>0&&Date.now()-t<6000; }catch(e){ return false; } }   // a pop-out tab plays that slot's sound
-window.addEventListener("storage",e=>{ if(e.key==="rfmapSlots"&&e.newValue){ try{ const j=JSON.parse(e.newValue); for(const k in j) Object.assign(slp(k),j[k]); }catch(_){} } });
-if(ONLY_SLICES){ document.body.classList.add("only-slices"); document.title="RF Noise Map - Slots";
+if(POPSLOT||ONLY_SLICES) setInterval(()=>{ const t=String(Date.now()); try{ if(POPSLOT) localStorage.setItem("ntPop"+POPSLOT,t); else for(let k=1;k<=4;k++) localStorage.setItem("ntPop"+k,t); }catch(e){} },2000);
+function popClaimed(i){ if(POPSLOT||ONLY_SLICES) return false; try{ const t=+localStorage.getItem("ntPop"+(i+1)); return t>0&&Date.now()-t<6000; }catch(e){ return false; } }   // a pop-out tab plays that slot's sound
+window.addEventListener("storage",e=>{ if(e.key==="ntSlots"&&e.newValue){ try{ const j=JSON.parse(e.newValue); for(const k in j) Object.assign(slp(k),j[k]); }catch(_){} } });
+if(ONLY_SLICES){ document.body.classList.add("only-slices"); document.title="RFI Trail - Slots";
   window.addEventListener("load",()=>{ $("bSlPop").style.display="none"; $("bSlFull").style.display="inline-block"; }); }
 function slFull(){ const d=document.documentElement;
   if(document.fullscreenElement){ document.exitFullscreen(); }
   else if(d.requestFullscreen){ d.requestFullscreen(); toast("Full screen. Press Esc (or this button) to leave.",4000); } }
 /* what each slot remembers between visits (the frequency, mode, width, radio and gain are kept in the program's settings) */
-const SLP=(()=>{try{return JSON.parse(localStorage.getItem("rfmapSlots")||"{}")}catch(e){return{}}})();
+const SLP=(()=>{try{return JSON.parse(localStorage.getItem("ntSlots")||"{}")}catch(e){return{}}})();
 function slp(i){ return SLP[i]||(SLP[i]={step:"1",zoom:1,bwsel:"",agc:"medium",vol:0,mute:false,auto:true,lo:-130,hi:-60}); }
-function slpSave(){ try{localStorage.setItem("rfmapSlots",JSON.stringify(SLP));}catch(e){} }
+function slpSave(){ try{localStorage.setItem("ntSlots",JSON.stringify(SLP));}catch(e){} }
 const slzOf=v=>Math.pow(2,(+v||0)/4);            // slider 0..16 -> zoom 1x..16x, smooth steps
 const slzPos=z=>Math.round(4*Math.log2(Math.max(1,+z||1)));
 function slzSpanTxt(rate,z){ const spn=rate/z; return "showing "+(spn>=1e6?(spn/1e6).toFixed(1)+" MHz":Math.round(spn/1e3)+" kHz")+" of band"; }
@@ -897,13 +1142,13 @@ const rowEl=(cls,i)=>document.querySelectorAll("."+cls)[i];
 const slotEl=i=>$("slGrid").children[i];
 function rowFilled(i){ const m=rowEl("cm",i); return !!m && String(m.value).trim()!=="" && (rowEl("cr",i)||{}).value!=="off"; }
 function slotCh(i){ if(!rowFilled(i)) return -1; let n=0; for(let k=0;k<i;k++) if(rowFilled(k)) n++; return n; }   // number the radio uses for this slot
-function slRadioFor(i,f){ const sel=(rowEl("cr",i)||{}).value||"auto"; if(sel==="hl2"||sel==="anan"||sel==="sdrplay"||RTL_RE.test(sel)) return sel; if(f&&f.radio) return f.radio; if($("practice").checked) return "sdrplay";
+function slRadioFor(i,f){ const sel=(rowEl("cr",i)||{}).value||"auto"; if(sel==="hl2"||sel==="anan"||sel==="sdrplay"||RTL_RE.test(sel)||/^cat[1-4]$/.test(sel)) return sel; if(f&&f.radio) return f.radio; if($("practice").checked) return "sdrplay";
   const hl=useHl2(), sd=useSdr(), mhz=+((rowEl("cm",i)||{}).value)||0;
   if(useAnan()&&mhz<=55&&!(hl&&mhz<=38)) return "anan";
   if(hl&&!sd) return "hl2"; if(sd&&!hl) return "sdrplay"; return mhz<=38?"hl2":"sdrplay"; }
 
 /* ----- building the four panels ----- */
-function slotHTML(i){ return '<div class="slh"><span><b class="slt">Slot '+(i+1)+'</b> <span class="slf"></span> <button class="sm slPop" title="Open this slot in its own browser tab, as big as you like (up to four tabs)" onclick="slPopOut('+i+')">Pop out</button> <button class="sm slLock" title="Locks the frequency so it cannot be changed by accident (clicks, wheel, arrow keys, memories)">&#128275; Lock</button><span class="hlonly"><label>Zoom</label><input type="range" class="slzoom" min="0" max="16" step="1" value="0" style="width:90px"><span class="mut slspan"></span></span></span><span class="slhr"><span class="slv"></span><span class="bar slbar"><i></i></span> <label>Radio</label><select class="sm slR" title="Which radio measures this slot. Off skips the slot. Pick a radio to switch a slot on."><option value="off">Off (skip this slot)</option><option value="hl2">Hermes</option><option value="anan">ANAN</option><option value="sdrplay">SDRplay</option></select>'+
+function slotHTML(i){ return '<div class="slh"><span><b class="slt">Slot '+(i+1)+'</b> <span class="slf"></span> <button class="sm slPop" title="Open this slot in its own browser tab, as big as you like (up to four tabs)" onclick="slPopOut('+i+')">Pop out</button> <button class="sm slLock" title="Locks the frequency so it cannot be changed by accident (clicks, wheel, arrow keys, memories)">&#128275; Lock</button> <button class="sm slMtrBtn" title="Brings this slot S-meter back to its usual place and size if it is hidden or lost. Press again to hide it.">Meter</button> <button class="sm slVfo" title="Show or hide the big frequency readout on this picture. Drag it anywhere on the picture; drag its bottom-right corner to make the numbers bigger or smaller.">Big VFO</button><span class="hlonly"><label>Zoom</label><input type="range" class="slzoom" min="0" max="16" step="1" value="0" style="width:90px"><span class="mut slspan"></span></span></span><span class="slhr"><span class="slv"></span><span class="bar slbar"><i></i></span> <label>Radio</label><select class="sm slR" title="Which radio measures this slot. Off skips the slot. Pick a radio to switch a slot on."><option value="off">Off (skip this slot)</option><option value="hl2">Hermes</option><option value="anan">ANAN</option><option value="sdrplay">SDRplay</option></select>'+
  '<button class="sm slLive" style="display:none" title="The SDRplay has one tuner, so only one SDRplay slot can be live (kept on its frequency, with a fast picture). The other SDRplay slots refresh slowly until you press their Live button.">Live</button>'+
  '</span></div>'+
  '<div class="slview"><canvas class="slsp"></canvas><canvas class="slwf"></canvas><div class="slmsg"></div></div>'+
@@ -913,10 +1158,10 @@ function slotHTML(i){ return '<div class="slh"><span><b class="slt">Slot '+(i+1)
  '<input type="number" step="any" class="slF" style="width:104px" placeholder="MHz" title="Frequency in MHz. Type a frequency and press Enter, use the - and + buttons or the mouse wheel, or click or drag on the picture. Clear the box to switch this slot off.">'+
  '<button class="sm slUp" title="Tune up one step">+</button><span class="mut">MHz</span>'+
  '<label>Step</label><select class="sm slStep" title="How far each click of the - and + buttons, or each notch of the mouse wheel, moves the frequency">'+
- '<option value="0.1">100 Hz</option><option value="0.5">500 Hz</option><option value="1">1 kHz</option><option value="5">5 kHz</option>'+
+ '<option value="0.001">1 Hz</option><option value="0.01">10 Hz</option><option value="0.1">100 Hz</option><option value="0.5">500 Hz</option><option value="1">1 kHz</option><option value="5">5 kHz</option>'+
  '<option value="10">10 kHz</option><option value="100">100 kHz</option><option value="1000">1 MHz</option></select>'+
 '<label>Mode</label><select class="sm slsMode" title="Which side of the frequency is measured and listened to: LSB below it, USB above it, AM / SAM / NFM both sides"><option>AM</option><option>SAM</option><option>USB</option><option>LSB</option><option>NFM</option></select>'+
- '<span class="slsnd" style="display:none"><span class="slsico" title="Sound">&#128266;</span><span class="mut slNoSnd">No sound from this radio yet (RTL-SDR slots are readings only). Hermes, ANAN and SDRplay slots can be listened to and recorded.</span>'+
+ '<span class="slsnd" style="display:none"><span class="slsico" title="Sound">&#128266;</span><span class="mut slNoSnd">No sound from this radio (RTL-SDR slots are readings only). Hermes, ANAN, SDRplay and Flex (Control mode) slots can be listened to and recorded.</span>'+
  '<input type="range" class="slVol" min="0" max="100" step="1" style="width:96px" title="Raise the volume above 0 to hear this slot. Any number of slots can play together.">'+
  '<button class="sm slMute" title="Silences this slot without losing its volume setting. When muted the button reads Listen: press it to hear the slot again.">Mute</button>'+
  '<label>Squelch</label><input type="range" class="slSq" min="-120" max="-30" step="1" style="width:60px" title="Silences the sound when the signal is weaker than this. Far left = off."><b class="slSqV mut">off</b>'+
@@ -957,8 +1202,8 @@ function slotHTML(i){ return '<div class="slh"><span><b class="slt">Slot '+(i+1)
 function ensureSlots(){ const grid=$("slGrid"); if(grid.children.length===4){ meterHome(); return; }
   grid.innerHTML=""; for(let i=0;i<4;i++){ const d=document.createElement("div"); d.className="slbox empty"; d.innerHTML=slotHTML(i); if(POPSLOT===i+1) d.classList.add("me"); grid.appendChild(d); slotInit(i,d); }
   meterHome();
-  try{ if(!localStorage.getItem("rfmapSlCompactReset")){ localStorage.setItem("rfmapSlCompactReset","1"); localStorage.removeItem("rfmapSlCompact"); } }catch(e){}    // once: an old Full-size choice from an earlier version is cleared so the 2-across view shows
-  if(localStorage.getItem("rfmapSlCompact")!=="0"){ grid.classList.add("compact"); $("bSlCompact").textContent="Full-size view"; } }
+  try{ if(!localStorage.getItem("ntSlCompactReset")){ localStorage.setItem("ntSlCompactReset","1"); localStorage.removeItem("ntSlCompact"); } }catch(e){}    // once: an old Full-size choice from an earlier version is cleared so the 2-across view shows
+  if(localStorage.getItem("ntSlCompact")!=="0"){ grid.classList.add("compact"); $("bSlCompact").textContent="Full-size view"; } }
 const RADIO_MAX={hl2:38,anan:55};            /* highest MHz each radio can hear */
 const RADIO_NAME={hl2:"the Hermes Lite 2",anan:"the ANAN"};
 const SL_DEF={hl2:["7.2","LSB"],anan:["7.2","LSB"],sdrplay:["146.52","NFM"]};
@@ -981,14 +1226,66 @@ function slotTune(i,p,delay){ const cm=rowEl("cm",i); if(!cm) return;
   if(p.mode!==undefined){ const cd=rowEl("cmd",i); if(cd) cd.value=p.mode; }
   clearTimeout(slTuneTimer); slTuneTimer=setTimeout(slPush,delay||250); slPanSync(i,true); }
 let slTuneTimer=null, slUndo=null;
+/* Which way a wheel / two-finger swipe moves the frequency: fingers (or wheel) UP = higher, however the Mac's "natural scrolling" is set (Chrome tells us when it inverts the direction). */
+/* The slot's S-meter as a box you can drag anywhere over the slot and resize (0.7.0c). st = {x,y,w} kept by the caller (fractions of the slot box). */
+function meterFloat(el,host,st,save){
+  const g=document.createElement("i"); g.className="vfog"; g.title="Drag to resize"; el.appendChild(g);
+  const place=()=>{ const H=host.getBoundingClientRect(); if(!H.width) return; const w=Math.max(120,Math.min(560,st.w||230)); el.style.width=w+"px"; el.style.setProperty("--mw",w+"px");
+    const eh=el.offsetHeight||w*0.38, tv=host.querySelector(".slview"), top0=tv?tv.offsetTop+6:40;
+    let x=st.x===undefined?(H.width-w-10)/H.width:st.x, y=st.y===undefined?top0/H.height:st.y;
+    if(!isFinite(x)||!isFinite(y)){ delete st.x; delete st.y; x=(H.width-w-10)/H.width; y=top0/H.height; }
+    el.style.left=Math.max(0,Math.min(H.width-w,x*H.width))+"px"; el.style.top=Math.max(0,Math.min(H.height-eh,y*H.height))+"px";
+    el.style.display=st.hide?"none":""; };
+  el._home=()=>{ delete st.x; delete st.y; delete st.w; st.hide=false; place(); save(); };
+  el._place=place; let d=null;
+  el.addEventListener("pointerdown",e=>{ if(e.target.closest("button")) return; e.preventDefault(); const H=host.getBoundingClientRect(), R=el.getBoundingClientRect();
+    d={rs:e.target===g,x0:e.clientX,y0:e.clientY,bx:R.left-H.left,by:R.top-H.top,w:R.width}; el.classList.add("drag"); try{el.setPointerCapture(e.pointerId);}catch(_){} });
+  el.addEventListener("pointermove",e=>{ if(!d) return; if(e.buttons===0){ d=null; el.classList.remove("drag"); return; } const H=host.getBoundingClientRect();
+    if(d.rs){ st.w=Math.round(Math.max(120,Math.min(560,d.w+(e.clientX-d.x0)))); const R=el.getBoundingClientRect(); st.x=(R.left-H.left)/H.width; st.y=(R.top-H.top)/H.height; place(); }
+    else { st.x=(d.bx+e.clientX-d.x0)/H.width; st.y=(d.by+e.clientY-d.y0)/H.height; place(); const R=el.getBoundingClientRect(); st.x=(R.left-H.left)/H.width; st.y=(R.top-H.top)/H.height; } });
+  const end=()=>{ if(!d) return; d=null; el.classList.remove("drag"); save(); };
+  el.addEventListener("pointerup",end); el.addEventListener("pointercancel",end); el.addEventListener("wheel",e=>e.stopPropagation());
+  el.addEventListener("dblclick",e=>{ if(!e.target.closest("button")) el._home(); });          /* double-click puts the meter back at its usual place and size */
+  place(); return el; }
+/* A big frequency readout on a picture. host = the picture's wrapper (position:relative), st = {x,y,fs,hide} kept by the caller, save() stores it. */
+function vfoMake(host,st,save,defFs){
+  const b=document.createElement("div"); b.className="vfobox"; b.innerHTML='<span class="vfon">-</span><span class="vfou">MHz</span><i class="vfox" title="Hide (the Big VFO button brings it back)">&times;</i><i class="vfog" title="Drag to resize"></i>';
+  host.appendChild(b); b._st=st; b._host=host;
+  const place=()=>{ const H=host.getBoundingClientRect(); b.style.fontSize=(st.fs||defFs)+"px"; const w=b.offsetWidth, h=b.offsetHeight;
+    const x=Math.max(0,Math.min(1,st.x===undefined?0.03:st.x)), y=Math.max(0,Math.min(1,st.y===undefined?0.06:st.y));
+    b.style.left=Math.max(0,Math.min(H.width-w,x*H.width))+"px"; b.style.top=Math.max(0,Math.min(H.height-h,y*H.height))+"px"; b.style.display=st.hide?"none":"flex"; };
+  b._place=place;
+  let g=null;
+  b.addEventListener("pointerdown",e=>{ if(e.target.classList.contains("vfox")){ st.hide=true; save(); place(); e.stopPropagation(); return; }
+    e.preventDefault(); e.stopPropagation(); const H=host.getBoundingClientRect(), R=b.getBoundingClientRect();
+    g={rs:e.target.classList.contains("vfog"),x0:e.clientX,y0:e.clientY,bx:R.left-H.left,by:R.top-H.top,fs:st.fs||defFs,w:R.width};
+    b.classList.add("drag"); try{b.setPointerCapture(e.pointerId);}catch(_){} });
+  b.addEventListener("pointermove",e=>{ if(!g) return; const H=host.getBoundingClientRect();
+    if(g.rs){ st.fs=Math.max(14,Math.min(260,Math.round(g.fs*(g.w+(e.clientX-g.x0))/g.w))); place(); }
+    else { st.x=(g.bx+e.clientX-g.x0)/H.width; st.y=(g.by+e.clientY-g.y0)/H.height; place(); const R=b.getBoundingClientRect(); st.x=(R.left-H.left)/H.width; st.y=(R.top-H.top)/H.height; } });
+  const end=e=>{ if(!g) return; g=null; b.classList.remove("drag"); save(); };
+  b.addEventListener("pointerup",end); b.addEventListener("pointercancel",end);
+  b.addEventListener("click",e=>e.stopPropagation()); b.addEventListener("wheel",e=>e.stopPropagation());
+  place(); return b; }
+/* a click or drag on a picture lands on the nearest multiple of the slot's Step (stepKhz is the Step box's value, in kHz): 3.856.732 at 1 kHz -> 3.857.000 */
+function snapMHz(hz,stepKhz){ const sh=Math.max(1,Math.round((+stepKhz||1)*1000)); return Math.max(0.001,Math.round(Math.round(hz/sh)*sh)/1e6); }
+function vfoText(hz){ if(!(hz>0)) return "-"; const r=Math.round(hz), m=Math.floor(r/1e6), k=Math.floor((r%1e6)/1e3), h=r%1e3; return m+"."+String(k).padStart(3,"0")+"."+String(h).padStart(3,"0"); }
+function vfoSet(b,hz){ if(!b) return; const t=vfoText(hz), n=b.querySelector(".vfon"); if(n.textContent!==t){ n.textContent=t; b._place&&b._place(); } }
+function wheelDir(e){ return (e.deltaY<0?1:-1)*(e.webkitDirectionInvertedFromDevice?-1:1); }
 function slotInit(i,d){ const q=s=>d.querySelector(s), p=slp(i);
   const fi=q(".slF"), wi=q(".slW"), ri=q(".slR"), st=q(".slStep"), ms=q(".slsMode"), cv=q(".slsp");
+  { const ms=p.mtr||(p.mtr={}), mh=q(".slmtr"); if(mh){ meterFloat(mh,d,ms,slpSave); q(".slMtrBtn").onclick=()=>{ const r=mh.getBoundingClientRect(), hr=d.getBoundingClientRect(), lost=r.width<10||r.right<hr.left+20||r.left>hr.right-20||r.bottom<hr.top+20||r.top>hr.bottom-20;
+      if(ms.hide||lost) mh._home(); else { ms.hide=true; slpSave(); mh._place(); } }; } }
+  { const vs=p.vfo||(p.vfo={}); d._vfo=vfoMake(q(".slview"),vs,slpSave,34); q(".slVfo").onclick=()=>{ vs.hide=!vs.hide; slpSave(); d._vfo._place(); }; }
   const stepNow=()=>+st.value||1, cur=()=>parseFloat(fi.value)||parseFloat((rowEl("cm",i)||{}).value)||0;
   const move=dir=>{ const nv=Math.max(0.001,Math.round((cur()+dir*stepNow()/1000)*1e6)/1e6); fi.value=String(nv); slotTune(i,{mhz:String(nv)}); };
   q(".slDn").onclick=()=>move(-1); q(".slUp").onclick=()=>move(1);
-  st.value=p.step||"1"; st.onchange=()=>{ p.step=st.value; slpSave(); };
+  st.value=p.step||"1"; st.onchange=()=>{ p.step=st.value; slpSave(); stepAttr(); };
   fi.onchange=()=>slotTune(i,{mhz:fi.value.trim()});
-  fi.onwheel=e=>{ e.preventDefault(); move(e.deltaY<0?1:-1); };
+  fi.onwheel=e=>{ e.preventDefault(); move(wheelDir(e)); };
+  const stepAttr=()=>{ fi.step=String(stepNow()/1000); };          /* the box's own little arrows and Up/Down keys step by the chosen Step (they stepped by 1 MHz before) */
+  stepAttr();
+  fi.onkeydown=e=>{ if(e.key==="ArrowUp"||e.key==="ArrowDown"){ e.preventDefault(); move((e.key==="ArrowUp"?1:-1)*(e.shiftKey?10:1)); } };
   wi.onchange=()=>{ if(+wi.value>0){ slotTune(i,{bw:wi.value}); if((d._rad==="hl2"||d._rad==="anan")&&p.bwsel==="match") setTimeout(()=>slsMode(i),400); } };
   ri.onchange=()=>slotTune(i,{radio:ri.value});
   q(".slLive").onclick=()=>slLive(i);
@@ -1001,7 +1298,7 @@ function slotInit(i,d){ const q=s=>d.querySelector(s), p=slp(i);
         slpSave(); d._wfclear=true; }
       else { p.zoom=1; q(".slzoom").value="0"; slpSave(); }
       slotTune(i,{mhz:String(b[2]),mode:m}); }; }
-  { q(".slWide").checked=localStorage.getItem("rfmapPanWide")==="1"; q(".slWide").onchange=()=>{ try{localStorage.setItem("rfmapPanWide",q(".slWide").checked?"1":"0");}catch(e){} };
+  { q(".slWide").checked=localStorage.getItem("ntPanWide")==="1"; q(".slWide").onchange=()=>{ try{localStorage.setItem("ntPanWide",q(".slWide").checked?"1":"0");}catch(e){} };
     const ce=q(".slCen"), shiftC=f=>{ const P=slPanParams(i); p.pc=Math.max(1e4,Math.round(P.center+f*P.rate)); slpSave(); slPanPost({center:p.pc}); };
     ce.onchange=()=>{ const v=parseFloat(ce.value); if(v>0){ p.pc=Math.round(v*1e6); slpSave(); slPanPost({center:p.pc}); } };
     q(".slCL").onclick=()=>shiftC(-0.25); q(".slCR").onclick=()=>shiftC(0.25);
@@ -1016,7 +1313,7 @@ function slotInit(i,d){ const q=s=>d.querySelector(s), p=slp(i);
   ms.onchange=()=>{ if(d._rad==="sdrplay") slSetMode(i,ms.value); else { slotTune(i,{mode:SLMODE[ms.value]||ms.value}); if(d._rad==="hl2"||d._rad==="anan") slsMode(i); } };
   const bs=q(".slsBw"), ag=q(".slsAgc"); bs.value=p.bwsel||""; ag.value=p.agc||"medium";
   d._bsHl=bs.innerHTML;
-  bs.onchange=()=>{ if(d._rad==="sdrplay"){ p.pbw=+bs.value; slpSave(); slPanPost({bw:p.pbw}); if(d._f) slDraw(i,d._f); return; } p.bwsel=bs.value; slpSave(); slsMode(i); if(d._f) slDraw(i,d._f); };
+  bs.onchange=()=>{ if(d._rad==="sdrplay"){ p.pbw=+bs.value; slpSave(); slPanPost({bw:p.pbw}); if(d._f) slDraw(i,d._f); return; } p.bwsel=bs.value; slpSave(); if(/^cat[1-4]$/.test(d._rad||"")) chEdited(); slsMode(i); if(d._f) slDraw(i,d._f); };
   ag.onchange=()=>{ p.agc=ag.value; slpSave(); slsMode(i); };
   const zs=q(".slzoom"); zs.value=String(slzPos(p.zoom));
   zs.oninput=()=>{ p.zoom=slzOf(zs.value); slpSave(); if(d._f){ q(".slspan").textContent=slzSpanTxt(d._f.rate,p.zoom); slDraw(i,d._f,true);} };
@@ -1024,8 +1321,8 @@ function slotInit(i,d){ const q=s=>d.querySelector(s), p=slp(i);
   // gain sliders (the Hermes has one gain for the whole radio; the SDRplay has two attenuators)
   const gh=q(".gHlS"), gi=q(".gIfS"), gr=q(".gRfS");
   { const gt=q(".gRtlS"); gt.oninput=()=>{ const id=d._rad; if(!RTL_RE.test(id)) return; SL.rtlGain=SL.rtlGain||{}; SL.rtlGain[id]=+gt.value; q(".gRtlV").textContent=gt.value; clearTimeout(SL.rtlT); SL.rtlT=setTimeout(()=>guard(()=>api("/api/gain",{rtl_gain_db:{[id]:+gt.value}})),350); }; }
-  { const hb=q(".gHlBand"); hb.onchange=()=>{ SL.hlBand=hb.checked; try{localStorage.setItem("rfmapHlBand",hb.checked?"1":"0");}catch(e){} if(hb.checked){ SL.hlBandKey=null; hlBandStore(); } toast(hb.checked?"Gain per band is on. The Hermes remembers the gain you set for each band.":"Gain per band is off."); }; }
-  { const ha=q(".gHlAuto"); ha.onchange=()=>{ SL.hlAuto=ha.checked; try{localStorage.setItem("rfmapHlAuto",ha.checked?"1":"0");}catch(e){} SL.hlLast=Date.now(); SL.hlAT=0; toast(ha.checked?"Auto gain is on for the Hermes. It lowers the gain if a strong signal overloads the radio and slowly raises it again. It stops while recording.":"Auto gain is off. The gain stays where you set it."); }; }
+  { const hb=q(".gHlBand"); hb.onchange=()=>{ SL.hlBand=hb.checked; try{localStorage.setItem("ntHlBand",hb.checked?"1":"0");}catch(e){} if(hb.checked){ SL.hlBandKey=null; hlBandStore(); } toast(hb.checked?"Gain per band is on. The Hermes remembers the gain you set for each band.":"Gain per band is off."); }; }
+  { const ha=q(".gHlAuto"); ha.onchange=()=>{ SL.hlAuto=ha.checked; try{localStorage.setItem("ntHlAuto",ha.checked?"1":"0");}catch(e){} SL.hlLast=Date.now(); SL.hlAT=0; toast(ha.checked?"Auto gain is on for the Hermes. It lowers the gain if a strong signal overloads the radio and slowly raises it again. It stops while recording.":"Auto gain is off. The gain stays where you set it."); }; }
   gh.oninput=()=>{ $("hl2g").value=gh.value; hlBandStore(); q(".gHlV").textContent=(+gh.value>0?"+":"")+gh.value; slGainSoon("hl2"); };
   gi.oninput=()=>{ $("ifgr").value=gi.value; q(".gIfV").textContent=gi.value; gainSync(); slGainSoon("sdr"); slPanPost({if_gain:+gi.value}); };
   gr.oninput=()=>{ $("rfgr").value=gr.value; q(".gRfV").textContent=gr.value; gainSync(); slGainSoon("sdr"); slPanPost({rf_state:+gr.value}); };
@@ -1039,7 +1336,7 @@ function slotInit(i,d){ const q=s=>d.querySelector(s), p=slp(i);
   cv.style.touchAction="none";
   const inScale=e=>{ const r=cv.getBoundingClientRect(); return e.clientX-r.left<SCW; };
   cv.onwheel=e=>{ e.preventDefault(); if(inScale(e)){ const R=SLR[i]; if(!R) return; const mid=(R.lo+R.hi)/2, half=(R.hi-R.lo)/2*(e.deltaY<0?0.88:1.14);
-      p.auto=false; p.lo=mid-Math.max(10,Math.min(80,half)); p.hi=mid+Math.max(10,Math.min(80,half)); slpSave(); if(d._f) slDraw(i,d._f); } else move(e.deltaY<0?1:-1); };
+      p.auto=false; p.lo=mid-Math.max(10,Math.min(80,half)); p.hi=mid+Math.max(10,Math.min(80,half)); slpSave(); if(d._f) slDraw(i,d._f); } else move(wheelDir(e)); };
   cv.ondblclick=e=>{ if(inScale(e)){ p.auto=true; slpSave(); if(d._f) slDraw(i,d._f); } };
   cv.onpointerdown=e=>{ if(e.button>0) return; const r=cv.getBoundingClientRect();
     if(inScale(e)){ const R=SLR[i]; if(!R) return; cv._sd={y0:e.clientY,lo:R.lo,hi:R.hi,h:r.height}; try{cv.setPointerCapture(e.pointerId);}catch(_){} return; }
@@ -1051,11 +1348,11 @@ function slotInit(i,d){ const q=s=>d.querySelector(s), p=slp(i);
     if(!g){ cv.style.cursor=inScale(e)?"ns-resize":(slMarkAt(cv,e)?"pointer":"grab"); return; }
     const dx=e.clientX-g.x0; if(Math.abs(dx)>4) g.moved=true;
     if(g.moved&&d._rad==="sdrplay"){ p.pc=Math.max(1e4,Math.round((g.c0-dx*g.hzpp)/100)*100); slpSave(); slPanPost({center:p.pc}); return; }
-    if(g.moved){ const nv=Math.max(0.001,Math.round((g.f0-dx*g.hzpp/1e6)*1e4)/1e4); fi.value=String(nv); slotTune(i,{mhz:String(nv)},90); } };
+    if(g.moved){ const nv=snapMHz(g.f0*1e6-dx*g.hzpp,stepNow()); fi.value=String(nv); slotTune(i,{mhz:String(nv)},90); } };
   cv.onpointerup=cv.onpointercancel=e=>{ if(cv._sd){ cv._sd=null; slpSave(); return; }
     const g=cv._drag; cv._drag=null; cv.style.cursor="grab";
     if(g&&!g.moved){ const mk=slMarkAt(cv,e); if(mk){ slGoFreq(i,mk[0],mk[3]); return; }
-      const nv=Math.max(0.001,Math.round(g.clickHz/1e6*1e4)/1e4); fi.value=String(nv); slotTune(i,{mhz:String(nv)},90); } };
+      const nv=snapMHz(g.clickHz,stepNow()); fi.value=String(nv); slotTune(i,{mhz:String(nv)},90); } };
 }
 function isSdSlot(i){ return rowFilled(i)&&(rowEl("cr",i)||{}).value==="sdrplay"; }
 function slSetMode(i,m){ const p=slp(i); if(isSdSlot(i)){ p.pmode=m; p.pbw=PAN_BW_DEF[m]; slpSave(); } slotTune(i,{mode:SLMODE[m]||m}); }
@@ -1143,12 +1440,12 @@ const HL_AUTO_MAX=36;
 /* Gain per band: the Hermes has one gain for the whole radio, so the band of the first Hermes slot decides. The gain you set is remembered for that band and put back when the slot returns to it. */
 const HL_BANDS=[["160 m",1.8,2.0],["80 m",3.5,4.0],["60 m",5.3,5.5],["40 m",7.0,7.3],["30 m",10.1,10.15],["20 m",14.0,14.35],["17 m",18.068,18.168],["15 m",21.0,21.45],["12 m",24.89,24.99],["10 m",28.0,29.7],["6 m",50,54]];
 function hlBandOf(m){ for(const b of HL_BANDS) if(m>=b[1]-0.05&&m<=b[2]+0.05) return b[0]; return m>0?("near "+Math.floor(m)+" MHz"):""; }
-function hlBandMap(){ try{ return JSON.parse(localStorage.getItem("rfmapBandGain")||"{}")||{}; }catch(e){ return {}; } }
+function hlBandMap(){ try{ return JSON.parse(localStorage.getItem("ntBandGain")||"{}")||{}; }catch(e){ return {}; } }
 function hlBandNow(){ for(let k=0;k<4;k++) if(rowFilled(k)&&(rowEl("cr",k)||{}).value==="hl2"){ const m=+((rowEl("cm",k)||{}).value)||0; return hlBandOf(m); } return ""; }
-function hlBandStore(){ if(!SL.hlBand||SL.logging) return; const k=hlBandNow(); if(!k) return; const m=hlBandMap(); m[k]=Math.round(+$("hl2g").value||0); try{ localStorage.setItem("rfmapBandGain",JSON.stringify(m)); }catch(e){} SL.hlBandKey=k; SL.hlBandName=k; }
+function hlBandStore(){ if(!SL.hlBand||SL.logging) return; const k=hlBandNow(); if(!k) return; const m=hlBandMap(); m[k]=Math.round(+$("hl2g").value||0); try{ localStorage.setItem("ntBandGain",JSON.stringify(m)); }catch(e){} SL.hlBandKey=k; SL.hlBandName=k; }
 function hlBandStep(){ if(!SL.hlBand||SL.logging) return; const k=hlBandNow(); SL.hlBandName=k; if(!k||k===SL.hlBandKey) return; SL.hlBandKey=k; const g=hlBandMap()[k];
   if(g!==undefined&&g!==Math.round(+$("hl2g").value||0)){ $("hl2g").value=g; slGainSoon("hl2"); toast("Gain set to "+(g>0?"+":"")+g+" dB for "+k+" (the gain you used there last time). Move the slider to change it.",5000); } }
-try{ SL.hlAuto=(localStorage.getItem("rfmapHlAuto")==="1"); SL.hlBand=(localStorage.getItem("rfmapHlBand")!=="0"); }catch(e){ SL.hlBand=true; }
+try{ SL.hlAuto=(localStorage.getItem("ntHlAuto")==="1"); SL.hlBand=(localStorage.getItem("ntHlBand")!=="0"); }catch(e){ SL.hlBand=true; }
 function hlAutoStep(h){ if(!SL.hlAuto||SL.logging||typeof h.overload!=="boolean") return; const now=Date.now(); let g=Math.round(+$("hl2g").value||0);
   if(h.overload){ SL.hlLast=now; if(now-(SL.hlAT||0)>3000&&g>-12){ g=Math.max(-12,g-3); SL.hlAT=now; $("hl2g").value=g; slGainSoon("hl2"); } }
   else if(now-(SL.hlLast||0)>30000&&now-(SL.hlAT||0)>30000&&g<HL_AUTO_MAX){ g++; SL.hlAT=now; $("hl2g").value=g; slGainSoon("hl2"); } }
@@ -1169,7 +1466,7 @@ function slDraw(i,f,force){
   let bin=cv._sm; if(!bin||bin.length!==n){ bin=new Float32Array(n); for(let k=0;k<n;k++) bin[k]=raw.charCodeAt(k); cv._sm=bin; }
   else if(cv._seq!==f.seq){ for(let k=0;k<n;k++) bin[k]=bin[k]*0.45+raw.charCodeAt(k)*0.55; }
   cv._seq=f.seq;
-  const zoom=f.sdr?1:Math.max(1,+p.zoom||1), span=rate/zoom;
+  const zoom=f.sdr?1:Math.max(1,+p.zoom||1), span=(rate>0?rate:Math.max(1,n))/zoom;     /* a flat meter-only line has rate 0 */
   let w0=f.tune-span/2; w0=Math.min(Math.max(w0,f.center-rate/2), f.center+rate/2-span);
   const w1=w0+span, toX=hz=>((hz-w0)/span)*W;
   const b0=((w0-(f.center-rate/2))/rate)*n, bw=(span/rate)*n;
@@ -1177,8 +1474,10 @@ function slDraw(i,f,force){
   let R=SLR[i]||(SLR[i]={lo:-130,hi:-60,init:false});
   if(p.auto){ const a=Math.max(0,Math.floor(b0)), b=Math.min(n,Math.ceil(b0+bw)), seg=Float32Array.from(bin.subarray(a,Math.max(a+1,b))).sort();
     const lo=m0+seg[Math.floor(seg.length*0.08)]*mk-8, mx=m0+seg[seg.length-1]*mk, hi=Math.max(mx+6,lo+45);
-    if(!R.init){ R.lo=lo; R.hi=hi; R.init=true; } else { R.lo+=0.1*(lo-R.lo); R.hi+=0.1*(hi-R.hi); } }
+    if(!(isFinite(lo)&&isFinite(hi))){ /* keep the last good range: one odd frame must not blank the picture for good (0.7.0c) */ }
+    else if(!R.init||!isFinite(R.lo)||!isFinite(R.hi)){ R.lo=lo; R.hi=hi; R.init=true; } else { R.lo+=0.1*(lo-R.lo); R.hi+=0.1*(hi-R.hi); } }
   else { R.lo=p.lo; R.hi=p.hi; R.init=true; }
+  if(!isFinite(R.lo)||!isFinite(R.hi)){ R.lo=-130; R.hi=-60; }
   if(R.hi-R.lo<10) R.hi=R.lo+10;
   const bh=Math.round(13*sc)+Math.round(8*sc), PH=H-bh, fs=Math.round(13*sc);
   const yOf=db=>{ const t=(db-R.lo)/(R.hi-R.lo); return PH-Math.max(0,Math.min(1,t))*PH; };
@@ -1201,7 +1500,9 @@ function slDraw(i,f,force){
     for(let k=Math.max(0,a);k<Math.min(n,b);k++){ const v=bin[k]; if(v>mm)mm=v; }
     const db=m0+mm*mk; colDb[x]=db; const y=yOf(db); if(x===0)g.moveTo(x,y); else g.lineTo(x,y); }
   g.stroke();
-  if(!f.sdr){ let top=-1e9; for(let x=0;x<W;x++) if(colDb[x]>top) top=colDb[x];
+  if(/^cat/.test(String(f.radio||""))&&!(f.rate>0)){ g.fillStyle="rgba(190,220,255,.9)"; g.font=Math.round(12*sc)+"px sans-serif"; g.textAlign="center";        // CAT / Flex radios give a level reading, not a spectrum picture
+    g.fillText("This radio gives a level reading only (no spectrum picture). The reading is in the meter and the top bar.",W/2,PH*0.45); g.textAlign="left"; }
+  else if(!f.sdr){ let top=-1e9; for(let x=0;x<W;x++) if(colDb[x]>top) top=colDb[x];
     if(top<m0+2){ g.fillStyle="rgba(255,224,138,.95)"; g.font="bold "+Math.round(13*sc)+"px sans-serif"; g.textAlign="center";
       g.fillText("Only the radio's own noise is arriving here. Is an antenna connected? (Is the gain too low?)",W/2,PH*0.45); g.textAlign="left"; } }
   // known-frequency markers (CB channels, time stations, ham calling frequencies ...): click one to tune the slot to it
@@ -1255,7 +1556,7 @@ function slMsg(i){ if(SL.manualStop) return "Live view is stopped. Press <b>Star
   { const w=(SL.warn||{})[i+1]; if(w) return "This slot cannot be used: "+esc(w)+"<br><span style='font-size:12px'>Change this slot's Radio in its header (above), or tick that radio in <b>Hardware setup</b>. The other slots keep running.</span>"; }
   if(SL.starting) return "Starting the radio... (a few seconds)";
   if(PAN&&PAN.on) return "The wide panadapter below is using the radio. Press its Stop button and this slot comes back.";
-  if(!$("practice").checked&&!useSdr()&&!useHl2()&&!useRtl()&&!useAnan()) return "Tick a radio under <b>Your radios</b> in box 1 above (or use Practice mode).";
+  if(!$("practice").checked&&!useSdr()&&!useHl2()&&!useRtl()&&!useAnan()&&!CAT.some(c=>c.model)) return "Tick a radio under <b>Your radios</b> in box 1 above (or use Practice mode).";
   if(SL.startErr) return "The radio is not available: "+esc(SL.startErr)+"<br><span style='font-size:12px'>Change the slot's frequency or Radio in the slot's header (above) to fix this. Trying again every 15 seconds.</span>";
   return "Waiting for the radio..."; }
 function slRender(j){
@@ -1275,6 +1576,8 @@ function slRender(j){
     const fi=q(".slF"), wi=q(".slW"), ri=q(".slR"), ms=q(".slsMode"), cm=rowEl("cm",i);
     if(document.activeElement!==fi && fi.value!==String(cm.value)) fi.value=cm.value;
     if(document.activeElement!==wi && wi.value!==String(rowEl("cb",i).value)) wi.value=rowEl("cb",i).value;
+    { const crs=rowEl("cr",i); if(crs){ const sig=[...crs.options].map(o=>o.value+"="+o.textContent).join("|");       // the slot's own Radio list follows the one in Hardware setup (RTL, CAT and Flex radios included)
+        if(ri.dataset.sig!==sig && document.activeElement!==ri){ ri.innerHTML=[...crs.options].map(o=>'<option value="'+esc(o.value)+'">'+esc(o.value==="off"?"Off (skip this slot)":o.textContent)+'</option>').join(""); ri.dataset.sig=sig; ri.value=crs.value; } } }
     if(document.activeElement!==ri && ri.value!==rowEl("cr",i).value) ri.value=rowEl("cr",i).value;
     const cmd=rowEl("cmd",i); if(cmd&&document.activeElement!==ms&&ms.value!==cmd.value) ms.value=cmd.value;
     
@@ -1296,7 +1599,7 @@ function slRender(j){
         if(document.activeElement!==ga) ga.checked=!!p.autoGain; q(".gIfS").disabled=q(".gRfS").disabled=!!p.autoGain; } }
     const cal=+((calEls[i]||{}).value||0);
     const isSd=filled&&rad==="sdrplay", isLive=isSd&&liveI===i;
-    q(".slf").textContent=filled?((+cm.value).toFixed(4)+" MHz"+(isSd&&!isLive&&!SL.logging?" - not live, picture frozen. Press Live":"")):"- off. Pick a radio on the right (or type a frequency) to use this slot.";
+    q(".slf").textContent=filled?((+cm.value).toFixed(6).replace(/0{1,2}$/,"")+" MHz"+(isSd&&!isLive&&!SL.logging?" - not live, picture frozen. Press Live":"")):"- off. Pick a radio on the right (or type a frequency) to use this slot.";
     const lb=q(".slLive"); lb.style.display=isSd?"inline-block":"none"; lb.classList.toggle("on",isLive); lb.textContent=isLive?"\u25cf Live":"Live";
     d.classList.toggle("notlive",isSd&&!isLive&&!SL.logging);
     { const lk=q(".slLock"); lk.classList.toggle("on",!!p.lock); lk.innerHTML=p.lock?"&#128274;":"&#128275;"; lk.title=p.lock?"LOCKED: the frequency cannot be changed. Press to unlock.":"Locks the frequency so it cannot be changed by accident (clicks, wheel, arrow keys, memories)"; }
@@ -1317,7 +1620,7 @@ function slRender(j){
     q(".gOv").style.display=(hl&&SL.health.overload)?"inline":"none"; q(".gOv2").style.display=(hl&&SL.health.overload)?"inline":"none";
     if(hl){ const hb=q(".gHlBand"); if(hb.checked!==!!SL.hlBand) hb.checked=!!SL.hlBand; hb.disabled=!!SL.logging; q(".gBandN").textContent=SL.hlBand&&SL.hlBandName?("band: "+SL.hlBandName):""; const ha=q(".gHlAuto"); if(ha.checked!==!!SL.hlAuto) ha.checked=!!SL.hlAuto; ha.disabled=!!SL.logging; }
     // sound row (Hermes slots only)
-    const ns=hl||rad==="anan"; const snd=q(".slsnd"); snd.style.display="flex"; snd.classList.toggle("nosnd",!(ns||sd)); q(".slsx").style.display=(ns||sd)?"flex":"none";
+    const ct=/^cat[1-4]$/.test(rad), ns=hl||rad==="anan"||ct;       /* a Flex in Control mode streams its sound too (0.6.0); a radio that cannot says so when you raise the volume */ const snd=q(".slsnd"); snd.style.display="flex"; snd.classList.toggle("nosnd",!(ns||sd)); q(".slsx").style.display=(ns||sd||ct)?"flex":"none";
     if(ns||sd){ const st=ns?((SLS.sound||{})[String(c)]||{}):{}; const vo=q(".slVol"); if(document.activeElement!==vo&&+vo.value!==p.vol) vo.value=String(p.vol);
       { const mu=q(".slMute"); if(mu){ mu.textContent=p.mute?"Listen":"Mute"; mu.classList.toggle("on",!!p.mute); } }
       const on=ns?!!st.rec_file:!!REC.on, rb=q(".slsRec"); rb.textContent=on?"■ Stop recording":"● Record";
@@ -1325,6 +1628,7 @@ function slRender(j){
       if(ns) q(".slsp")._pb=slPassband(ms.value,p.bwsel,(+wi.value||5)*1000);
       else { const m=p.pmode||"AM", b=p.pbw||PAN_BW_DEF[m]; q(".slsp")._pb=m==="USB"?{lo:250,hi:250+b}:m==="LSB"?{lo:-250-b,hi:-250}:{lo:-b/2,hi:b/2}; } }
     else q(".slsp")._pb=null;
+    if(ct) q(".slsp")._pb=slPassband(ms.value,p.bwsel,(+wi.value||5)*1000);          /* the green filter band on a Flex/CAT picture */
     { const scp=q(".slscope"); scp.style.display=(hl||sd)?"block":"none"; if(hl){ if(SLS.ch[c]) slsGainSet(i); slScope(i,scp,c); } else if(sd) slScopeSd(i,scp); }
     const au=q(".slAuto"); au.classList.toggle("on",!!p.auto); au.textContent="Auto scale";
     if(fb) slFallback(i);
@@ -1365,7 +1669,7 @@ function slPassband(mode,bwSel,measHz){ const bw=(bwSel==="match"?+measHz:+bwSel
   if(mode==="LSB") return {lo:-bw,hi:0}; if(mode==="USB") return {lo:0,hi:bw}; return {lo:-bw/2,hi:bw/2}; }
 function slCompact(){ const g=$("slGrid"), on=!g.classList.contains("compact"); g.classList.toggle("compact",on);
   $("bSlCompact").textContent=on?"Full-size view":"Compact view (all 4 on one screen)";
-  try{localStorage.setItem("rfmapSlCompact",on?"1":"0");}catch(e){}
+  try{localStorage.setItem("ntSlCompact",on?"1":"0");}catch(e){}
   if(on) $("cSlices").scrollIntoView({behavior:"smooth",block:"start"}); }
 
 /* ----- tuning pushes ----- */
@@ -1411,7 +1715,7 @@ let slsSyncT=null; function slsSyncSoon(){ clearTimeout(slsSyncT); slsSyncT=setT
 async function slsSync(){
   if(SL.syncBusy||!SL.live) return; SL.syncBusy=true;
   try{
-    const want={}; for(let i=0;i<4;i++){ const c=slotCh(i); if(c>=0&&SL.byCh[c]&&(slRadioFor(i,SL.byCh[c])==="hl2"||slRadioFor(i,SL.byCh[c])==="anan")&&slp(i).vol>0&&!slp(i).mute&&(!POPSLOT||POPSLOT===i+1)&&!popClaimed(i)) want[c]=i; }
+    const want={}; for(let i=0;i<4;i++){ const c=slotCh(i); if(c>=0&&SL.byCh[c]&&(slRadioFor(i,SL.byCh[c])==="hl2"||slRadioFor(i,SL.byCh[c])==="anan"||/^cat[1-4]$/.test(slRadioFor(i,SL.byCh[c])))&&slp(i).vol>0&&!slp(i).mute&&(!POPSLOT||POPSLOT===i+1)&&!popClaimed(i)) want[c]=i; }
     for(const c in want){ const i=want[c], o=slsChan(+c), st=SLS.sound[c]||{};
       if(!st.listen&&Date.now()-o.req>2500){ o.req=Date.now(); await api("/api/slices/listen",Object.assign({channel:+c,on:true},slsPrefs(i))); }
       o.on=true; if(!o.timer) slsPoll(+c); slsGainSet(i);
@@ -1437,7 +1741,7 @@ async function slPoll(){
   if(window.__quit) return;
   if(SL.busy||document.hidden) return; SL.busy=true;
   try{ const j=await api("/api/slices");
-    try{ SL.manualStop=localStorage.getItem("rfmapManualStop")==="1"; }catch(e){}
+    try{ SL.manualStop=localStorage.getItem("ntManualStop")==="1"; }catch(e){}
     slSyncCfg(j);
     SL.logging=!!j.logging; SL.live=!!(j.logging||j.running); SL.radio=j.radio||"";
     SLS.sound=j.sound||{};
@@ -1468,8 +1772,8 @@ async function slAuto(j){
   catch(e){ SL.startErr=e.message; }
   SL.starting=false; }
 async function slRestart(){ if(SL.logging) return; try{ await api0("/api/slices/stop",{}); SLP2.on=false; SLP2.tok++; SLP2.force=true; SLP2.lastTry=0; await api0("/api/pan/stop",{}); }catch(e){} SL.lastTry=0; SL.startErr=""; }
-async function slStart(){ SL.manualStop=false; try{localStorage.removeItem("rfmapManualStop");}catch(e){} SL.lastTry=0; await guard(async()=>{ await api("/api/config",readForm()); SL.starting=true; try{ await api("/api/slices/start",{}); SL.startErr=""; }finally{ SL.starting=false; } }); slPoll(); }
-async function slStop(){ SL.manualStop=true; try{localStorage.setItem("rfmapManualStop","1");}catch(e){} await guard(async()=>{ await api("/api/slices/stop",{}); SLP2.on=false; SLP2.tok++; await api("/api/pan/stop",{}); }); slPoll(); }
+async function slStart(){ SL.manualStop=false; try{localStorage.removeItem("ntManualStop");}catch(e){} SL.lastTry=0; await guard(async()=>{ await api("/api/config",readForm()); SL.starting=true; try{ await api("/api/slices/start",{}); SL.startErr=""; }finally{ SL.starting=false; } }); slPoll(); }
+async function slStop(){ SL.manualStop=true; try{localStorage.setItem("ntManualStop","1");}catch(e){} await guard(async()=>{ await api("/api/slices/stop",{}); SLP2.on=false; SLP2.tok++; await api("/api/pan/stop",{}); }); slPoll(); }
 // ask for a new picture about 15 times a second while the slots are live (twice a second when waiting)
 const SPD_MS={smooth:25,normal:60,light:150};
 async function viewSpeed(v){ SL.speed=v; try{ await api("/api/slices/speed",{speed:v}); toast("Hermes pictures: "+({smooth:"smooth",normal:"normal",light:"light, saving effort"}[v]||v)+".",2500); }catch(e){ toast("&#9888; "+esc(e.message),6000); } }
@@ -1481,19 +1785,20 @@ function fillForm(cfg){
   (document.querySelector(`input[name=gpsm][value=${cfg.gps_mode}]`)||document.querySelector("input[name=gpsm][value=usb]")).checked=true;
   $("gHost").value=cfg.gps_host; $("gPort").value=cfg.gps_port; $("gBaud").value=cfg.gps_baud;
   $("autoMap").checked=!!cfg.auto_map; $("apOn").checked=!!cfg.auto_pause; $("apSec").value=cfg.auto_pause_s||10; $("spacing").value=cfg.spacing_ft; $("interval").value=cfg.interval_s||5; (document.querySelector(`input[name=smode][value=${cfg.sample_mode==="time"?"time":"distance"}]`)).checked=true; spacingNote(); $("ifgr").value=cfg.if_gain_db; $("rfgr").value=cfg.rf_gain_state; gainSync();
-  $("useSdr").checked=(cfg.use_sdrplay!==false); $("useHl2").checked=!!cfg.use_hl2; $("useRtl").checked=!!cfg.use_rtl; $("useAnan").checked=!!cfg.use_anan; SL.rtlGain=Object.assign({},cfg.rtl_gain_db||{}); $("hl2ip").value=cfg.hl2_ip||""; $("brSel").value=(cfg.browser==="default"?"default":"chrome"); $("hl2rate").value=String(cfg.hl2_rate||96000); $("hl2g").value=(cfg.hl2_gain_db===undefined?15:cfg.hl2_gain_db);
+  $("useSdr").checked=(cfg.use_sdrplay!==false); $("useHl2").checked=!!cfg.use_hl2; $("useRtl").checked=!!cfg.use_rtl; $("useAnan").checked=!!cfg.use_anan; CAT=Array.isArray(cfg.cat_radios)?cfg.cat_radios.slice(0,4):[]; if(typeof catRender==="function"&&CATM.length){ catRender(); } SL.rtlGain=Object.assign({},cfg.rtl_gain_db||{}); $("hl2ip").value=cfg.hl2_ip||""; $("brSel").value=(cfg.browser==="default"?"default":"chrome"); $("hl2rate").value=String(cfg.hl2_rate||96000); $("hl2g").value=(cfg.hl2_gain_db===undefined?15:cfg.hl2_gain_db);
   let h="<tr><th>Slot</th><th title='Type a frequency here and its slot panel below changes at once'>MHz</th><th title='The signal power inside this width is what is logged and mapped'>Measure width (kHz)</th><th title='LSB measures below the frequency, USB above, the others both sides'>Mode</th><th>Calibration (dB)</th><th class=radcol title='Which radio measures this slot. Auto: the Hermes Lite 2 takes what it can hear; the SDRplay takes the rest.'>Radio</th><th>Level now (dB, S-units)</th><th title='The time of the last reading saved to the drive. While you are not logging it shows that the slot is live.'>Last reading</th></tr>";
   for(let i=0;i<4;i++) h+=chRow(cfg.channels[i]||{mhz:"",bw_khz:5,cal_db:0},i);
   $("chTable").innerHTML=h; showRadioFields(); $("phoneAccess").checked=!!cfg.phone_access; panMemLoad(cfg);
 }
+function slFiltHz(i,bwKhz){ try{ const v=slp(i).bwsel; if(v==="match") return Math.round((+bwKhz||5)*1000); return v?(+v||0):0; }catch(e){ return 0; } }      /* the slot's receive-filter width in Hz; 0 = automatic */
 function readForm(){
   const m=[...document.querySelectorAll(".cm")],b=[...document.querySelectorAll(".cb")],c=[...document.querySelectorAll(".cc")],rr=[...document.querySelectorAll(".cr")],md=[...document.querySelectorAll(".cmd")];
   return {route_name:$("route").value.trim(), practice:$("practice").checked,
     gps_mode:(document.querySelector("input[name=gpsm]:checked")||{value:"usb"}).value, gps_host:$("gHost").value.trim(),
     gps_port:+$("gPort").value||11123, gps_serial:$("gSerial").value, gps_baud:+$("gBaud").value,
     auto_map:$("autoMap").checked, auto_pause:$("apOn").checked, auto_pause_s:Math.min(600,Math.max(3,+$("apSec").value||10)), spacing_ft:+$("spacing").value||10, sample_mode:smode(), interval_s:+$("interval").value||5, if_gain_db:+$("ifgr").value||40, rf_gain_state:+$("rfgr").value||0,
-    use_sdrplay:useSdr(), use_hl2:useHl2(), use_rtl:useRtl(), use_anan:useAnan(), hl2_ip:$("hl2ip").value.trim(), hl2_rate:+$("hl2rate").value||96000, hl2_gain_db:Math.round(+$("hl2g").value||0),
-    channels:m.map((x,i)=>({mhz:x.value, bw_khz:b[i].value||5, cal_db:c[i].value||0, radio:(rr[i]||{value:"auto"}).value, mode:(md[i]||{value:"AM"}).value}))};
+    use_sdrplay:useSdr(), use_hl2:useHl2(), use_rtl:useRtl(), use_anan:useAnan(), use_cat:CAT.some(c=>c.model), cat_radios:CAT.filter(c=>c.model), hl2_ip:$("hl2ip").value.trim(), hl2_rate:+$("hl2rate").value||96000, hl2_gain_db:Math.round(+$("hl2g").value||0),
+    channels:m.map((x,i)=>({mhz:x.value, bw_khz:b[i].value||5, cal_db:c[i].value||0, radio:(rr[i]||{value:"auto"}).value, mode:(md[i]||{value:"AM"}).value, filt_hz:slFiltHz(i,b[i].value)}))};
 }
 function showGpsFields(){
   const prac=$("practice").checked, mode=(document.querySelector("input[name=gpsm]:checked")||{value:"usb"}).value;
@@ -1646,12 +1951,12 @@ function renderExports(list){
   $("xList").innerHTML=list.length?("Other saved files (Google Earth, zips): "+list.map(x=>`<a href="/exports/${encodeURIComponent(x.file)}">${esc(x.file)}</a>`).join(" &middot; ")):"";
 }
 async function refreshAll(){
-  let j; try{ j=await api("/api/state"); }catch(e){ showWarn("Cannot reach the program: "+e.message+" Close this window and open RF Noise Map again."); throw e; }
+  let j; try{ j=await api("/api/state"); }catch(e){ showWarn("Cannot reach the program: "+e.message+" Close this window and open RFI Trail again."); throw e; }
   S=j; showWarn((j.warnings||[]).join("<br>"));
   $("pData").textContent=j.data_dir; $("pDrives").textContent=j.data_dir+"/Drives"; $("pMaps").textContent=j.data_dir+"/Maps";
   if(!formFilled){ fillForm(j.cfg); fillPorts(j.ports,j.cfg.gps_serial); formFilled=true; showGpsFields(); }
   renderDrives(j.drives); renderMaps(j.maps); renderExports(j.exports);
-  if(j.phone_url){$("phoneUrl").style.display="block";$("phoneUrl").innerHTML="On your iPhone/iPad open: <b>"+esc(j.phone_url)+"</b>";}else $("phoneUrl").style.display="none";
+  if(j.phone_url){ $("phoneUrl").style.display="block"; $("phoneTxt").textContent=j.phone_url; window.__phoneUrl=j.phone_url; if(j.phone_qr&&window.__phoneQr!==j.phone_qr){ window.__phoneQr=j.phone_qr; $("phoneQr").innerHTML=j.phone_qr; const sv=$("phoneQr").querySelector("svg"); if(sv){ sv.style.width="100%"; sv.style.height="100%"; } } } else $("phoneUrl").style.display="none";
 }
 function showWarn(t){const b=$("warnBanner"); if(!t){b.style.display="none";return;} b.innerHTML="&#9888; "+t; b.style.display="block";}
 async function refreshDrivesOnly(){ const j=await api("/api/drives"); renderDrives(j.drives); renderMaps(j.maps); renderExports(j.exports); }
@@ -1659,14 +1964,14 @@ async function refreshDrivesOnly(){ const j=await api("/api/drives"); renderDriv
 /* ---------- map actions ---------- */
 function mapSpGet(){ const ft=document.querySelector('input[name=mapsp]:checked'); const on=ft&&ft.value==="ft";
   return {spacing_ft:on?(+$("mapFt").value||0):0, pick:$("mapPick").value}; }
-function mapSpSave(){ try{localStorage.setItem("rfmapSp",JSON.stringify({on:mapSpGet().spacing_ft>0,ft:$("mapFt").value,pick:$("mapPick").value}));}catch(e){} }
-function mapSpLoad(){ try{const j=JSON.parse(localStorage.getItem("rfmapSp")||"null"); if(!j)return;
+function mapSpSave(){ try{localStorage.setItem("ntSp",JSON.stringify({on:mapSpGet().spacing_ft>0,ft:$("mapFt").value,pick:$("mapPick").value}));}catch(e){} }
+function mapSpLoad(){ try{const j=JSON.parse(localStorage.getItem("ntSp")||"null"); if(!j)return;
   $("mapFt").value=j.ft||50; $("mapPick").value=j.pick||"peak";
   document.querySelector('input[name=mapsp][value='+(j.on?"ft":"all")+']').checked=true;}catch(e){} }
 window.addEventListener("load",mapSpLoad);
 /* ----- which readings go on the map: slots, radios, frequencies, speed, level ----- */
 const FILT={s:new Set(),r:new Set(),f:new Set()};        // the things switched OFF
-const radName=r=>({hl2:"Hermes Lite 2",anan:"ANAN",sdrplay:"SDRplay"}[r]||(/^rtl[1-4]$/.test(r)?"RTL-SDR "+r.slice(3):r));
+const radName=r=>({hl2:"Hermes Lite 2",anan:"ANAN",sdrplay:"SDRplay"}[r]||(/^rtl[1-4]$/.test(r)?"RTL-SDR "+r.slice(3):(/^cat[1-4]$/.test(r)?catLabel(r):r)));
 function filtChoices(){
   const L=window._drives||{}; let files=[...document.querySelectorAll(".dsel:checked")].map(x=>x.value);
   if(!files.length) files=Object.keys(L);
@@ -1734,7 +2039,7 @@ function audio(){ try{ if(!AUD) AUD=new (window.AudioContext||window.webkitAudio
 document.addEventListener("click",()=>audio(),{once:false});
 function beep(freq,dur,vol){ const a=audio(); if(!a) return; try{ const o=a.createOscillator(), g=a.createGain(); o.type="sine"; o.frequency.value=freq;
   g.gain.value=vol||0.18; o.connect(g); g.connect(a.destination); o.start(); g.gain.setTargetAtTime(0,a.currentTime+dur*0.7,0.03); o.stop(a.currentTime+dur); }catch(e){} }
-function toneToggle(){ if($("toneOn").checked){ audio(); beep(660,0.15); try{localStorage.setItem("rfmapTone","1");}catch(e){} } else { try{localStorage.setItem("rfmapTone","0");}catch(e){} } }
+function toneToggle(){ if($("toneOn").checked){ audio(); beep(660,0.15); try{localStorage.setItem("ntTone","1");}catch(e){} } else { try{localStorage.setItem("ntTone","0");}catch(e){} } }
 function fmtDur(s){ s=Math.max(0,Math.round(s)); const h=Math.floor(s/3600), m=Math.floor(s%3600/60), x=s%60; return (h?h+":"+String(m).padStart(2,"0"):m)+":"+String(x).padStart(2,"0"); }
 const BAR={alarmT:0, toneLast:0, lastDots:-1, speedWas:0};
 function barLive(lg,st){
@@ -1786,9 +2091,10 @@ function barLive(lg,st){
   else ab.style.display="none";
   // --- noise tone: follows one slot, rises when it climbs above its own recent median
   if($("toneOn").checked&&st.rows!==BAR.lastDots&&!paused){
-    const ch=slotCh(+$("toneSlot").value-1); const h=ch>=0?SLH[+$("toneSlot").value-1]:null;
-    if(h&&h.length>=12){ const v=h[h.length-1].v, base=h.slice(0,-1).map(x=>x.v).sort((a,b)=>a-b)[Math.floor((h.length-1)/2)], rise=v-base;
-      if(rise>=+$("toneThr").value) beep(380+Math.min(rise,24)*38,0.16,0.22); }
+    const sel=$("toneSlot").value, list=sel==="all"?[0,1,2,3]:[+sel-1]; let best=-1e9;       // All = the biggest rise of the slots that are running
+    for(const k of list){ const ch=slotCh(k), h=ch>=0?SLH[k]:null;
+      if(h&&h.length>=12){ const v=h[h.length-1].v, base=h.slice(0,-1).map(x=>x.v).sort((a,b)=>a-b)[Math.floor((h.length-1)/2)], rise=v-base; if(rise>best) best=rise; } }
+    if(best>=+$("toneThr").value) beep(380+Math.min(best,24)*38,0.16,0.22);
   }
   BAR.lastDots=st.rows;
 }
@@ -1842,10 +2148,12 @@ function trTick(lg){ const show=lg||document.body.classList.contains("car"); $("
 
 function setOpen(){ document.body.classList.add('setwin'); const c=$('cCollect'); if(c) c.scrollTop=0; }
 function setClose(){ document.body.classList.remove('setwin','win-dm','win-tools'); }
-function winOpen(k){ setClose(); document.body.classList.add('win-'+k); const w=$(k==='dm'?'winDM':'winTools'); if(w) w.scrollTop=0; }
+function winOpen(k){ if(k==='tools'){ setOpen(); return; } setClose(); document.body.classList.add('win-'+k); const w=$('winDM'); if(w) w.scrollTop=0; }
+function phoneCopy(){ const u=window.__phoneUrl||""; if(!u) return; const done=()=>{ $("phoneCopied").textContent="Copied. Paste it into a message or email to yourself."; setTimeout(()=>{ $("phoneCopied").textContent=""; },6000); };
+  if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(u).then(done,()=>{ prompt("Copy this address:",u); }); } else prompt("Copy this address:",u); }
 function winClose(){ setClose(); }
 document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&/\b(setwin|win-dm|win-tools)\b/.test(document.body.className)) setClose(); });
-function gotoCard(id){ if(id==="cDrives"||id==="cMaps"){ winOpen("dm"); } else if(id==="cTools"){ winOpen("tools"); } const c=$(id); if(c) c.scrollIntoView({behavior:"smooth",block:"start"}); }
+function gotoCard(id){ if(id==="cDrives"||id==="cMaps"){ winOpen("dm"); } else if(id==="cTools"){ setOpen(); } const c=$(id); if(c) c.scrollIntoView({behavior:"smooth",block:"start"}); }
 function fixBarTop(){ const h=document.querySelector("header"), b=$("driveBar"); if(h&&b) b.style.top=h.offsetHeight+"px"; }
 window.addEventListener("load",()=>{ fixBarTop(); if(/[?&]view=car/.test(location.search)) carMode(true); }); window.addEventListener("resize",fixBarTop);
 const mapOne=f=>makeMap([f]);
@@ -1864,12 +2172,12 @@ async function showLog(){ await guard(async()=>{ const j=await api("/api/logs/ta
 async function makeSupport(){ await guard(async()=>{ const j=await api("/api/logs/bundle",{});
   toast("Support file made: "+esc(j.file)+". It is in the logs folder (shown on your computer). Send that one file to KW4EX or Claude. It holds logs and settings only, not your drives or your private access key.",20000); }); }
 async function restartApp(){
-  const msg=window.__logging?"A drive is being recorded right now.\n\nIf you restart, the drive will be stopped and saved first (its dots are kept), then the program closes and starts again.\n\nStop the drive and restart the program?":"Restart RF Noise Map? It closes and starts again; this takes about 10 seconds.";
-  if(!confirm(msg))return; await guard(()=>api("/api/restart",{})); window.__quit=true; try{window.close();}catch(e){} document.body.innerHTML="<p style='padding:30px;font-size:18px'>RF Noise Map is restarting. A new browser tab opens by itself in about 10 seconds. You can close this tab.</p>"; }
+  const msg=window.__logging?"A drive is being recorded right now.\n\nIf you restart, the drive will be stopped and saved first (its dots are kept), then the program closes and starts again.\n\nStop the drive and restart the program?":"Restart RFI Trail? It closes and starts again; this takes about 10 seconds.";
+  if(!confirm(msg))return; await guard(()=>api("/api/restart",{})); window.__quit=true; try{window.close();}catch(e){} document.body.innerHTML="<p style='padding:30px;font-size:18px'>RFI Trail is restarting. A new browser tab opens by itself in about 10 seconds. You can close this tab.</p>"; }
 async function quitApp(){
   const msg=window.__logging?"A drive is being recorded right now.\n\nIf you close the program, the drive will be stopped and saved first (its dots are kept; make the map afterwards from the Drives list), and then the program closes.\n\nStop the drive and close the program?"
-                            :"Close RF Noise Map?";
-  if(!confirm(msg))return; await guard(()=>api("/api/quit",{})); window.__quit=true; try{window.close();}catch(e){} document.body.innerHTML="<p style='padding:30px;font-size:18px'>RF Noise Map has quit. You can close this tab.</p>"; }
+                            :"Close RFI Trail?";
+  if(!confirm(msg))return; await guard(()=>api("/api/quit",{})); window.__quit=true; try{window.close();}catch(e){} document.body.innerHTML="<p style='padding:30px;font-size:18px'>RFI Trail has quit. You can close this tab.</p>"; }
 
 /* ---------- email / notes / check ---------- */
 function openEmail(f){emailFile=f;$("emFile").textContent=f;dlgEmail.showModal();}
@@ -1943,11 +2251,11 @@ const PAN_MARKS=(()=>{ const L=[];
    .forEach((m,i)=>L.push([Math.round(m*1e6),"FRS "+(i+1),"frs","NFM","FRS/GMRS channel "+(i+1)+", "+m+" MHz"]));
   return L.sort((a,b)=>a[0]-b[0]); })();
 PAN.mk={on:true,cats:{cb:1,time:1,ham:1,air:1,frs:1}}; PAN.mkHits=[];
-function mkLoad(){ try{const j=JSON.parse(localStorage.getItem("rfmapPanMk")||"null"); if(j&&j.cats) PAN.mk={on:j.on!==false,cats:Object.assign(PAN.mk.cats,j.cats)};}catch(e){}
+function mkLoad(){ try{const j=JSON.parse(localStorage.getItem("ntPanMk")||"null"); if(j&&j.cats) PAN.mk={on:j.on!==false,cats:Object.assign(PAN.mk.cats,j.cats)};}catch(e){}
   $("mkOn").checked=PAN.mk.on;
   $("mkCats").innerHTML=Object.keys(MK_CATS).map(k=>`<label class="chk" style="display:inline-flex;margin-right:12px"><input type="checkbox" class="mkc" data-k="${k}" ${PAN.mk.cats[k]?"checked":""} onchange="mkChanged()"> <span>${MK_CATS[k]}</span></label>`).join(""); }
 function mkChanged(){ PAN.mk.on=$("mkOn").checked; document.querySelectorAll(".mkc").forEach(c=>{PAN.mk.cats[c.dataset.k]=c.checked?1:0;});
-  document.querySelectorAll(".mkc").forEach(c=>{c.disabled=!PAN.mk.on;}); try{localStorage.setItem("rfmapPanMk",JSON.stringify(PAN.mk));}catch(e){} panOverlay(null); }
+  document.querySelectorAll(".mkc").forEach(c=>{c.disabled=!PAN.mk.on;}); try{localStorage.setItem("ntPanMk",JSON.stringify(PAN.mk));}catch(e){} panOverlay(null); }
 function panMarkers(ox,f,W){
   PAN.mkHits=[]; if(!PAN.mk.on)return;
   const lo=f.center-f.rate/2, hi=f.center+f.rate/2, rowEnd=[-9,-9,-9,-9], ys=[34,52,70,88];
@@ -1973,12 +2281,12 @@ const b64Bytes=b=>{const s=atob(b),u=new Uint8Array(s.length);for(let i=0;i<s.le
 function panInit(){
   $("panBand").innerHTML='<option value="">Choose...</option>'+PAN_BANDS.map((b,i)=>`<option value="${i}">${b[0]}</option>`).join("");
   $("panModes").innerHTML=PAN_MODES.map(m=>`<button id="pm_${m}" onclick="panSetMode('${m}')">${MODE_LBL[m]||m}</button>`).join("");
-  try{const j=JSON.parse(localStorage.getItem("rfmapPan")||"null"); if(j&&j.center){Object.assign(PAN,{center:j.center,rate:j.rate,tune:j.tune,mode:j.mode,bw:j.bw});}}catch(e){}
-  try{const st=+localStorage.getItem("rfmapPanStep"); if(st>0&&[...$("panStep").options].some(o=>+o.value===st)) $("panStep").value=String(st);}catch(e){}
-  try{PAN.locked=localStorage.getItem("rfmapPanLock")==="1"; $("panWide").checked=localStorage.getItem("rfmapPanWide")==="1";}catch(e){}
+  try{const j=JSON.parse(localStorage.getItem("ntPan")||"null"); if(j&&j.center){Object.assign(PAN,{center:j.center,rate:j.rate,tune:j.tune,mode:j.mode,bw:j.bw});}}catch(e){}
+  try{const st=+localStorage.getItem("ntPanStep"); if(st>0&&[...$("panStep").options].some(o=>+o.value===st)) $("panStep").value=String(st);}catch(e){}
+  try{PAN.locked=localStorage.getItem("ntPanLock")==="1"; $("panWide").checked=localStorage.getItem("ntPanWide")==="1";}catch(e){}
   panStepChanged(); panFillBw(); panShowControls(); panLockShow();
 }
-function panSave(){try{localStorage.setItem("rfmapPan",JSON.stringify({center:PAN.center,rate:PAN.rate,tune:PAN.tune,mode:PAN.mode,bw:PAN.bw}));}catch(e){}}
+function panSave(){try{localStorage.setItem("ntPan",JSON.stringify({center:PAN.center,rate:PAN.rate,tune:PAN.tune,mode:PAN.mode,bw:PAN.bw}));}catch(e){}}
 function panFillBw(){
   const l=PAN_BW[PAN.mode]; if(!l.includes(PAN.bw)) PAN.bw=PAN_BW_DEF[PAN.mode];
   $("panBw").innerHTML=l.map(b=>`<option value="${b}"${b===PAN.bw?" selected":""}>${b>=1000?(b/1000)+" kHz":b+" Hz"}</option>`).join("");
@@ -1989,8 +2297,9 @@ function panShowControls(){
   panSlotLabels();
 }
 function panSlotLabels(){
+  if(document.hidden) return;
   const m=[...document.querySelectorAll(".cm")];
-  for(let i=0;i<4;i++){const e=$("panSlot"+i); if(e) e.textContent="Mapping frequency "+(i+1)+(m[i]&&m[i].value?" ("+m[i].value+" MHz)":" (empty)");}
+  for(let i=0;i<4;i++){const e=$("panSlot"+i); if(!e) continue; const t="Mapping frequency "+(i+1)+(m[i]&&m[i].value?" ("+m[i].value+" MHz)":" (empty)"); if(e.textContent!==t) e.textContent=t;}
 }
 function panPost(f){ clearTimeout(PAN.pt); PAN.pend=Object.assign(PAN.pend||{},f);
   PAN.pt=setTimeout(()=>{const b=PAN.pend;PAN.pend=null; if(PAN.on) api("/api/pan/set",b).catch(e=>toast("&#9888; "+esc(e.message),6000));},60); }
@@ -2001,7 +2310,7 @@ function panLockShow(){
   const b=$("panLock"); b.className="lock"+(PAN.locked?" on":""); b.innerHTML=PAN.locked?"&#128274; VFO LOCKED":"&#128275; VFO UNLOCKED";
   $("panTune").readOnly=!!PAN.locked; $("panTune").style.background=PAN.locked?"#fde8e6":"";
 }
-function panToggleLock(){ PAN.locked=!PAN.locked; try{localStorage.setItem("rfmapPanLock",PAN.locked?"1":"0");}catch(e){} panLockShow(); if(PAN.last) panOverlay(null);
+function panToggleLock(){ PAN.locked=!PAN.locked; try{localStorage.setItem("ntPanLock",PAN.locked?"1":"0");}catch(e){} panLockShow(); if(PAN.last) panOverlay(null);
   toast(PAN.locked?"&#128274; VFO locked at "+fmtMHz(PAN.tune)+" MHz":"&#128275; VFO unlocked",2500); }
 function panSetTune(hz,typed){
   if(PAN.locked){ panLockMsg(); return; }
@@ -2010,7 +2319,7 @@ function panSetTune(hz,typed){
   if(PAN.on&&!PAN.viewOnly&&Math.abs(hz-PAN.center)>(typed?0.3:0.42)*PAN.rate) panSetCenter(hz);
   if(PAN.on) $("panStatus").textContent=PAN.practiceNote||"";
 }
-function panStepChanged(){ PAN.step=+$("panStep").value; $("panTune").step=PAN.step/1e6; try{localStorage.setItem("rfmapPanStep",String(PAN.step));}catch(e){} }
+function panStepChanged(){ PAN.step=+$("panStep").value; $("panTune").step=PAN.step/1e6; try{localStorage.setItem("ntPanStep",String(PAN.step));}catch(e){} }
 /* Left / Right arrow keys tune down / up by the chosen step (hold Shift for 10 steps). Works anywhere except while typing in another box or moving a slider. */
 document.addEventListener("keydown",function(e){
   if(e.key!=="ArrowLeft"&&e.key!=="ArrowRight") return;
@@ -2050,7 +2359,7 @@ function panBand(i){ if(i==="")return; if(PAN.locked){ panLockMsg(); $("panBand"
     if(need>PAN_SPANS[PAN_SPANS.length-1]) toast("The "+b[0]+" band is wider than the largest view (8 MHz), so you are seeing the middle part of it.",7000);
   }
   panFillBw(); panShowControls(); panSave(); panPost({center:PAN.center,rate:PAN.rate,tune:PAN.tune,mode:PAN.mode,bw:PAN.bw}); $("panBand").value=""; }
-function panWideChanged(){ try{localStorage.setItem("rfmapPanWide",$("panWide").checked?"1":"0");}catch(e){} }
+function panWideChanged(){ try{localStorage.setItem("ntPanWide",$("panWide").checked?"1":"0");}catch(e){} }
 function gainSync(){ if($("panIf")){ $("panIf").value=$("ifgr").value||40; $("panRf").value=$("rfgr").value||0; } }
 function gainReset(){ $("ifgr").value=40; $("rfgr").value=0; gainChanged("sdr");
   if($("panAuto")&&$("panAuto").checked){ $("panAuto").checked=false; } if(!PAN.viewOnly&&PAN.on) panPost({auto_gain:false,if_gain:40,rf_state:0}); }
@@ -2317,16 +2626,25 @@ function panWire(){
     e.preventDefault(); if(PAN.viewOnly)return;
     if(Math.abs(e.deltaX)>Math.abs(e.deltaY)){            // two-finger sideways swipe on a trackpad: slide the view
       const r=oc.getBoundingClientRect(); panSetCenter(Math.round((PAN.center+e.deltaX/r.width*PAN.rate)/100)*100);
-    } else panSetTune(PAN.tune+(e.deltaY<0?1:-1)*PAN.step);
+    } else panSetTune(PAN.tune+wheelDir(e)*PAN.step);
   },{passive:false});
 }
 
 /* ---------- errors seen in this browser window go to the program's error log ---------- */
 let _clientLogN=0;
-function clientLog(msg,where){ if(_clientLogN++>=15)return; try{ fetch("/api/clientlog",{method:"POST",headers:{"X-RFMap":"1","Content-Type":"application/json"},body:JSON.stringify({msg:String(msg).slice(0,500),where:where||""})}); }catch(e){} }
+function clientLog(msg,where){ if(_clientLogN++>=15)return; try{ fetch("/api/clientlog",{method:"POST",headers:{"X-NT":"1","Content-Type":"application/json"},body:JSON.stringify({msg:String(msg).slice(0,500),where:where||""})}); }catch(e){} }
 window.addEventListener("error",e=>clientLog(e.message||"error",(e.filename||"")+":"+(e.lineno||"")));
 window.addEventListener("unhandledrejection",e=>clientLog("unhandled: "+((e.reason&&e.reason.message)||e.reason),""));
 
+/* the big frequency readouts follow the slots' and the main picture's tuned frequency */
+setInterval(()=>{ try{
+  for(let i=0;i<4;i++){ const d=slotEl(i); if(!d||!d._vfo) continue; const hz=(parseFloat((rowEl("cm",i)||{}).value)||0)*1e6; vfoSet(d._vfo,hz); if(!d._vfo._laidout&&d.offsetWidth){ d._vfo._laidout=1; d._vfo._place(); } }
+  if(typeof PAN!=="undefined"&&PAN_VFO) vfoSet(PAN_VFO,PAN.tune);
+  for(let i=0;i<4;i++){ const d=slotEl(i), m=d&&d.querySelector(".slmtr"); if(m&&m._place&&!m._laid&&d.offsetWidth){ m._laid=1; m._place(); }
+    if(m&&m._home&&m._laid&&!(slp(i).mtr||{}).hide&&d.offsetWidth&&!d.classList.contains("empty")){ const r=m.getBoundingClientRect(), hr=d.getBoundingClientRect(); if(r.width<10||r.right<hr.left+20||r.left>hr.right-20||r.bottom<hr.top+20||r.top>hr.bottom-20) m._home(); } }
+}catch(e){} },250);
+let PAN_VFO=null, PAN_VFO_ST={}; try{ PAN_VFO_ST=JSON.parse(localStorage.getItem("ntPanVfo")||"{}")||{}; }catch(e){}
+try{ PAN_VFO=vfoMake($("panWrap"),PAN_VFO_ST,()=>{ try{localStorage.setItem("ntPanVfo",JSON.stringify(PAN_VFO_ST));}catch(e){} },44); $("panVfoBtn").onclick=()=>{ PAN_VFO_ST.hide=!PAN_VFO_ST.hide; try{localStorage.setItem("ntPanVfo",JSON.stringify(PAN_VFO_ST));}catch(e){} PAN_VFO._place(); }; window.addEventListener("resize",()=>{ try{ PAN_VFO._place(); for(let i=0;i<4;i++){ const d=slotEl(i), m=d&&d.querySelector(".slmtr"); if(m&&m._place) m._place(); } for(let i=0;i<4;i++){ const d=slotEl(i); if(d&&d._vfo) d._vfo._place(); } }catch(e){} }); }catch(e){}
 /* ---------- wiring ---------- */
 document.querySelectorAll("input[name=gpsm]").forEach(r=>r.onchange=showGpsFields);
 checkBlockers();
@@ -2335,7 +2653,7 @@ $("practice").onchange=()=>{ showGpsFields(); guard(async()=>{ await api("/api/c
 /* ===================== top bar: size, GPS line, slot line, max speed ===================== */
 let BAR_Z=1.4, HWOPEN=false, HW=null;
 if(window.innerWidth<1500) BAR_Z=1.2;
-try{ const z=parseFloat(localStorage.getItem("rfmapBarZ")); if(z>=1&&z<=2.2) BAR_Z=z; }catch(e){}
+try{ const z=parseFloat(localStorage.getItem("ntBarZ")); if(z>=1&&z<=2.2) BAR_Z=z; }catch(e){}
 /* keeps the top control row on ONE line: if it would wrap, its buttons shrink a step at a time until it fits (at most down to 60%) */
 let __fitSig="";
 function fitRow1(force){
@@ -2348,10 +2666,65 @@ function fitRow1(force){
   fixBarTop();
 }
 addEventListener("resize",()=>fitRow1()); setInterval(()=>fitRow1(),1200); setTimeout(()=>fitRow1(true),300);
-function barSize(d){ BAR_Z=Math.min(2.2,Math.max(1,Math.round((BAR_Z+d*0.2)*10)/10)); $("driveBar").style.setProperty("--bz",BAR_Z); try{localStorage.setItem("rfmapBarZ",String(BAR_Z));}catch(e){} fixBarTop(); fitRow1(true); }
+function barSize(d){ BAR_Z=Math.min(2.2,Math.max(1,Math.round((BAR_Z+d*0.2)*10)/10)); $("driveBar").style.setProperty("--bz",BAR_Z); try{localStorage.setItem("ntBarZ",String(BAR_Z));}catch(e){} fixBarTop(); fitRow1(true); }
 $("driveBar").style.setProperty("--bz",BAR_Z);
+/* ---------- radios on a CAT cable ---------- */
+let CAT=[], CATM=[], CATPORTS=[];
+function catModel(id){ return CATM.find(m=>m.id===id)||null; }
+function catLabel(v){ const e=CAT[+String(v).slice(3)-1]; if(!e||!e.model) return String(v); const m=catModel(e.model); return (m?m.maker+" "+m.name:e.model)+(e.mode==="control"?" (control)":" (follow)"); }
+async function catLoad(){ try{ const j=await api("/api/cat/models"); CATM=j.models||[]; const p=await api("/api/ports"); CATPORTS=p.ports||[]; }catch(e){} catRender(); try{ showRadioFields(); }catch(e){} }
+function catIsFlex(e){ const m=catModel(e.model); return !!(m&&m.dialect==="flex_api"); }
+function catRender(){ const box=$("catList"), fbox=$("flexList"); if(!box) return;
+  const makers=[...new Set(CATM.filter(m=>m.dialect!=="flex_api").map(m=>m.maker))];
+  const rows=CAT.map((e,i)=>{ const m=catModel(e.model);
+    const flex=catIsFlex(e);
+    const mo=flex ? CATM.filter(x=>x.dialect==="flex_api").map(x=>'<option value="'+x.id+'"'+(x.id===e.model?" selected":"")+'>'+esc(x.maker+" "+x.name)+'</option>').join("")
+      : (e.model?'':'<option value="" selected>(choose your radio)</option>')+makers.map(mk=>'<optgroup label="'+esc(mk)+'">'+CATM.filter(x=>x.maker===mk&&x.dialect!=="flex_api").map(x=>'<option value="'+x.id+'"'+(x.id===e.model?" selected":"")+'>'+esc(x.name)+'</option>').join("")+'</optgroup>').join("");
+    const ports=[...new Set([e.port||"",...CATPORTS].filter(Boolean))];
+    const po='<option value="">(pick the USB port)</option>'+ports.map(x=>'<option'+(x===e.port?" selected":"")+'>'+esc(x)+'</option>').join("");
+    const bo=[4800,9600,19200,38400,57600,115200].map(b=>'<option'+(+e.baud===b?" selected":"")+'>'+b+'</option>').join("");
+    const html='<div class="hwdev" style="margin:6px 0"><b>Slot choice '+esc("cat"+(i+1))+'</b> '+
+      '<select onchange="catSet('+i+',\'model\',this.value)">'+mo+'</select> '+
+      (flex?'<label>Radio address <input type="text" style="width:175px" placeholder="e.g. 192.168.1.50" value="'+esc(e.port||"")+'" onchange="catSet('+i+',\'port\',this.value.trim())"></label> <button class="sm" onclick="catFindFlex('+i+')">Find on network</button> ':
+      '<select onchange="catSet('+i+',\'port\',this.value)">'+po+'</select> <button class="sm" onclick="catPorts()">Refresh ports</button> '+
+      '<label>Baud <select onchange="catSet('+i+',\'baud\',+this.value)">'+bo+'</select></label> ')+
+      (m&&m.dialect==="icom_civ"?'<label>CI-V address <input type="text" style="width:60px" value="'+esc(e.civ_addr||m.civ_addr||"")+'" onchange="catSet('+i+',\'civ_addr\',this.value)"></label> ':'')+
+      '<label>Mode <select onchange="catSet('+i+',\'mode\',this.value)"><option value="follow"'+(e.mode!=="control"?" selected":"")+'>Follow (never changes the radio)</option><option value="control"'+(e.mode==="control"?" selected":"")+'>Control (tunes the radio)</option></select></label> '+
+      '<button class="pri sm" onclick="catTest('+i+')">Test</button> <button class="sm" onclick="catDel('+i+')">Remove</button>'+
+      '<div class="mut" id="catSt'+i+'">'+esc(m&&m.notes?m.notes:"")+(m&&!m.verified?" (Entry not yet checked against a real radio.)":"")+'</div></div>';
+    return {flex:flex,html:html}; });
+  box.innerHTML=rows.filter(r=>!r.flex).map(r=>r.html).join("");
+  if(fbox) fbox.innerHTML=rows.filter(r=>r.flex).map(r=>r.html).join("");
+  $("catAddBtn").disabled=CAT.length>=4||CAT.some(c=>!c.model);
+  const fb=$("flexAddBtn"); if(fb) fb.disabled=CAT.length>=4; }
+function catAddFlex(){ if(CAT.length>=4) { toast("Four CAT/network radios is the limit."); return; } if(!CATM.length){ toast("The radio list did not load yet. Wait a moment and try again."); return; }
+  const fm=CATM.find(m=>m.dialect==="flex_api"&&/6700/.test(m.name))||CATM.find(m=>m.dialect==="flex_api"); if(!fm){ toast("No FlexRadio entry in the radio list."); return; }
+  CAT=CAT.filter(c=>c.model); CAT.push({model:fm.id,port:"",baud:0,civ_addr:"",mode:"control"}); catRender(); catFindFlex(CAT.length-1); }
+function slHdrSync(){ try{ for(let i=0;i<4;i++){ const el=slotEl(i), crs=rowEl("cr",i); if(!el||!crs) continue; const ri=el.querySelector(".slR"); if(!ri) continue;
+    const sig=[...crs.options].map(o=>o.value+"="+o.textContent).join("|"); if(ri.dataset.sig===sig) continue;
+    ri.innerHTML=[...crs.options].map(o=>'<option value="'+esc(o.value)+'">'+esc(o.value==="off"?"Off (skip this slot)":o.textContent)+'</option>').join(""); ri.dataset.sig=sig; ri.value=crs.value; } }catch(e){} }
+async function catSave(){ await guard(async()=>{ const sv=CAT.filter(c=>c.model); await api("/api/config",{use_cat:sv.length>0,cat_radios:sv}); }); showRadioFields(); slHdrSync(); hwSlotsTable(); hwSlotsLine(); }
+function catAdd(){ if(CAT.length>=4||CAT.some(c=>!c.model)) return; if(!CATM.length){ toast("The radio list did not load yet. Wait a moment and try again."); return; }
+  CAT.push({model:"",port:"",baud:0,civ_addr:"",mode:"follow"}); catRender(); }      // saved once you choose a model
+function catAddFound(a){ if(CAT.length>=4) { toast("Four CAT/network radios is the limit."); return; } CAT=CAT.filter(c=>c.model); CAT.push(a); catRender(); catSave(); toast("Added. Pick it in a slot's Radio menu (Hardware setup, section 3).",6000); }
+function catDel(i){ CAT.splice(i,1); catRender(); catSave(); chEdited(); }
+function catSet(i,f,v){ const e=CAT[i]; if(!e) return; e[f]=v;
+  if(f==="model"){ const m=catModel(v); if(m){ e.baud=m.baud||e.baud; e.civ_addr=m.civ_addr||""; } }
+  catRender(); if(e.model) catSave(); if(f!=="baud") chEdited(); }
+async function catPorts(){ try{ const p=await api("/api/ports"); CATPORTS=p.ports||[]; catRender(); toast("Found "+CATPORTS.length+" USB port"+(CATPORTS.length===1?"":"s")+".",3000); }catch(e){} }
+async function catFindFlex(i){ const st=$("catSt"+i); if(st){ st.style.color=""; st.textContent="Listening for Flex radios (about 3 seconds)..."; }
+  try{ const r=await api("/api/cat/flex_find"); const L=r.radios||[];
+    if(!L.length){ if(st){ st.style.color="#a5281b"; st.textContent=r.error||"No Flex radio announced itself. Check it is on, on the same network as this computer, and type its address (shown in SmartSDR under the radio list)."; } return; }
+    const pick=L[0]; CAT[i].port=pick.ip; const mm=CATM.find(x=>x.name===pick.model); if(mm) CAT[i].model=mm.id;
+    catRender(); catSave(); const s2=$("catSt"+i); if(s2){ s2.style.color="#1d6b2a"; s2.textContent="Found "+(pick.nickname||pick.model)+" at "+pick.ip+(L.length>1?" (and "+(L.length-1)+" more on the network; type another address to use a different one)":"")+". Press Test."; } }
+  catch(x){ if(st){ st.style.color="#a5281b"; st.textContent=x.message; } } }
+async function catTest(i){ const e=CAT[i], st=$("catSt"+i); if(!e||!st) return; if(!e.port){ st.textContent=(catModel(e.model)||{}).dialect==="flex_api"?"Type the radio's address, or press Find on network.":"Pick the USB port first."; return; }
+  st.textContent="Testing..."; try{ const r=await api("/api/cat/test",{model:e.model,port:e.port,baud:e.baud,civ_addr:e.civ_addr||"",mode:e.mode||"follow"});
+    st.style.color=r.ok?"#1d6b2a":"#a5281b"; st.textContent=r.message||(r.ok?"Connected.":"No answer."); if(r.ok&&r.baud&&r.baud!==e.baud){ e.baud=r.baud; catSave(); setTimeout(catRender,50); } }
+  catch(x){ st.style.color="#a5281b"; st.textContent=x.message; } }
+setTimeout(catLoad,600);
 const HW_RAD_NAME={hl2:"Hermes",anan:"ANAN",sdrplay:"SDRplay",off:"off"};
-function hwRadName(r){ return HW_RAD_NAME[r]||(RTL_RE.test(r)?"RTL-SDR "+r.slice(3):r); }
+function hwRadName(r){ return HW_RAD_NAME[r]||(RTL_RE.test(r)?"RTL-SDR "+r.slice(3):(/^cat[1-4]$/.test(r)?catLabel(r):r)); }
 function hwSlotsLine(){
   const cm=[...document.querySelectorAll(".cm")], cr=[...document.querySelectorAll(".cr")]; if(!cm.length) return;
   for(let i=0;i<4;i++){ const bx=$("hwS"+i), mb=$("mb"+i); if(!bx) continue; const e=cm[i], r=cr[i]?cr[i].value:"auto", on=!!e&&String(e.value).trim()!==""&&r!=="off";
@@ -2395,31 +2768,30 @@ function meterSVG(i){
   const tick=(p,r0,r1,col,w)=>{ const a=pt(p,r0), b=pt(p,r1); return '<line x1="'+f(a[0])+'" y1="'+f(a[1])+'" x2="'+f(b[0])+'" y2="'+f(b[1])+'" stroke="'+col+'" stroke-width="'+w+'"/>'; };
   const lab=(p,r,t,col,sz)=>{ const a=pt(p,r); return '<text x="'+f(a[0])+'" y="'+f(a[1]+4)+'" text-anchor="middle" font-size="'+sz+'" font-weight="700" fill="'+col+'" font-family="Helvetica,Arial,sans-serif">'+t+'</text>'; };
   let g='<defs><linearGradient id="mf'+i+'" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff9dc"/><stop offset="1" stop-color="#efe2b0"/></linearGradient></defs>'+
-        '<rect x="2" y="2" width="296" height="146" rx="12" fill="url(#mf'+i+')" stroke="#4a4a4a" stroke-width="2"/>';
+        '<rect x="2" y="40" width="296" height="154" rx="12" fill="url(#mf'+i+')" stroke="#4a4a4a" stroke-width="2"/>';
   g+=arc(0,0.6,R-34,"#222",3)+arc(0.6,1,R-34,"#c0281b",5);
-  for(let n=1;n<=9;n++){ const p=n/9*0.6, mj=n%2===1; g+=tick(p,R-34,R-34-(mj?17:9),"#222",mj?2.4:1.4); if(mj) g+=lab(p,R-66,String(n),"#222",17); }
-  for(let o=10;o<=60;o+=10){ const p=0.6+o/60*0.4, mj=o%20===0; g+=tick(p,R-34,R-34-(mj?17:9),"#c0281b",mj?2.4:1.4); if(mj) g+=lab(p,R-66,"+"+o,"#c0281b",15); }
-  g+='<text x="150" y="132" text-anchor="middle" font-size="15" font-weight="800" fill="#444" letter-spacing="3" font-family="Helvetica,Arial,sans-serif">S-METER</text>';
+  for(let n=1;n<=9;n++){ const p=n/9*0.6, mj=n%2===1; g+=tick(p,R-34,R-34-(mj?17:9),"#222",mj?2.4:1.4); if(mj) g+=lab(p,R-68,String(n),"#111",22); }
+  for(let o=10;o<=60;o+=10){ const p=0.6+o/60*0.4, mj=o%20===0; g+=tick(p,R-34,R-34-(mj?17:9),"#c0281b",mj?2.4:1.4); if(mj) g+=lab(p,R-68,"+"+o,"#b01e12",20); }
   g+='<g id="mp'+i+'" style="transform-origin:150px 190px;transform:rotate(-55deg);transition:transform .35s ease"><polygon points="150,70 144,52 156,52" fill="#ff7a00" stroke="#7a3a00" stroke-width="1"/></g>';
   g+='<g id="mn'+i+'" style="transform-origin:150px 190px;transform:rotate(-55deg);transition:transform .35s cubic-bezier(.3,1.35,.5,1)"><line x1="150" y1="190" x2="150" y2="46" stroke="#111" stroke-width="2.8" stroke-linecap="round"/></g>';
-  return '<svg viewBox="0 0 300 150" xmlns="http://www.w3.org/2000/svg" aria-label="S-meter slot '+(i+1)+'">'+g+'</svg>'; }
+  return '<svg viewBox="0 38 300 158" xmlns="http://www.w3.org/2000/svg" aria-label="S-meter slot '+(i+1)+'">'+g+'</svg>'; }
 function meterHome(){ for(let i=0;i<4;i++){ const m=$('mb'+i), box=document.querySelectorAll('#slGrid .slbox')[i]; if(!m||!box) continue; const h=box.querySelector('.slmtr'); if(h&&m.parentNode!==h) h.appendChild(m); } }
 function meterBuild(){ $("mGrid").innerHTML=[0,1,2,3].map(i=>'<div class="mbox off" id="mb'+i+'"><div class="mh"><b>Slot '+(i+1)+'</b><span class="mrn">&ndash;</span><span class="mfq"></span></div>'+meterSVG(i)+
   '<div class="mr"><b class="mS">&ndash;</b><span class="mDb"></span><span class="mPk"></span></div><button class="sm mrst" title="Put this meter\'s orange peak marker back to the current reading" onclick="meterResetOne('+i+')">Reset peak</button><div class="mgrip" title="Drag to resize all four meters" onpointerdown="meterGrip(event)"></div></div>').join(""); meterLayout();
-  $("mstSvg").innerHTML=meterSVG(4); alLoad(); try{ meterShow(localStorage.getItem("rfmapMeters2")!=="0"); }catch(e){} masterDraw(); }
+  $("mstSvg").innerHTML=meterSVG(4); alLoad(); try{ meterShow(localStorage.getItem("ntMeters2")!=="0"); }catch(e){} masterDraw(); }
 /* meter size: one width for all four; saved in this browser */
 let MW=0, MSIDE=false;   /* 0 = standard size: two across */
-try{ const w=parseInt(localStorage.getItem("rfmapMeterW")); if(w>=200&&w<=1400) MW=w; else MW=0; MSIDE=localStorage.getItem("rfmapMeterSide")==="1"; }catch(e){}
+try{ const w=parseInt(localStorage.getItem("ntMeterW")); if(w>=200&&w<=1400) MW=w; else MW=0; MSIDE=localStorage.getItem("ntMeterSide")==="1"; }catch(e){}
 function meterLayout(){ const g=$("mGrid"); if(!g) return; const W=g.clientWidth||900;
   const w=MSIDE?Math.max(150,Math.floor((W-3*14-2)/4)):(MW?Math.max(200,Math.min(MW,W-2)):Math.max(200,Math.floor((W-14-2)/2)));
   g.style.setProperty("--mw",w+"px"); g.classList.toggle("side",MSIDE);
   const c=$("mSide"); if(c) c.checked=MSIDE; const h=$("mHint"); if(h) h.textContent=MSIDE?"Side by side: the meters fit the window width. Untick it to resize them by hand.":"Drag the corner grip of any meter to make all four bigger or smaller."; }
-function meterSide(on){ MSIDE=!!on; try{localStorage.setItem("rfmapMeterSide",MSIDE?"1":"0");}catch(e){} meterLayout(); }
-function meterSizeReset(){ MW=0; try{localStorage.setItem("rfmapMeterW","0");}catch(e){} meterLayout(); }
+function meterSide(on){ MSIDE=!!on; try{localStorage.setItem("ntMeterSide",MSIDE?"1":"0");}catch(e){} meterLayout(); }
+function meterSizeReset(){ MW=0; try{localStorage.setItem("ntMeterW","0");}catch(e){} meterLayout(); }
 function meterGrip(ev){ ev.preventDefault(); const el=ev.currentTarget, g=$("mGrid"), x0=ev.clientX, w0=parseFloat(getComputedStyle(g).getPropertyValue("--mw"))||MW;
   try{ el.setPointerCapture(ev.pointerId); }catch(e){}
   const mv=e=>{ MW=Math.round(Math.max(200,Math.min(1400,w0+(e.clientX-x0)))); meterLayout(); };
-  const up=e=>{ el.removeEventListener("pointermove",mv); el.removeEventListener("pointerup",up); el.removeEventListener("pointercancel",up); try{localStorage.setItem("rfmapMeterW",String(MW));}catch(x){} };
+  const up=e=>{ el.removeEventListener("pointermove",mv); el.removeEventListener("pointerup",up); el.removeEventListener("pointercancel",up); try{localStorage.setItem("ntMeterW",String(MW));}catch(x){} };
   el.addEventListener("pointermove",mv); el.addEventListener("pointerup",up); el.addEventListener("pointercancel",up); }
 window.addEventListener("resize",meterLayout);
 /* ---- the "Highest now" meter: the strongest reading of the active slots, compared in S-units so 3.9 MHz and 148 MHz are fair ---- */
@@ -2433,23 +2805,23 @@ function masterUpdate(){
   if(MM.peak==null||best.n>sNum(MM.peak,MM.pm)){ MM.peak=best.v; MM.pm=best.m; MM.pi=best.i; }
   masterDraw(); if(fresh) alCheck(best.n); }
 function mstFq(i){ const e=$("hwS"+i); const f=e&&e.querySelector(".fq"); return f?f.textContent:""; }
-function masterDraw(){ if(!$("mn4")) return; const has=MM.v!=null, t=MM.un?"~":"";
+function masterDraw(){ if(!$("mn4")) return; const has=MM.v!=null, t="";
   $("mn4").style.transform="rotate("+(has?mAng(mPos(MM.v,MM.m)):-55)+"deg)";
   $("mp4").style.transform="rotate("+(MM.peak!=null?mAng(mPos(MM.peak,MM.pm)):-55)+"deg)";
   $("mstS").textContent=has?t+sTxt(MM.v,MM.m):"–";
   $("mstW").textContent=has?("slot "+(MM.i+1)+" · "+(parseFloat(mstFq(MM.i))||"")+" MHz"):"no readings";
-  $("mstP").textContent=MM.peak!=null?("peak "+(MM.un?"~":"")+sTxt(MM.peak,MM.pm)+" · slot "+(MM.pi+1)):"";
+  $("mstP").textContent=MM.peak!=null?("peak "+sTxt(MM.peak,MM.pm)+" · slot "+(MM.pi+1)):"";
   $("hwMst").classList.toggle("hot",has&&AL.on&&AL.thr!=null&&sNum(MM.v,MM.m)>=AL.thr); }
 /* ---- warning: sound, volume and the S-level at which it plays ---- */
 const AL={on:false,snd:"beep",vol:60,idx:7,thr:null,t:0,voice:false,every:0,ts:0};
 function alPop(){ const e=$('alPop'); e.style.display=e.style.display==='block'?'none':'block'; }
 function alLabel(ix){ return ix<=0?"Off":ix<=9?"S"+ix:"S9+"+((ix-9)*10); }
 function alThr(ix){ return ix<=0?null:ix<=9?ix:9+(ix-9)*10/6; }
-function alLoad(){ try{ const g=k=>localStorage.getItem(k); AL.on=g("rfmapAlOn")==="1"; AL.snd=g("rfmapAlSnd")||"beep"; const v=parseInt(g("rfmapAlVol")); AL.vol=(v>=0&&v<=100)?v:60; const x=parseInt(g("rfmapAlIdx")); AL.idx=(x>=0&&x<=15)?x:7; AL.voice=g("rfmapAlVoice")==="1"; const ev=parseInt(g("rfmapAlEvery")); AL.every=(ev>=0&&ev<=600)?ev:0; }catch(e){}
+function alLoad(){ try{ const g=k=>localStorage.getItem(k); AL.on=g("ntAlOn")==="1"; AL.snd=g("ntAlSnd")||"beep"; const v=parseInt(g("ntAlVol")); AL.vol=(v>=0&&v<=100)?v:60; const x=parseInt(g("ntAlIdx")); AL.idx=(x>=0&&x<=15)?x:7; AL.voice=g("ntAlVoice")==="1"; const ev=parseInt(g("ntAlEvery")); AL.every=(ev>=0&&ev<=600)?ev:0; }catch(e){}
   $("alOn").checked=AL.on; $("alSnd").value=AL.snd; $("alVol").value=AL.vol; $("alIdx").value=AL.idx; $("alVoice").checked=AL.voice; $("alEvery").value=AL.every; alShow(); }
 function alShow(){ { const mb=$("alMoreB"); if(mb) mb.innerHTML=(AL.voice||AL.every>0)?"&#128266; Voice on":"&#9881; Sound &amp; voice"; } AL.thr=alThr(AL.idx); $("alVolV").textContent=AL.vol; $("alIdxV").textContent=alLabel(AL.idx); }
 function alSave(){ AL.on=$("alOn").checked; AL.snd=$("alSnd").value; AL.vol=+$("alVol").value; AL.idx=+$("alIdx").value; AL.voice=$("alVoice").checked; AL.every=Math.max(0,Math.min(600,parseInt($("alEvery").value)||0)); AL.ts=Date.now(); alShow();
-  try{ localStorage.setItem("rfmapAlOn",AL.on?"1":"0"); localStorage.setItem("rfmapAlSnd",AL.snd); localStorage.setItem("rfmapAlVol",String(AL.vol)); localStorage.setItem("rfmapAlIdx",String(AL.idx)); localStorage.setItem("rfmapAlVoice",AL.voice?"1":"0"); localStorage.setItem("rfmapAlEvery",String(AL.every)); }catch(e){}
+  try{ localStorage.setItem("ntAlOn",AL.on?"1":"0"); localStorage.setItem("ntAlSnd",AL.snd); localStorage.setItem("ntAlVol",String(AL.vol)); localStorage.setItem("ntAlIdx",String(AL.idx)); localStorage.setItem("ntAlVoice",AL.voice?"1":"0"); localStorage.setItem("ntAlEvery",String(AL.every)); }catch(e){}
   if(MM.v!=null) masterDraw(); }
 function alPlay(name,vol){ const a=audio(); if(!a||vol<=0) return; const g0=Math.pow(vol/100,1.6)*0.7, now=a.currentTime;
   const tone=(f,t0,d,type,f2,gain)=>{ try{ const o=a.createOscillator(), g=a.createGain(); o.type=type||"sine"; o.frequency.setValueAtTime(f,now+t0); if(f2) o.frequency.linearRampToValueAtTime(f2,now+t0+d);
@@ -2465,7 +2837,7 @@ function say(text,force){ try{ const ss=window.speechSynthesis; if(!ss||AL.vol<=
 function alTest(){ audio(); alPlay(AL.snd,AL.vol); if(AL.voice) setTimeout(()=>say("S, 9 plus 20.",true),500); else if(AL.every>0) setTimeout(()=>say("S, 7.",true),500); }
 setInterval(()=>{ if(!AL.every||MM.v==null||!(SL.logging||SL.live)) return; const t=Date.now(); if(t-AL.ts<AL.every*1000) return; AL.ts=t; say(sSay(MM.v,MM.m,MM.un)); },1000);
 function alCheck(n){ if(!AL.on||AL.thr==null||n<AL.thr) return; const t=Date.now(); if(t-AL.t<900) return; AL.t=t; alPlay(AL.snd,AL.vol); if(AL.voice&&MM.v!=null){ AL.ts=t; setTimeout(()=>say(sSay(MM.v,MM.m,MM.un)),450); } }
-function meterShow(on){ $("cMeters").classList.toggle("moff",!on); const g=$("slGrid"); if(g) g.classList.toggle("nometers",!on); const c=$("mShow"); if(c) c.checked=!!on; try{localStorage.setItem("rfmapMeters2",on?"1":"0");}catch(e){} }
+function meterShow(on){ $("cMeters").classList.toggle("moff",!on); const g=$("slGrid"); if(g) g.classList.toggle("nometers",!on); const c=$("mShow"); if(c) c.checked=!!on; try{localStorage.setItem("ntMeters2",on?"1":"0");}catch(e){} }
 function meterResetOne(i){ MT[i].peak=MT[i].v==null?null:MT[i].v; MT[i].t=null; meterDraw(i); }
 function meterReset(){ MM.peak=MM.v; MM.pm=MM.m; MM.pi=MM.i; masterDraw(); for(let i=0;i<4;i++){ MT[i].peak=MT[i].v==null?null:MT[i].v; MT[i].t=null; meterDraw(i); } }
 function meterUpdate(i,v,m,t){
@@ -2473,7 +2845,7 @@ function meterUpdate(i,v,m,t){
   if(SL.logging){ if(t==null||t===M.t) return; M.t=t; }          // while recording: once per sample cycle
   M.v=v; M.m=m; M.un=calOf(i)===0; if(M.peak==null||v>M.peak) M.peak=v; meterDraw(i); masterUpdate(); }
 function meterDraw(i){
-  const M=MT[i], mb=$("mb"+i), bx=$("hwS"+i); if(!mb) return; const has=M.v!=null, tilde=M.un?"~":"";
+  const M=MT[i], mb=$("mb"+i), bx=$("hwS"+i); if(!mb) return; const has=M.v!=null, tilde="";                /* the ~ is gone: it only took room (0.7.0c) */
   $("mn"+i).style.transform="rotate("+(has?mAng(mPos(M.v,M.m)):-55)+"deg)";
   $("mp"+i).style.transform="rotate("+(M.peak!=null?mAng(mPos(M.peak,M.m)):-55)+"deg)";
   mb.querySelector(".mS").textContent=has?tilde+sTxt(M.v,M.m):"–"; mb.querySelector(".mDb").textContent=has?M.v.toFixed(1)+" dB":"";
@@ -2482,29 +2854,35 @@ function meterDraw(i){
 meterBuild();
 
 /* ===================== Hardware window ===================== */
-function hwOpen(){ HWOPEN=true; $("hwWin").style.display="block"; document.body.style.overflow="hidden"; hwSlotsTable(); hwLoad(); gpsTick(); window.scrollTo(0,0); }
+function hwOpen(){ HWOPEN=true; catLoad(); $("hwWin").style.display="block"; document.body.style.overflow="hidden"; hwSlotsTable(); hwLoad(); gpsTick(); hwProfFill(""); hwExtra(); window.scrollTo(0,0); }
 function hwClose(){ HWOPEN=false; $("hwWin").style.display="none"; document.body.style.overflow=""; hwSlotsLine(); }
 async function hwLoad(){ try{ HW=await api("/api/hardware"); hwRender(); }catch(e){} }
+async function hwRebuild(){ await guard(async()=>{ const r=await api("/api/hardware/rebuild",{}); HW=r; const L=r.summary||[];
+    $("hwRebuildMsg").innerHTML='<div class="hwdev"><b>Scan finished. What I did:</b><br>'+L.map(x=>'&bull; '+esc(x)).join("<br>")+'<br><span class="mut">Reloading the page so the slots and radio lists match...</span></div>';
+    try{ sessionStorage.setItem("ntRebuild",JSON.stringify(L)); }catch(e){}
+    setTimeout(()=>location.reload(),4500); }); }
+try{ const rb=sessionStorage.getItem("ntRebuild"); if(rb){ sessionStorage.removeItem("ntRebuild"); setTimeout(()=>{ try{ toast("Radios set up: "+JSON.parse(rb).join(" "),12000); }catch(e){} },2500); } }catch(e){}
 async function hwScan(){ await guard(async()=>{ HW=await api("/api/hardware/scan",{}); hwRender(); await slRestart(); toast("Scan finished."); }); }
 function hwRender(){
   if(!HW) return; const lg=!!window.__logging;
   $("hwRadList").innerHTML=HW.drivers.filter(d=>!d.planned).map(d=>{ const sc=d.scan, n=sc?sc.found.length:0;
-    const dot=!sc?"":(n?"g":"r");
-    return '<div class="hwdev"><span class="hdot '+dot+'"></span><b>'+esc(d.name)+'</b> <span class="mut">'+(d.scan_only?"finding only for now, not usable in a slot yet":(d.ticked?"ticked: in use":"not ticked"))+(d.multi?" · all slots read at the same instant":"")+(d.max_mhz?" · up to about "+d.max_mhz+" MHz":"")+'</span><br>'+
+    const dot=!sc?"":(n?(sc.found.some(f=>f.ok!==false)?"g":"r"):"r");
+    return '<div class="hwdev"><span class="hdot '+dot+'"></span><b>'+esc(d.name)+'</b> <span class="mut">'+(d.scan_only?"finding only for now, not usable in a slot yet":(d.id==="flexscan"?(CAT.some(c=>catIsFlex(c))?"added: in use":"none added"):(d.id==="cat"?(CAT.some(c=>c.model&&!catIsFlex(c))?"added: in use":"none added"):(d.ticked?"ticked: in use":"not ticked"))))+(d.multi?" · all slots read at the same instant":"")+(d.max_mhz?" · up to about "+d.max_mhz+" MHz":"")+'</span><br>'+
       '<span class="mut">'+esc(d.accuracy)+'</span><br>'+
-      (sc?(n?sc.found.map(f=>'✔ '+esc(f.label)+' <span class="mut">'+esc(f.detail)+'</span>').join("<br>"):'<span style="color:#a5281b">Not found.</span> <span class="mut">'+esc(sc.note||"")+'</span>')+' <span class="mut">(scanned '+esc(sc.when)+')</span>':'<span class="mut">Not scanned yet. Press Scan for radios.</span>')+'</div>'; }).join("");
+      (sc?(n?sc.found.map(f=>(f.ok===false?'✘ ':'✔ ')+esc(f.label)+' <span class="mut">'+esc(f.detail)+'</span>'+(f.add?(CAT.some(c=>c.model&&c.port===f.add.port)?' <span class="mut">(already added)</span>':' <button class="pri sm" onclick=\'catAddFound('+esc(JSON.stringify(f.add)).replace(/\'/g,"&#39;")+')\'>Add this radio</button>'):'')).join("<br>"):'<span style="color:#a5281b">Not found.</span> <span class="mut">'+esc(sc.note||"")+'</span>')+' <span class="mut">(scanned '+esc(sc.when)+')</span>':'<span class="mut">Not scanned yet. Press Scan for radios.</span>')+'</div>'; }).join("");
   $("hwPlanned").innerHTML=HW.drivers.filter(d=>d.planned).map(d=>'<div class="hwplan">&#9675; <b>'+esc(d.name)+'</b> &mdash; '+esc(d.accuracy)+' <i>'+esc(d.note)+'</i></div>').join("");
-  $("btnScan").disabled=lg; if(HW.perf&&HW.perf.when) perfShow(HW.perf);
+  $("btnScan").disabled=lg; if(HW.perf&&HW.perf.when) perfShow(HW.perf); hwRadVis(); hwFlexMsg(); hwStatusUpdate();
 }
 function hwSlotsTable(){
   const cm=[...document.querySelectorAll(".cm")], cr=[...document.querySelectorAll(".cr")], cc=[...document.querySelectorAll(".cc")]; if(!cm.length) return;
-  let h="<tr><th>Slot</th><th>MHz</th><th>Radio</th><th>Level now</th><th>Calibration (dB)</th><th>Calibrate to a known signal</th></tr>";
+  let h="<tr><th>Slot</th><th>MHz</th><th>Radio</th><th>Level now</th><th>Calibration (dB)</th><th>State</th><th>Calibrate to a known signal</th></tr>";
   cm.forEach((e,i)=>{ const opts=cr[i]?[...cr[i].options].map(o=>'<option value="'+o.value+'"'+(o.value===cr[i].value?" selected":"")+'>'+esc(o.textContent)+'</option>').join(""):"";
     h+='<tr><td><b>'+(i+1)+'</b></td><td><input type="number" step="any" style="width:100px" value="'+esc(e.value)+'" onchange="hwSet('+i+',\'mhz\',this.value)"></td>'+
        '<td><select onchange="hwSet('+i+',\'radio\',this.value)">'+opts+'</select></td><td id="hwLv'+i+'" class="mut">–</td>'+
        '<td><input type="number" step="any" style="width:80px" id="hwCc'+i+'" value="'+esc(cc[i]?cc[i].value:0)+'" onchange="hwSet('+i+',\'cal\',this.value)"></td>'+
+       '<td id="hwCs'+i+'"></td>'+
        '<td><input type="text" id="hwCalIn'+i+'" style="width:115px" placeholder="-73 or S9"> <button class="sm" onclick="hwCal('+i+')">Calibrate</button></td></tr>'; });
-  $("hwSlotT").innerHTML=h; }
+  $("hwSlotT").innerHTML=h; hwCalState(); }
 function hwSet(i,f,v){ const m=[...document.querySelectorAll(".cm")][i], r=[...document.querySelectorAll(".cr")][i], c=[...document.querySelectorAll(".cc")][i];
   if(f==="mhz"&&m) m.value=v; if(f==="radio"&&r) r.value=v; if(f==="cal"&&c) c.value=v; chEdited(); hwSlotsLine(); setTimeout(hwSlotsTable,50); }
 function hwCal(i){ const m=$$cm(i), t=sParse($("hwCalIn"+i).value,m), lc=$("lvl"+i), cur=lc&&lc._t!==undefined&&lc._t!==""?+lc._t:null;
@@ -2513,6 +2891,78 @@ function hwCal(i){ const m=$$cm(i), t=sParse($("hwCalIn"+i).value,m), lc=$("lvl"
   const cc=[...document.querySelectorAll(".cc")][i], nw=Math.round(((+cc.value||0)+(t-cur))*10)/10; cc.value=nw; $("hwCc"+i).value=nw; chEdited();
   toast("Slot "+(i+1)+" calibrated: it read "+cur.toFixed(1)+" dB, the signal is "+t.toFixed(1)+" dBm, so the calibration is now "+nw+" dB."); }
 setInterval(()=>{ if(!HWOPEN) return; const sb=$("btnScan"); if(sb) sb.disabled=!!window.__logging; for(let i=0;i<4;i++){ const lc=$("lvl"+i), t=$("hwLv"+i); if(!t) continue; const v=lc&&lc._t!==undefined&&lc._t!==""?+lc._t:null; t.innerHTML=v==null||isNaN(v)?"–":"<b class='dbn'>"+v.toFixed(1)+" dB</b>"+sSpan(v,$$cm(i),i); } },1000);
+
+
+/* ===================== 0.9.0: status line, Ready check, hide what is not found, calibration colours, saved setups ===================== */
+let HWSHOWALL=false;
+function hwRadioNames(){ const n=[]; if($("useSdr").checked) n.push("SDRplay"); if($("useHl2").checked) n.push("Hermes Lite 2"); if($("useAnan").checked) n.push("ANAN"); if($("useRtl").checked) n.push("RTL-SDR");
+  CAT.filter(c=>c.model).forEach(c=>n.push(catIsFlex(c)?"FlexRadio":"CAT radio")); return n; }
+function hwSlotInfo(){ const cm=[...document.querySelectorAll(".cm")], cr=[...document.querySelectorAll(".cr")], cc=[...document.querySelectorAll(".cc")];
+  return cm.map((e,i)=>({i:i, mhz:(""+e.value).trim(), radio:cr[i]?cr[i].value:"auto", cal:cc[i]?(+cc[i].value||0):0, on:(""+e.value).trim()!==""&&(cr[i]?cr[i].value!=="off":true)})); }
+function hwStatusUpdate(){ const el=$("hwStatus"); if(!el) return;
+  const prac=$("practice").checked, gt=$("hwGt2")?$("hwGt2").textContent:"–", gc=$("hwGd2")?$("hwGd2").className:"hdot", gcol=/\br\b/.test(gc)?"r":(/\ba\b/.test(gc)?"a":(/\bg\b/.test(gc)?"g":""));
+  const rn=hwRadioNames(), sl=hwSlotInfo().filter(x=>x.on).length;
+  const chip=(c,t)=>'<span class="hwchip"><span class="hdot '+c+'"></span>'+t+'</span>';
+  const h=(prac?chip("a","<b>Practice mode</b>: pretend radios and GPS"):chip(gcol||"r",/^GPS/i.test(gt)?"<b>"+esc(gt)+"</b>":"GPS: <b>"+esc(gt)+"</b>"))+
+    chip(rn.length||prac?"g":"r","Radios: <b>"+(rn.length?esc(rn.join(", ")):(prac?"pretend":"none chosen"))+"</b>")+
+    chip(sl?"g":"r","Slots: <b>"+(sl?sl+" set":"none set")+"</b>")+
+    chip(window.__logging?"a":"g","<b>"+(window.__logging?"Recording now":"Not recording")+"</b>");
+  if(el._h!==h){ el._h=h; el.innerHTML=h; } }
+function hwCalState(){ hwSlotInfo().forEach(x=>{ const t=$("hwCs"+x.i); if(!t) return;
+    const c=!x.on?["off","Slot is off"]:(x.cal!==0?["ok","Calibrated"]:["warn","Not calibrated yet"]); const h='<span class="hwcal '+c[0]+'">'+c[1]+'</span>'; if(t._h!==h){ t._h=h; t.innerHTML=h; } }); }
+function hwRadVis(){ if(!HW||!$("hwRadHold")) return; const D={}; (HW.drivers||[]).forEach(d=>D[d.id]=d);
+  const none=d=>!!(d&&d.scan&&d.scan.found&&d.scan.found.length===0), hid=[];
+  const tiles=[["sdrplay","useSdr","SDRplay"],["hl2","useHl2","Hermes Lite 2"],["anan","useAnan","ANAN"],["rtl","useRtl","RTL-SDR"]];
+  tiles.forEach(t=>{ const lab=$(t[1]).closest("label"); if(!lab) return; const h=!HWSHOWALL&&none(D[t[0]])&&!$(t[1]).checked; lab.style.display=h?"none":""; if(h) hid.push(t[2]); });
+  const flexUsed=CAT.some(c=>c.model&&catIsFlex(c)), catUsed=CAT.some(c=>c.model&&!catIsFlex(c));
+  const hf=!HWSHOWALL&&none(D.flexscan)&&!flexUsed, hc=!HWSHOWALL&&none(D.cat)&&!catUsed;
+  $("hwFlexBox").style.display=hf?"none":""; $("hwCatBox").style.display=hc?"none":""; if(hf) hid.push("FlexRadio"); if(hc) hid.push("CAT radios");
+  const n=$("hwHideNote"), h=(hid.length||HWSHOWALL)?(HWSHOWALL?'Showing every radio type. <a href="#" onclick="return hwShowAll(false)">Show only what was found</a>':'Not shown, because the last scan did not find them: <b>'+esc(hid.join(", "))+'</b>. <a href="#" onclick="return hwShowAll(true)">Show all radio types</a>'):"";
+  if(n._h!==h){ n._h=h; n.innerHTML=h; n.style.display=h?"block":"none"; } }
+function hwShowAll(v){ HWSHOWALL=!!v; hwRadVis(); return false; }
+function hwFlexMsg(){ if(!HW) return; const d=(HW.drivers||[]).find(x=>x.id==="flexscan"), m=$("flexMsg"); if(!m||!d||!d.scan) return;
+  const f=d.scan.found||[], okn=f.filter(x=>x.ok!==false).length;
+  m.innerHTML=okn?'<b style="color:#14693a">&#10004; FlexRadio found on the network.</b>':'<b style="color:#a5281b">FlexRadio not found.</b> <span class="mut">Is it switched on and on the same network as this computer? Is SmartSDR (or the radio) reachable? '+esc(d.scan.note||"")+'</span>'; }
+function hwReady(){ const out=[], add=(l,t)=>out.push([l,t]), prac=$("practice").checked, rn=hwRadioNames(), sl=hwSlotInfo();
+  if(window.__logging) add("w","A drive is being recorded right now, so some checks (such as the radios) are limited.");
+  const gt=$("hwGt2").textContent, gc=$("hwGd2").className;
+  if(prac) add("w","Practice mode is on: the GPS and radios are pretend. Untick Practice in the top bar for a real drive.");
+  else if(/\bg\b/.test(gc)) add("g","GPS has a fix ("+gt+").");
+  else if(/\ba\b/.test(gc)) add("w","GPS: "+gt+". It will work, but a fix with more satellites is better.");
+  else add("r","GPS has no fix ("+gt+"). Check the GPS source in section 1 above, then wait for a fix (a clear sky helps).");
+  if(!rn.length&&!prac) add("r","No radio is chosen. Tick one in section 2, or press Scan and set up for me.");
+  else if(rn.length) add("g","Radios chosen: "+rn.join(", ")+".");
+  const used=sl.filter(x=>x.on); if(!used.length) add("r","No slot has a frequency. Type a frequency in a slot (section 3 or under a slot's picture).");
+  else add("g",used.length+" slot"+(used.length===1?"":"s")+" set: "+used.map(x=>"slot "+(x.i+1)+" at "+x.mhz+" MHz").join(", ")+".");
+  const ids=new Set(); (HW&&HW.drivers||[]).forEach(d=>{ if(d.scan&&d.scan.found&&d.scan.found.length===0&&(d.ticked||false)&&!prac) ids.add(d.name); });
+  ids.forEach(nm=>add("w",nm+" is ticked but the last scan did not find it. Is it plugged in and switched on?"));
+  const unc=used.filter(x=>x.cal===0); if(used.length&&unc.length===used.length) add("w","No slot is calibrated yet. Levels are fine for comparing places, but S-units and dBm will be approximate (calibrate in section 3 if you have a test signal).");
+  else if(unc.length) add("w","Not calibrated: slot "+unc.map(x=>x.i+1).join(", ")+".");
+  const P=(S&&S.cfg&&S.cfg.perf)||null; if(!P||!P.when) add("w","The Max speed test has not been run (section 4). It tells you how fast you can drive and still get a dot at your spacing."); else add(P.verdict==="bad"?"r":(P.verdict==="warn"?"w":"g"),"Max speed test ("+P.when+"): "+({good:"everything works together",warn:"works, with things to fix",bad:"needs attention"}[P.verdict]||"done")+".");
+  const bad=out.filter(x=>x[0]==="r").length, warn=out.filter(x=>x[0]==="w").length, ic={g:"&#10004;",w:"&#9888;",r:"&#10008;"};
+  $("hwReadyOut").innerHTML='<div class="hwready '+(bad?"bad":(warn?"warn":"good"))+'"><b>'+(bad?"Not ready yet: "+bad+" thing"+(bad===1?"":"s")+" to fix.":(warn?"Ready, with "+warn+" thing"+(warn===1?"":"s")+" to look at.":"Ready to drive."))+'</b>'+out.map(x=>'<div class="hwr '+x[0]+'">'+ic[x[0]]+' '+esc(x[1])+'</div>').join("")+'</div>'; }
+/* saved setups (stored with the program's settings, so they survive a restart) */
+const HWP_KEYS=["use_sdrplay","use_hl2","use_rtl","use_anan","use_cat","cat_radios","hl2_ip","hl2_rate","hl2_gain_db","gps_mode","gps_host","gps_port","gps_serial","gps_baud","channels","anan_ip"];
+function hwProfList(){ return (S&&S.cfg&&Array.isArray(S.cfg.hw_profiles))?S.cfg.hw_profiles:[]; }
+function hwProfFill(sel){ const L=hwProfList(), el=$("hwProf"); if(!el) return; const keep=sel!==undefined?sel:el.value;
+  el.innerHTML='<option value="">(none saved)</option>'.replace("(none saved)",L.length?"(choose a setup)":"(none saved yet)")+L.map((p,i)=>'<option value="'+i+'">'+esc(p.name)+'</option>').join(""); el.value=keep; if(el.value!==keep) el.value=""; hwProfSel(); }
+function hwProfSel(){ const has=$("hwProf").value!=="", lg=!!window.__logging; $("btnProfLoad").disabled=!has||lg; $("btnProfDel").disabled=!has; $("btnProfSave").disabled=false; }
+async function hwProfSave(){ await guard(async()=>{ let nm=prompt("Name for this setup (for example: ANAN 4 slots):",""); if(nm==null) return; nm=nm.trim(); if(!nm){ toast("Type a name for the setup."); return; }
+    const f=readForm(), snap={}; HWP_KEYS.forEach(k=>{ if(f[k]!==undefined) snap[k]=f[k]; }); if(S&&S.cfg&&S.cfg.anan_ip!==undefined) snap.anan_ip=S.cfg.anan_ip;
+    const L=hwProfList().filter(p=>p.name!==nm); L.push({name:nm,saved:new Date().toLocaleString(),cfg:snap}); L.sort((a,b)=>a.name.localeCompare(b.name));
+    await api("/api/config",{hw_profiles:L}); if(S&&S.cfg) S.cfg.hw_profiles=L; hwProfFill(String(L.findIndex(p=>p.name===nm)));
+    $("hwProfMsg").textContent='Saved the setup "'+nm+'" ('+snap.channels.filter(c=>(""+c.mhz).trim()!=="").length+" slots, "+(hwRadioNames().join(", ")||"no radios")+").";
+    toast('Setup "'+nm+'" saved.'); }); }
+async function hwProfLoad(){ await guard(async()=>{ if(window.__logging){ toast("A drive is being recorded. Stop recording, then load a setup."); return; }
+    const p=hwProfList()[+$("hwProf").value]; if(!p){ toast("Choose a saved setup in the list first."); return; }
+    $("hwProfMsg").innerHTML='<b>Loading "'+esc(p.name)+'"...</b> the page reloads in a moment.';
+    clearTimeout(slTuneTimer); window.slPush=function(){}; await new Promise(r=>setTimeout(r,400));      // a pending slot edit must not overwrite the setup
+    await api("/api/config",p.cfg); try{ sessionStorage.setItem("ntRebuild",JSON.stringify(['Loaded the setup "'+p.name+'".'])); }catch(e){}
+    setTimeout(()=>location.reload(),1200); }); }
+async function hwProfDel(){ await guard(async()=>{ const i=+$("hwProf").value, L=hwProfList().slice(), p=L[i]; if(!p) return; if(!confirm('Delete the saved setup "'+p.name+'"?')) return;
+    L.splice(i,1); await api("/api/config",{hw_profiles:L}); if(S&&S.cfg) S.cfg.hw_profiles=L; hwProfFill(""); $("hwProfMsg").textContent='Deleted "'+p.name+'".'; }); }
+function hwExtra(){ hwStatusUpdate(); hwCalState(); hwRadVis(); }
+setInterval(()=>{ if(HWOPEN){ hwExtra(); hwProfSel(); } },1000);
 
 /* ===================== Max speed test ===================== */
 async function perfRun(){ await guard(async()=>{
@@ -2535,10 +2985,17 @@ function perfShow(P){
 /* the radio and GPS settings now live in the Hardware window: move them there (they keep working exactly as before) */
 (function(){ const r=$("radioBox"), g=$("gpsBox"); if(r&&$("hwRadHold")) $("hwRadHold").appendChild(r); if(g&&$("hwGpsHold")) $("hwGpsHold").appendChild(g); })();
 
+
+/* 0.9.0a: a loud banner whenever Practice is ticked (the tick is remembered between runs) */
+let PRAC_SEEN=null;
+function pracBanner(){ const b=$("pracBanner"); if(!b) return; const on=!!$("practice").checked; if(on===PRAC_SEEN) return; PRAC_SEEN=on; b.style.display=on?"flex":"none"; try{ document.title=(on?"[PRACTICE] ":"")+"RFI Trail"; }catch(e){} }
+function pracOff(){ if(window.__logging){ toast("A drive is being recorded. Stop logging first, then turn Practice off."); return; } $("practice").checked=false; $("practice").onchange(); pracBanner(); }
+$("practice").addEventListener("change",pracBanner); setInterval(pracBanner,800); pracBanner();
 panInit(); mkLoad(); mkChanged(); panWire(); setInterval(panSlotLabels,1500); recList(); setInterval(recPoll,1000);
-$("phoneAccess").onchange=()=>guard(async()=>{await api("/api/config",{phone_access:$("phoneAccess").checked});toast("Saved. Quit and reopen RF Noise Map to apply.");});
+$("phoneAccess").onchange=()=>guard(async()=>{await api("/api/config",{phone_access:$("phoneAccess").checked});toast("Saved. Quit and reopen RFI Trail to apply.");});
 refreshAll().then(()=>refreshLive()).catch(()=>{});
-setInterval(refreshLive,1200);
+let HID_T=0; setInterval(()=>{ if(document.hidden&&(++HID_T%4)) return; refreshLive(); },1200);      // a hidden tab asks a quarter as often
 setInterval(()=>{ if(!document.hidden) refreshDrivesOnly().catch(()=>{}); },8000);
 </script>
+<script src="/help_panel.js"></script><script src="/help_engine.js"></script>
 </body></html>

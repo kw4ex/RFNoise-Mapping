@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 check_setup.py - Tells you, in plain English, what is working and what is missing.
-The 'Health check' button in the RF Noise Map window runs run_checks() below.
+The 'Health check' button in the RFI Trail window runs run_checks() below.
 
 Command line:
   python3 check_setup.py
@@ -14,7 +14,7 @@ import os
 import sys
 import time
 
-import rfmap_common as C
+import nt_common as C
 
 
 def run_checks(gps_spec=None, listen_seconds=5):
@@ -97,7 +97,7 @@ def run_checks(gps_spec=None, listen_seconds=5):
     # RTL-SDR dongles (up to four; version 1.4.0, not yet tried on real dongles)
     if bool(cfg.get("use_rtl")):
         try:
-            import rf_logger as RL
+            import nt_logger as RL
             dl, dnote = RL.rtl_list()
         except Exception as e:
             dl, dnote = [], "Looking for dongles failed: %s" % e
@@ -125,8 +125,8 @@ def run_checks(gps_spec=None, listen_seconds=5):
 
     # GPS test
     if gps_spec and gps_spec != "sim":
-        import rf_logger
-        g = rf_logger.NmeaGps(gps_spec)
+        import nt_logger
+        g = nt_logger.NmeaGps(gps_spec)
         g.start()
         t0 = time.time()
         while time.time() - t0 < listen_seconds and not g.latest():
@@ -143,7 +143,7 @@ def run_checks(gps_spec=None, listen_seconds=5):
                               "and wait a minute or two (a cold start can take up to 5 minutes).")
         elif "denied" in status.lower() or "permission" in status.lower():
             add("GPS", "fix", "The GPS port is in use by another program (or an earlier check). Close any other "
-                              "GPS or mapping program, quit and restart RF Noise Map, or unplug the puck for 5 "
+                              "GPS or mapping program, quit and restart RFI Trail, or unplug the puck for 5 "
                               "seconds and plug it back in.")
         elif serial_gps and "could not open" in status.lower():
             add("GPS", "fix", "That COM port does not exist or cannot be opened. Press 'Find my GPS' to look for the puck.")

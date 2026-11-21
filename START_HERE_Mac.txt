@@ -1,0 +1,35 @@
+NOISE TRAIL __VER__ for Mac  -  START HERE
+==========================================
+
+Find where radio noise (power lines, poles, noisy buildings) is strongest: drive a route with a radio and a GPS,
+and the program draws the readings as coloured dots on a street map.
+
+TO INSTALL (about 5 minutes, internet needed)
+  1. If you have the zip, double-click it to unzip it. Keep the two folders  mac  and  app  side by side.
+  2. Open the  mac  folder.
+  3. RIGHT-CLICK  Install_RFI_Trail.command  and choose  Open,  then click  Open  again.
+     (Only the first time: macOS asks because the file came from the internet.)
+     If macOS says it "cannot be opened because Apple cannot check it": click Done (never Move to Trash), open
+     System Settings > Privacy & Security, scroll down, click "Open Anyway" and type your Mac password.
+  4. In the window that opens, type 1 and press Return, then answer y (or just press Return) to each question.
+     It explains every step before it does it.
+  5. When it says DONE, a "RFI Trail" icon is on your Desktop and in Applications.
+
+FIRST TRY (no radio needed)
+  (A red PRACTICE MODE banner means the radios, GPS and sound are pretend. Press "Turn practice off" before a real drive.)
+  Double-click the RFI Trail icon. In the page that opens press  Settings, then  "Try a practice drive + map".
+
+ABOUT
+  RFI Trail is the successor to RF Noise Map, designed and tested on the air by KW4EX.
+  With thanks to Jeff Stuparits, W4DD, whose noise-mapping program and generous help inspired it.
+
+NEED HELP?
+  - In the program, point at anything and press the ? key (or F1) for a short explanation.
+  - The "Help & guide" button at the top of the program opens the full guide. A printable copy is in this
+    download: RFI_Trail_User_Guide.pdf (and RFI_Trail_Help.html).
+  - mac/README_Mac.txt has the details (Hermes Lite 2 network setup, SDRplay driver, problems and fixes).
+  - If the installer has a problem it explains the likely cause and can make one small "support file" (logs only,
+    nothing is sent anywhere) to send to KW4EX.
+
+UPDATING: run the newer version's installer the same way. Your drives, maps and settings (in the "RFI Trail"
+folder in your home folder) are kept.

@@ -24,9 +24,12 @@ MODES = ("AM", "SAM", "USB", "LSB", "NFM")
 BW_DEF = {"AM": 8000.0, "SAM": 8000.0, "USB": 2800.0, "LSB": 2800.0, "NFM": 12000.0}
 # volume levelling ("AGC"): how fast the volume recovers after a loud peak. Off = a fixed gain, so the
 # background noise keeps its true level next to the signals (best for hunting noise).
-AGC_DECAY = {"slow": 0.995, "medium": 0.95, "fast": 0.80, "off": None}
+AGC_DECAY = {"slow": 0.995, "medium": 0.95, "fast": 0.80, "off": None}      # (the keys are the choices; the timing is in AGC_TIME)
+# AGC timing in real seconds: (hang = how long the volume stays turned down after a loud peak, release = how long it then
+# takes to come back up by 20 dB). A loud burst turns the volume down at once, holds briefly, then recovers smoothly.
+AGC_TIME = {"slow": (0.15, 0.5, 2.0), "medium": (0.02, 0.09, 1.41), "fast": (0.02, 0.08, 2.0)}    # (hang s, release s per 20 dB, biggest drop per step: 1.41x = 3 dB)
 AGC_DEF = "medium"
-FIXED_GAIN = 400.0                    # AGC off: audio = tanh(sample * this), so loud signals are limited, not clipped
+FIXED_GAIN = 2000.0                   # AGC off: audio = tanh(sample * this), so loud signals are limited, not clipped
 REC_MAX_S = 3600                      # a recording stops itself after an hour (about 83 MB would be 1 h; see below)
 
 
@@ -91,6 +94,7 @@ class _SliceDemod:
         self.phase = 0
         self.car = 0.0 + 0.0j                      # SAM carrier tracker
         self.peak = 1e-3                           # simple volume leveller
+        self.hang = 0.0                            # seconds left before the volume starts to come back up
         self.dc = 0.0
         self.prev = 0.0 + 0.0j                     # NFM phase memory
         self.audio = collections.deque(maxlen=30)  # (seq, bytes)
@@ -211,8 +215,98 @@ class _SliceDemod:
         if decay is None:                           # AGC off: fixed gain, true background level
             return (np.tanh(out * FIXED_GAIN) * 0.8 * 32767.0).astype(np.int16)
         pk = float(np.max(np.abs(out))) if out.size else 0.0
-        self.peak = max(self.peak * decay, pk, 1e-4)
-        return np.clip(out / self.peak * 0.5 * 32767.0, -32767, 32767).astype(np.int16)
+        hang_s, rel_s, step = AGC_TIME.get(self.agc, AGC_TIME["medium"])
+        dt = out.size / float(AUDIO_RATE)
+        if pk >= self.peak * 0.5:                   # a loud peak (or the signal is still near the held level): turn down, restart the hang
+            self.peak = pk if self.peak < 2e-3 else max(self.peak, min(pk, self.peak * step))
+            self.hang = hang_s
+        elif self.hang > 0.0:
+            self.hang -= dt
+        else:
+            self.peak = max(self.peak * (0.1 ** (dt / rel_s)), pk)
+        self.peak = max(self.peak, 1e-4)
+        return (np.tanh(out / self.peak * 0.7) * 0.72 * 32767.0).astype(np.int16)      # soft limiter: a burst is rounded off, not clipped
+
+    def get_audio(self, after):
+        with self.lock:
+            chunks = [b for s, b in self.audio if s > after]
+            last = self.aseq
+        return b"".join(chunks[-15:]), last
+
+    def close(self):
+        self.stop_flag.set()
+        self.th.join(timeout=1.0)
+        with self.lock:
+            if self.rec is not None:
+                self.rec.close()
+                self.rec = None
+
+
+class _FlexSound:
+    """The sound of one Flex slice. The radio does the tuning, filtering, AGC and demodulation; the slice has its own DAX audio
+    stream (24 kHz), which is brought to the panel's 12 kHz here. Same face as _SliceDemod (listen / rec / get_audio / close)."""
+
+    def __init__(self, api, mode, bw, agc=None):
+        self.api = api
+        self.mode, self.bw, self.agc = mode, float(bw or BW_DEF.get(mode, 3000.0)), (agc or AGC_DEF)
+        self.audio = collections.deque(maxlen=30)
+        self.aseq = 0
+        self.rec = None
+        self.lock = threading.Lock()
+        self.listen = False
+        self.tail = np.zeros(0, np.float32)
+        self.taps = np.real(_lp_taps(65, 5400.0, 24000)).astype(np.float32)
+        self.stop_flag = threading.Event()
+        self.err = ""
+        self.t_start = time.time()
+        self.told = False
+        api.audio_start()                          # raises (and the panel says why) if the radio refuses
+        self.th = threading.Thread(target=self._loop, daemon=True)
+        self.th.start()
+
+    def set_mode(self, mode, bw=None, agc=None):   # the slot's mode and filter already go to the radio with the slot (0.5.0)
+        self.mode = mode if mode in MODES else self.mode
+        if bw:
+            self.bw = float(bw)
+        if agc in AGC_DECAY:
+            self.agc = agc
+
+    def _loop(self):
+        while not self.stop_flag.is_set():
+            time.sleep(0.09)
+            try:
+                x = self.api.audio_pull()
+                if not x.size:
+                    if not self.told and time.time() - self.t_start > 4.0:       # nothing came: say what did arrive, for the log
+                        self.told = True
+                        try:
+                            import nt_log
+                            L = self.api.link
+                            nt_log.warn("Flex: no sound has arrived from the radio's audio stream after 4 s. Audio packets seen: %d (classes %s); "
+                                        "UDP spectrum packets: %d; problem: %s; our stream: 0x%X; sound packets per stream: %s" % (L.audio_pkts, dict(L.audio_cls) or "none", L.fft_packets, L.fft_error or "none", getattr(self.api, "audio_sid", 0) or 0, dict(L.audio_sids)))
+                        except Exception:
+                            pass
+                    continue
+                xc = np.concatenate((self.tail, x))
+                n = len(self.taps)
+                if xc.size < n + 2:
+                    self.tail = xc
+                    continue
+                y = np.convolve(xc, self.taps, "valid")
+                self.tail = xc[-(n - 1):]
+                a = np.clip(y[::2] * 32767.0 * 0.9, -32767, 32767).astype(np.int16)
+                with self.lock:
+                    if self.listen:
+                        self.aseq += 1
+                        self.audio.append((self.aseq, a.tobytes()))
+                    if self.rec is not None:
+                        self.rec.feed(a)
+                        if self.rec.seconds() >= REC_MAX_S:
+                            self.rec.close()
+                            self.rec = None
+            except Exception as e:
+                self.err = str(e)
+                time.sleep(0.3)
 
     def get_audio(self, after):
         with self.lock:
@@ -252,10 +346,13 @@ class SliceSound:
                     raise ValueError("The radio is not running.")
                 got = self.lookup(ch)
                 if not got:
-                    raise ValueError("Sound works on the Hermes Lite 2 and ANAN slots here. This slot is measured by "
+                    raise ValueError("Sound works on the Hermes Lite 2, ANAN and Flex (Control mode) slots here. This slot is measured by "
                                      "another radio that cannot stream sound while it is measuring.")
-                client, rx, rate = got
-                d = _SliceDemod(client, rx, rate, mode or "AM", bw, agc)
+                if got[0] == "flex":
+                    d = _FlexSound(got[1], mode or "AM", bw, agc)
+                else:
+                    client, rx, rate = got
+                    d = _SliceDemod(client, rx, rate, mode or "AM", bw, agc)
                 self.slices[ch] = d
         if mode:
             d.set_mode(mode, bw, agc)

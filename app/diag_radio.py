@@ -37,7 +37,7 @@ def imports(path):
     return names
 
 try:
-    import rfmap_common as C
+    import nt_common as C
     say("Program version:", C.VERSION, "| Python", sys.version.split()[0], "| 64-bit" if sys.maxsize > 2**32 else "| 32-bit")
     pf = os.environ.get("ProgramFiles", r"C:\Program Files")
     pothos = os.path.join(pf, "PothosSDR"); api = os.path.join(pf, "SDRplay", "API", "x64")
