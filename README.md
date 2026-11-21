@@ -46,7 +46,7 @@ Designed and tested on the air by **KW4EX**.
 
 **With thanks to Jeff Stuparits, W4DD**, whose own noise-mapping program and generous help, to the author and to many other hams, inspired this one and many of its ideas.
 
-RFI Trail grew from **RF Noise Map** (versions 1.x), which was published in this repository. The last RF Noise Map files remain available under the tag `rfnoise-mapping-final-1.6.0b`, and its release notes are in [docs/legacy](docs/legacy/). An earlier test version of RFI Trail was called "Noise Trail"; the installers move its data across for you.
+RFI Trail grew from **RF Noise Map** (versions 1.x), which was published in this repository. The last RF Noise Map files remain available on the branch `rfnoise-mapping-legacy`, and its release notes are in [docs/legacy](docs/legacy/). An earlier test version of RFI Trail was called "Noise Trail"; the installers move its data across for you.
 
 ## Not made or approved by
 
