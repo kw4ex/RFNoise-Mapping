@@ -12,15 +12,15 @@ RFI Trail logs the signal level on up to four frequencies you choose, together w
 
 ## Download and install
 
-Get the newest zip from the [**Releases**](../../releases) page.
+The newest version (2.0.0i) can be downloaded straight from this page with the links below. (Older versions are on the [Releases](../../releases) page.)
 
 **Windows 10 / 11**
-1. Download `RFI_Trail_Windows_v2.0.0i.zip` and unzip it.
+1. Download [`RFI_Trail_Windows_v2.0.0i.zip`](https://github.com/kw4ex/RFNoise-Mapping/raw/main/downloads/RFI_Trail_Windows_v2.0.0i.zip) and unzip it.
 2. Double-click `Install_RFI_Trail_Windows.bat`. It tells you what it is about to do before each step, and the usual answer is just Enter.
 3. At the end, say yes to the firewall question if you use a network radio (ANAN, Hermes Lite 2, FlexRadio).
 
 **Mac**
-1. Download `RFI_Trail_Mac_v2.0.0i.zip` and unzip it.
+1. Download [`RFI_Trail_Mac_v2.0.0i.zip`](https://github.com/kw4ex/RFNoise-Mapping/raw/main/downloads/RFI_Trail_Mac_v2.0.0i.zip) and unzip it.
 2. Open the `mac` folder and double-click `Install_RFI_Trail.command`. (If macOS objects, right-click it and choose Open.)
 
 First try: press **Settings**, then **Try a practice drive + map**. No radio is needed.
