@@ -536,11 +536,15 @@ PLIST
 cat > "$APPBUNDLE/Contents/MacOS/launcher" <<LAUNCH
 #!/bin/bash
 # RFI Trail starter. It starts the program in the background and then finishes straight away, so macOS
-# never thinks the icon is "not responding". If a copy is already running it asks what you want to do.
+# never thinks the icon is "not responding". It first checks whether a copy (this version or another)
+# is already running or stuck, tells you what it found, and afterwards checks that the program really started.
 cd "$DEST/app" || exit 1
 mkdir -p "\$HOME/Library/Logs"
 LOG="\$HOME/Library/Logs/RFI_Trail.log"
 PY="$DEST/venv/bin/python"
+JOB="com.kw4ex.rfitrail"
+trace() { echo "\$(date '+%Y-%m-%d %H:%M:%S') [launcher \$\$] \$*" >> "\$LOG"; }
+trace "icon clicked (parent \$PPID)"
 
 running_port() {
     for p in 8790 8791 8792 8793 8794 8795; do
@@ -549,41 +553,145 @@ running_port() {
     return 1
 }
 
-start_app() {
-    # Apple-silicon Mac: always start natively. An icon with no declared processor type can be started under
-    # Rosetta (Intel emulation), which cannot load the arm64 libraries (numpy then fails to import).
-    if [ "\$(sysctl -n hw.optional.arm64 2>/dev/null)" = "1" ]; then
-        nohup arch -arm64 "\$PY" nt_app.py >> "\$LOG" 2>&1 &
-    else
-        nohup "\$PY" nt_app.py >> "\$LOG" 2>&1 &
+running_version() {      # the version a running copy reports on port \$1
+    curl -s -m 1 "http://127.0.0.1:\$1/api/ping" 2>/dev/null | sed -n 's/.*"version": *"\\([^"]*\\)".*/\\1/p'
+}
+
+this_version() {         # the version that is installed on disk
+    sed -n 's/^VERSION *= *"\\([^"]*\\)".*/\\1/p' nt_common.py 2>/dev/null | head -1
+}
+
+stuck_copy() {           # a program process exists, but nothing answers on any port
+    pgrep -f "nt_app.py" >/dev/null 2>&1
+}
+
+close_all() {            # polite close first, then force
+    trace "closing any running copy (close_all)"
+    "\$PY" nt_app.py --stop >> "\$LOG" 2>&1
+    for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
+        sleep 0.5
+        [ -z "\$(running_port)" ] && ! stuck_copy && break
+    done
+    if [ -n "\$(running_port)" ] || stuck_copy; then
+        pkill -f "nt_app.py" 2>/dev/null
+        pkill -f "nt_logger.py" 2>/dev/null
+        sleep 1.5
     fi
-    disown 2>/dev/null
+    launchctl bootout "gui/\$(id -u)/\$JOB" >/dev/null 2>&1
+    launchctl remove "\$JOB" >/dev/null 2>&1
+}
+
+wait_answer() {          # wait up to \$1 seconds for the program to answer
+    n=\$(( \$1 * 2 ))
+    for i in \$(seq 1 \$n); do
+        sleep 0.5
+        [ -n "\$(running_port)" ] && return 0
+    done
+    return 1
+}
+
+# Apple-silicon Mac: the program must run natively. The "arch" wrapper is used ONLY when this starter itself
+# runs under Intel emulation (Rosetta), which cannot load the arm64 libraries.
+ARCHPFX=""
+if [ "\$(sysctl -n hw.optional.arm64 2>/dev/null)" = "1" ] && [ "\$(sysctl -n sysctl.proc_translated 2>/dev/null)" = "1" ]; then
+    ARCHPFX="arch -arm64 "
+fi
+
+start_agent() {          # 1st choice: an "interactive" macOS background job (not owned by this icon)
+    PLIST="\$HOME/Library/LaunchAgents/\$JOB.plist"
+    mkdir -p "\$HOME/Library/LaunchAgents"
+    launchctl bootout "gui/\$(id -u)/\$JOB" >/dev/null 2>&1
+    launchctl remove "\$JOB" >/dev/null 2>&1
+    {
+        echo '<?xml version="1.0" encoding="UTF-8"?>'
+        echo '<plist version="1.0"><dict>'
+        echo "<key>Label</key><string>\$JOB</string>"
+        echo "<key>ProgramArguments</key><array><string>/bin/bash</string><string>-c</string><string>cd &quot;$DEST/app&quot; &amp;&amp; exec \${ARCHPFX}&quot;\$PY&quot; nt_app.py</string></array>"
+        echo '<key>ProcessType</key><string>Interactive</string>'
+        echo '<key>RunAtLoad</key><true/>'
+        echo "<key>StandardOutPath</key><string>\$LOG</string>"
+        echo "<key>StandardErrorPath</key><string>\$LOG</string>"
+        echo '</dict></plist>'
+    } > "\$PLIST"
+    launchctl bootstrap "gui/\$(id -u)" "\$PLIST" >>"\$LOG" 2>&1
+}
+
+stop_agent() {
+    launchctl bootout "gui/\$(id -u)/\$JOB" >/dev/null 2>&1
+    launchctl remove "\$JOB" >/dev/null 2>&1
+    pkill -f "nt_app.py" 2>/dev/null
+    sleep 1
+}
+
+start_in_terminal() {    # 2nd choice: a Terminal window, exactly like starting it by hand (this is known to stay up)
+    CMDFILE="$DEST/Start_in_Terminal.command"
+    printf '#!/bin/bash\\ncd "%s" || exit 1\\necho "RFI Trail is running in this window. Leave it open; use Close program in the panel when finished."\\nexec %s"%s" nt_app.py\\n' "$DEST/app" "\$ARCHPFX" "\$PY" > "\$CMDFILE"
+    chmod +x "\$CMDFILE"
+    open -a Terminal "\$CMDFILE"
+}
+
+start_app() {
+    trace "starting the program as an interactive macOS job"
+    start_agent
+    if wait_answer 15; then
+        sleep 6                                   # it used to be stopped about 2 seconds after it started
+        if [ -n "\$(running_port)" ]; then trace "program is up and stayed up"; return 0; fi
+        trace "the program was stopped again within seconds; using a Terminal window instead"
+    else
+        trace "the macOS job did not answer in 15 seconds; using a Terminal window instead"
+    fi
+    stop_agent
+    trace "starting the program in a Terminal window"
+    start_in_terminal
 }
 
 RP="\$(running_port)"
+trace "found running copy on port: \${RP:-none}; a program process exists: \$(stuck_copy && echo yes || echo no)"
 if [ -n "\$RP" ]; then
-    ANS="\$(osascript -e 'button returned of (display dialog "RFI Trail is already running.\n\nWhat would you like to do?\n\n(Closing it stops any recording in progress. Data already saved is kept.)" buttons {"Cancel", "Open the running one", "Close it and start fresh"} default button "Open the running one" cancel button "Cancel" with title "RFI Trail" with icon note)' 2>/dev/null)"
+    RV="\$(running_version "\$RP")"; TV="\$(this_version)"
+    if [ -n "\$RV" ] && [ -n "\$TV" ] && [ "\$RV" != "\$TV" ]; then
+        ANS="\$(osascript -e 'button returned of (display dialog "A different version of RFI Trail is already running.\\n\\nRunning now: '"\$RV"'\\nInstalled: '"\$TV"'\\n\\nClose it and start the installed version?\\n\\n(Closing it stops any recording in progress. Data already saved is kept.)" buttons {"Cancel", "Open the running one", "Close it and start fresh"} default button "Close it and start fresh" cancel button "Cancel" with title "RFI Trail" with icon note)' 2>/dev/null)"
+    else
+        ANS="\$(osascript -e 'button returned of (display dialog "RFI Trail is already running.\\n\\nWhat would you like to do?\\n\\n(Closing it stops any recording in progress. Data already saved is kept.)" buttons {"Cancel", "Open the running one", "Close it and start fresh"} default button "Open the running one" cancel button "Cancel" with title "RFI Trail" with icon note)' 2>/dev/null)"
+    fi
     case "\$ANS" in
         "Open the running one")
             open "http://localhost:\$RP/"
             exit 0 ;;
         "Close it and start fresh")
-            "\$PY" nt_app.py --stop >> "\$LOG" 2>&1
-            for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
-                sleep 0.5
-                [ -z "\$(running_port)" ] && break
-            done
-            if [ -n "\$(running_port)" ]; then      # did not close politely: force it
-                pkill -f "nt_app.py" 2>/dev/null
-                pkill -f "nt_logger.py" 2>/dev/null
-                sleep 1.5
-            fi
-            ;;
+            close_all ;;
         *)
             exit 0 ;;
     esac
+elif stuck_copy; then
+    ANS="\$(osascript -e 'button returned of (display dialog "RFI Trail seems to be running, but it is not answering.\\n\\nIt may still be starting (wait about 15 seconds and try again), or it may be stuck.\\n\\nClose it and start fresh?" buttons {"Cancel", "Close it and start fresh"} default button "Cancel" cancel button "Cancel" with title "RFI Trail" with icon caution)' 2>/dev/null)"
+    case "\$ANS" in
+        "Close it and start fresh") close_all ;;
+        *) exit 0 ;;
+    esac
 fi
+
+# Ask once per start whether the Mac may be kept awake (so the lid can be closed while plugged in).
+AWAKE="\$(osascript -e 'button returned of (display dialog "Allow clamshell mode?\\n\\nYes keeps this Mac awake while RFI Trail is running, so you can close the lid while it is plugged in to power (a screen or the lid-closed Mac keeps logging).\\n\\nIt ends by itself when RFI Trail closes. Nothing is changed permanently." buttons {"No", "Yes, keep it awake"} default button "No" with title "RFI Trail" with icon note giving up after 20)' 2>/dev/null)"
+trace "clamshell question answered: \${AWAKE:-no answer}"
+
 start_app
+
+# Make sure it really came up (up to 25 seconds); if not, say so instead of failing silently.
+if wait_answer 25; then
+    case "\$AWAKE" in
+        Yes*)
+            APID="\$(pgrep -f "nt_app.py" | head -1)"
+            if [ -n "\$APID" ]; then
+                nohup caffeinate -i -s -w "\$APID" >/dev/null 2>&1 &
+                trace "clamshell mode on: keeping the Mac awake until program \$APID closes"
+            fi ;;
+    esac
+    trace "program answers; launcher finished"; exit 0
+fi
+trace "program did NOT answer"
+ANS="\$(osascript -e 'button returned of (display dialog "RFI Trail did not start.\\n\\nThe program was started but is not answering. The reason is usually written in its log." buttons {"OK", "Open the log"} default button "Open the log" with title "RFI Trail" with icon stop)' 2>/dev/null)"
+[ "\$ANS" = "Open the log" ] && open -t "\$LOG"
 exit 0
 LAUNCH
 chmod +x "$APPBUNDLE/Contents/MacOS/launcher"

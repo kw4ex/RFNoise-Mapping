@@ -10,7 +10,7 @@ import re
 import sys
 
 APP_NAME = "RFI Trail"
-VERSION = "2.0.0a"
+VERSION = "2.0.0i"
 IS_MAC = sys.platform == "darwin"
 IS_WIN = sys.platform.startswith("win")
 

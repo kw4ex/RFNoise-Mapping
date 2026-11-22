@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="theme-color" content="#0b1620">
+<title>RFI Trail (phone)</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:#0b1620;color:#e8eef6;font:16px/1.3 -apple-system,system-ui,Segoe UI,Roboto,sans-serif;overscroll-behavior:none}
+#app{display:flex;flex-direction:column;height:100%;height:100dvh}
+#top{padding:calc(6px + env(safe-area-inset-top)) 12px 6px;background:#12202e;display:flex;gap:10px;align-items:center;justify-content:space-between;font-size:13px;color:#9fb3c8}
+#top b{color:#fff}
+#views{flex:1;position:relative;min-height:0}
+.view{position:absolute;inset:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:10px 12px 16px;display:none}
+.view.on{display:block}
+#vMap.on{display:block;padding:0;overflow:hidden}
+#nav{display:flex;background:#12202e;border-top:1px solid #243649;padding-bottom:env(safe-area-inset-bottom)}
+#nav button{flex:1;background:none;border:0;color:#9fb3c8;font:600 16px system-ui;padding:14px 4px}
+#nav button.on{color:#fff;box-shadow:inset 0 3px 0 #3da5ff}
+.big{border-radius:16px;background:#12202e;padding:14px;margin-bottom:12px;text-align:center}
+.big .s{font-size:84px;font-weight:800;line-height:1;letter-spacing:-2px}
+.big .d{font-size:22px;color:#9fb3c8;margin-top:4px}
+.big .w{font-size:14px;color:#7e93a8;margin-top:2px}
+.alarm{background:#7a1f1f}
+.row{display:flex;align-items:center;gap:10px;background:#12202e;border-radius:12px;padding:10px 12px;margin-bottom:8px}
+.row .n{font-weight:700;width:22px;color:#7e93a8}.row .f{flex:0 0 104px;font-size:14px;color:#9fb3c8;white-space:nowrap}
+.row .bar{flex:1;height:12px;background:#0b1620;border-radius:6px;overflow:hidden}.row .bar i{display:block;height:100%;background:#3da5ff;width:0}
+.row .v{flex:0 0 70px;text-align:right;font-weight:700;font-size:18px}
+.btns{display:flex;gap:10px;margin:6px 0 12px}
+button.act{flex:1;font:700 22px system-ui;padding:20px 8px;border:0;border-radius:14px;color:#fff}
+#bGo{background:#1f9d55}#bStop{background:#c0392b}#bMark{background:#2f6fb0}
+button.act:disabled{opacity:.45}
+.card{background:#12202e;border-radius:12px;padding:10px 12px;margin-bottom:12px}
+.card h3{margin:0 0 8px;font-size:15px;color:#9fb3c8;font-weight:600}
+.card label{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:8px 0;font-size:16px}
+select,button.sm{font:16px system-ui;padding:9px 10px;border-radius:9px;border:1px solid #2c4258;background:#0b1620;color:#fff}
+button.sm{background:#1d3347}
+input[type=checkbox]{width:26px;height:26px}
+#msg{min-height:20px;font-size:14px;color:#ffd27a;margin:2px 0 8px;text-align:center}
+#map{position:absolute;inset:0}
+#mapBar{position:absolute;z-index:1000;top:8px;left:8px;right:8px;display:flex;gap:8px;pointer-events:none}
+#mapBar>*{pointer-events:auto}
+#mapInfo{position:absolute;z-index:1000;bottom:8px;left:8px;right:8px;background:#0b1620cc;border-radius:8px;padding:6px 10px;font-size:13px;pointer-events:none}
+.slot{background:#12202e;border-radius:12px;padding:8px;margin-bottom:12px}
+.slot .h{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px}
+.slot .h b{font-size:17px}.slot .h span{font-size:20px;font-weight:800}
+.slot canvas{display:block;width:100%;border-radius:6px;background:#0b1620}
+.slot .tr{height:120px}.slot .wf{height:70px;margin-top:3px}
+.mut{color:#7e93a8;font-size:13px}
+a{color:#7cc0ff}
+</style></head><body>
+<div id="app">
+ <div id="top"><span><b>RFI Trail</b> <span id="tState">...</span></span><span id="tGps"></span></div>
+ <div id="views">
+  <div class="view on" id="vLive">
+   <div class="big" id="master"><div class="s" id="mS">--</div><div class="d" id="mD">waiting for the program</div><div class="w" id="mW"></div></div>
+   <div id="rows"></div>
+   <div id="msg"></div>
+   <div class="btns"><button class="act" id="bGo">Start</button><button class="act" id="bStop" style="display:none">Stop</button><button class="act" id="bMark" disabled>Mark spot</button></div>
+   <div class="card"><h3>Alert on this phone</h3>
+    <label>Sound<input type="checkbox" id="alOn"></label>
+    <label>When the signal reaches <select id="alIdx"></select></label>
+    <label>Sound <select id="alSnd"><option value="beep">Beep</option><option value="double">Double beep</option><option value="chirp">Chirp</option><option value="siren">Siren</option><option value="bell">Bell</option><option value="buzz">Buzz</option></select></label>
+    <label>Also vibrate<input type="checkbox" id="alVib"></label>
+    <div style="display:flex;gap:10px"><button class="sm" id="alTest" style="flex:1">Test the sound</button></div>
+    <div class="mut" style="margin-top:6px">Phones only allow sound after you touch the screen, so press <b>Test the sound</b> once after opening this page. Keep the screen on while driving.</div>
+   </div>
+   <div class="mut" style="text-align:center;margin-top:8px">Version @VERSION@ &middot; <a href="/">Full view</a></div>
+  </div>
+  <div class="view" id="vMap"><div id="map"></div>
+   <div id="mapBar"><select id="mSlot" style="flex:1"></select><button class="sm" id="mFollow">Following</button></div>
+   <div id="mapInfo">The map fills in while a drive is running.</div></div>
+  <div class="view" id="vSlots"><div style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><span class="mut">Smoothness</span><select id="smSel"><option value="0">Normal</option><option value="1">Light</option><option value="2">Medium</option><option value="3">Strong</option></select></div><div id="slotMsg" class="mut" style="margin-bottom:8px"></div><div id="slots"></div></div>
+ </div>
+ <div id="nav"><button class="on" data-v="vLive">Live</button><button data-v="vMap">Map</button><button data-v="vSlots">Slots</button></div>
+</div>
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+const CID="ph-"+Math.random().toString(36).slice(2)+Date.now().toString(36);
+async function api(path,body){
+  const r=await fetch(path,{method:body===undefined?"GET":"POST",credentials:"same-origin",headers:{"X-NT":"1","X-NT-Client":CID,"Content-Type":"application/json"},body:body===undefined?undefined:JSON.stringify(body)});
+  let j; try{ j=await r.json(); }catch(e){ throw new Error("The program did not answer."); }
+  if(!r.ok||j.ok===false) throw new Error(j.error||"Something went wrong");
+  return j;
+}
+const s9=m=>(parseFloat(m)||0)<30?-73:-93;
+function sTxt(v,m){ const o=v-s9(m); if(o>=1) return "S9+"+Math.round(o); const n=Math.round(9+o/6); return n<1?"S0":"S"+n; }
+function sNum(v,m){ return 9+(v-s9(m))/6; }                    /* S-units as a number (S9+20 is about 12.3) */
+function alLabel(ix){ return ix<=0?"Off":ix<=9?"S"+ix:"S9+"+((ix-9)*10); }
+function alThr(ix){ return ix<=0?null:ix<=9?ix:9+(ix-9)*10/6; }
+let LOGGING=false, LAST=null, BUSY=false;
+
+/* ---- the tabs ---- */
+let VIEW="vLive";
+document.querySelectorAll("#nav button").forEach(b=>b.onclick=()=>{ VIEW=b.dataset.v;
+  document.querySelectorAll("#nav button").forEach(x=>x.classList.toggle("on",x===b));
+  document.querySelectorAll(".view").forEach(v=>v.classList.toggle("on",v.id===VIEW));
+  if(VIEW==="vMap") mapOpen(); if(VIEW==="vSlots") slotsOpen(); });
+
+/* ---- sound and vibration ---- */
+let AC=null; const AL={on:false,snd:"beep",idx:7,vib:true,t:0};
+function audio(){ try{ if(!AC) AC=new (window.AudioContext||window.webkitAudioContext)(); if(AC.state==="suspended") AC.resume(); }catch(e){} return AC; }
+function play(name){ const a=audio(); if(!a) return; const now=a.currentTime;
+  const tone=(f,t0,d,type,f2,gain)=>{ try{ const o=a.createOscillator(), g=a.createGain(); o.type=type||"sine"; o.frequency.setValueAtTime(f,now+t0); if(f2) o.frequency.linearRampToValueAtTime(f2,now+t0+d);
+    const pk=0.6*(gain||1); g.gain.setValueAtTime(0.0001,now+t0); g.gain.linearRampToValueAtTime(pk,now+t0+0.015); g.gain.setTargetAtTime(0,now+t0+d*0.7,Math.max(0.02,d*0.12)); o.connect(g); g.connect(a.destination); o.start(now+t0); o.stop(now+t0+d+0.1); }catch(e){} };
+  if(name==="beep") tone(880,0,0.22); else if(name==="double"){ tone(880,0,0.14); tone(880,0.22,0.14); }
+  else if(name==="siren"){ tone(600,0,0.35,"square",1000,0.45); tone(1000,0.35,0.35,"square",600,0.45); }
+  else if(name==="chirp"){ tone(700,0,0.09,"sine",1000); tone(900,0.12,0.09,"sine",1200); tone(1100,0.24,0.09,"sine",1500); }
+  else if(name==="bell"){ tone(1318,0,0.9,"sine",null,1); tone(2637,0,0.5,"sine",null,0.3); }
+  else tone(140,0,0.38,"sawtooth",null,0.8); }
+function buzz(){ try{ if(AL.vib&&navigator.vibrate) navigator.vibrate([200,80,200]); }catch(e){} }
+function alLoad(){ try{ const g=k=>localStorage.getItem(k); AL.on=g("phAlOn")==="1"; AL.snd=g("phAlSnd")||"beep"; const x=parseInt(g("phAlIdx")); AL.idx=(x>=0&&x<=15)?x:7; AL.vib=g("phAlVib")!=="0"; }catch(e){} }
+function alSave(){ AL.on=$("alOn").checked; AL.snd=$("alSnd").value; AL.idx=+$("alIdx").value; AL.vib=$("alVib").checked; if(AL.on) audio();
+  try{ localStorage.setItem("phAlOn",AL.on?"1":"0"); localStorage.setItem("phAlSnd",AL.snd); localStorage.setItem("phAlIdx",String(AL.idx)); localStorage.setItem("phAlVib",AL.vib?"1":"0"); }catch(e){} }
+(function(){ const sel=$("alIdx"); for(let i=1;i<=15;i++){ const o=document.createElement("option"); o.value=i; o.textContent=alLabel(i); sel.appendChild(o); }
+  alLoad(); $("alOn").checked=AL.on; $("alSnd").value=AL.snd; sel.value=AL.idx; $("alVib").checked=AL.vib;
+  ["alOn","alSnd","alIdx","alVib"].forEach(i=>$(i).onchange=alSave);
+  $("alTest").onclick=()=>{ audio(); play($("alSnd").value); buzz(); }; })();
+function alCheck(sn){ const th=alThr(AL.idx); if(!AL.on||th==null||sn<th) return; const t=Date.now(); if(t-AL.t<900) return; AL.t=t; play(AL.snd); buzz(); }
+
+/* ---- keep the screen on while driving ---- */
+let WL=null;
+async function wake(on){ try{ if(on&&!WL&&navigator.wakeLock){ WL=await navigator.wakeLock.request("screen"); WL.addEventListener("release",()=>{ WL=null; }); } else if(!on&&WL){ await WL.release(); WL=null; } }catch(e){} }
+document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="visible"&&LOGGING) wake(true); });
+
+/* ---- the Live page ---- */
+function say(t){ $("msg").textContent=t||""; }
+function showButtons(){ $("bGo").style.display=LOGGING?"none":""; $("bStop").style.display=LOGGING?"":"none"; $("bMark").disabled=!LOGGING||BUSY; $("bGo").disabled=BUSY; $("bStop").disabled=BUSY; }
+function renderLive(j){
+  const lg=!!j.logging, st=j.logger||null; LOGGING=lg; LAST=st; wake(lg); showButtons();
+  $("tState").textContent=lg?"logging":(j.crashed?"stopped":"ready");
+  if(j.crashed&&!BUSY) say("The logger stopped. "+(j.log_tail||""));
+  const rows=$("rows"); const settings=(st&&st.settings)||{}, chs=settings.channels||[], last=(st&&st.last)||[];
+  if(!lg||!st){ $("master").classList.remove("alarm"); $("mS").textContent="--"; $("mD").textContent=lg?"starting...":"not logging"; $("mW").textContent="Press Start to begin a drive."; rows.innerHTML=""; $("tGps").textContent=""; return; }
+  $("tGps").textContent=(st.gps_status||"")+"  "+(st.speed_mph!=null?Math.round(st.speed_mph)+" mph":"")+"  "+(st.sats!=null?st.sats+" sats":"");
+  let best=null; rows.innerHTML="";
+  last.forEach(e=>{ if(e.level==null) return; if(!best||e.level-s9(e.mhz)>best.level-s9(best.mhz)) best=e; });
+  last.forEach((e,i)=>{ const c=chs[e.ch]||{}; const f=document.createElement("div"); f.className="row"; const pct=Math.max(0,Math.min(100,((e.level+130)/70)*100));
+    f.innerHTML='<span class="n">'+(e.ch+1)+'</span><span class="f">'+(+e.mhz).toFixed(3)+' MHz</span><span class="bar"><i style="width:'+pct+'%"></i></span><span class="v">'+sTxt(e.level,e.mhz)+'</span>'; rows.appendChild(f); });
+  if(best){ const sn=sNum(best.level,best.mhz); $("mS").textContent=sTxt(best.level,best.mhz); $("mD").textContent=Math.round(best.level)+" dBm";
+    $("mW").textContent="Slot "+(best.ch+1)+"  "+(+best.mhz).toFixed(3)+" MHz   "+(st.rows||0)+" dots   "+((st.dist_ft||0)/5280).toFixed(2)+" mi"+(st.auto_paused?"   (paused: stopped)":"");
+    const th=alThr(AL.idx); $("master").classList.toggle("alarm",AL.on&&th!=null&&sn>=th); alCheck(sn); }
+}
+async function pollLive(){ try{ renderLive(await api("/api/live")); }catch(e){ $("tState").textContent="no contact"; } setTimeout(pollLive,1000); }
+$("bGo").onclick=async()=>{ BUSY=true; showButtons(); say("Starting the radio and GPS... this can take several seconds."); audio();
+  try{ await api("/api/start",{}); say("Logging started."); setTimeout(()=>say(""),3000); }catch(e){ say(e.message); }
+  BUSY=false; showButtons(); };
+$("bStop").onclick=async()=>{ if(!confirm("Stop this drive?\n\nThe dots are saved.")) return; BUSY=true; showButtons(); say("Stopping and saving the drive...");
+  try{ const r=await api("/api/stop",{}); say(r.map_error?r.map_error:"Drive saved."+(r.map?" Map made on the computer.":"")); }catch(e){ say(e.message); }
+  BUSY=false; showButtons(); };
+$("bMark").onclick=async()=>{ BUSY=true; showButtons(); say("Marking this spot..."); try{ const r=await api("/api/mark",{note:""}); say("Spot "+r.mark.n+" marked."); play("chirp"); buzz(); setTimeout(()=>say(""),3000); }catch(e){ say(e.message); } BUSY=false; showButtons(); };
+
+/* ---- the Map page ---- */
+const TR={map:null,layer:null,markLayer:null,pts:[],seq:0,lo:-100,hi:-90,follow:true,nMarks:-1,timer:0,loading:false,lastRecolor:0};
+const STOPS=["#313695","#4575b4","#74add1","#abd9e9","#ffffbf","#fdae61","#f46d43","#d73027","#a50026"].map(h=>[1,3,5].map(i=>parseInt(h.substr(i,2),16)));
+function trColor(v){ const f=Math.max(0,Math.min(1,(v-TR.lo)/((TR.hi-TR.lo)||1))), x=f*(STOPS.length-1), i=Math.min(Math.floor(x),STOPS.length-2), u=x-i;
+  return "rgb("+STOPS[i].map((a,k)=>Math.round(a+(STOPS[i+1][k]-a)*u)).join(",")+")"; }
+function loadLeaflet(){ return new Promise((res,rej)=>{ if(window.L) return res(); const l=document.createElement("link"); l.rel="stylesheet"; l.href="/vendor/leaflet.css"; document.head.appendChild(l);
+  const sc=document.createElement("script"); sc.src="/vendor/leaflet.js"; sc.onload=()=>res(); sc.onerror=()=>rej(new Error("map library")); document.head.appendChild(sc); }); }
+function slotOptions(){ const sel=$("mSlot"); const chs=(LAST&&LAST.settings&&LAST.settings.channels)||[]; const n=Math.max(chs.length,1);
+  if(sel.options.length!==n){ const cur=sel.value; sel.innerHTML=""; for(let i=0;i<n;i++){ const o=document.createElement("option"); o.value=i; o.textContent="Slot "+(i+1)+(chs[i]?"  "+chs[i].mhz+" MHz":""); sel.appendChild(o); } if(cur) sel.value=cur; } }
+async function mapOpen(){ slotOptions();
+  if(!TR.map&&!TR.loading){ TR.loading=true; try{ await loadLeaflet(); }catch(e){ $("mapInfo").textContent="The map library could not load."; TR.loading=false; return; }
+    TR.map=L.map("map",{preferCanvas:true,zoomControl:false}).setView([39.77,-86.16],16);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"&copy; OpenStreetMap"}).addTo(TR.map);
+    TR.layer=L.layerGroup().addTo(TR.map); TR.markLayer=L.layerGroup().addTo(TR.map); TR.loading=false;
+    TR.map.on("dragstart",()=>{ TR.follow=false; $("mFollow").textContent="Follow me"; }); }
+  if(TR.map) setTimeout(()=>TR.map.invalidateSize(),100);
+  if(!TR.timer){ trPoll(); TR.timer=1; } }
+$("mFollow").onclick=()=>{ TR.follow=!TR.follow; $("mFollow").textContent=TR.follow?"Following":"Follow me"; if(TR.follow&&TR.pts.length){ const p=TR.pts[TR.pts.length-1]; TR.map.setView(p.ll,17); } };
+$("mSlot").onchange=()=>recolor(true);
+function recolor(force){ const ci=+$("mSlot").value||0; const vals=TR.pts.map(p=>p.v[ci]).filter(v=>v!=null).sort((a,b)=>a-b);
+  if(vals.length>=3){ let lo=Math.floor(vals[Math.floor(0.02*(vals.length-1))]), hi=Math.ceil(vals[Math.floor(0.995*(vals.length-1))]); if(hi-lo<10) hi=lo+10;
+    if(lo!==TR.lo||hi!==TR.hi||force){ TR.lo=lo; TR.hi=hi; TR.pts.forEach(p=>{ if(p.m&&p.v[ci]!=null) p.m.setStyle({fillColor:trColor(p.v[ci])}); }); } }
+  $("mapInfo").textContent=TR.pts.length?("Slot "+(ci+1)+": "+TR.lo+" to "+TR.hi+" dB   |   "+TR.pts.length+" dots (blue = quiet, red = loud)"):"The map fills in while a drive is running."; }
+async function trPoll(){
+  if(VIEW==="vMap"||LOGGING){ try{
+    if(LOGGING&&TR.map){ const j=await api("/api/track?after="+TR.seq);
+      if(j.total<TR.seq){ TR.layer.clearLayers(); TR.pts=[]; TR.seq=0; TR.nMarks=-1; }
+      else { const ci=+$("mSlot").value||0;
+        j.pts.forEach(e=>{ const p={v:e[3],ll:[e[1],e[2]]}; TR.pts.push(p); p.m=L.circleMarker(p.ll,{radius:6,color:"#222",weight:0.5,fillColor:p.v[ci]!=null?trColor(p.v[ci]):"#888",fillOpacity:0.92}).addTo(TR.layer); });
+        if(j.pts.length){ TR.seq=j.pts[j.pts.length-1][0]; const l=TR.pts[TR.pts.length-1].ll; if(TR.follow) TR.map.setView(l,Math.max(TR.map.getZoom(),16)); if(Date.now()-TR.lastRecolor>4000||TR.pts.length<30){ TR.lastRecolor=Date.now(); recolor(false); } }
+        if(j.marks&&j.marks.length!==TR.nMarks){ TR.nMarks=j.marks.length; TR.markLayer.clearLayers(); j.marks.forEach(m=>L.marker([m[0],m[1]]).addTo(TR.markLayer)); } } }
+    slotOptions(); }catch(e){} }
+  setTimeout(trPoll,2000); }
+
+/* ---- the Slots page (the panadapters) ---- */
+const SLN={cards:[],started:false,busy:false,timer:0,seq:[]};
+function ensureCards(n){ const box=$("slots"); while(SLN.cards.length<n){ const i=SLN.cards.length; const d=document.createElement("div"); d.className="slot";
+    d.innerHTML='<div class="h"><b>Slot '+(i+1)+' <span class="mut" style="font-size:13px;font-weight:400" data-f></span></b><span data-s>--</span></div><canvas class="tr"></canvas><canvas class="wf"></canvas>'; box.appendChild(d);
+    SLN.cards.push({d:d,tr:d.querySelector(".tr"),wf:d.querySelector(".wf"),f:d.querySelector("[data-f]"),s:d.querySelector("[data-s]"),lo:null,hi:null,sm:null}); }
+  while(SLN.cards.length>n){ SLN.cards.pop().d.remove(); } }
+function fit(cv){ const r=cv.getBoundingClientRect(), dpr=window.devicePixelRatio||1, w=Math.round(r.width*dpr), h=Math.round(r.height*dpr); if(r.width<20) return null; if(cv.width!==w||cv.height!==h){ cv.width=w; cv.height=h; } return {W:w,H:h,dpr:dpr}; }
+const SM_OLD=[0.45,0.6,0.75,0.86], SM_COLS=[0,2,5,10]; let SMOOTH=0; try{ const v=parseInt(localStorage.getItem("phSmooth")); if(v>=0&&v<=3) SMOOTH=v; }catch(e){}
+function smoothed(bin,b0,b1,m0,mk,px){ const n=b1-b0, r=Math.round(SM_COLS[SMOOTH]*px), out=new Float32Array(n); for(let k=0;k<n;k++){ const a=Math.max(0,k-r), b=Math.min(n-1,k+r); let s=0; for(let j=a;j<=b;j++) s+=bin[b0+j]; out[k]=m0+(s/(b-a+1))*mk; } return out; }
+const WFC=v=>{ v=Math.max(0,Math.min(1,v)); const r=Math.round(255*Math.min(1,v*2.2)), g=Math.round(255*Math.max(0,Math.min(1,(v-0.35)*2))), b=Math.round(90+120*(1-v)*(v<0.5?1:0)); return [r,g,b]; };
+function drawSlot(i,f){ const C=SLN.cards[i]; if(!C) return; const F=fit(C.tr); if(!F) return; const raw=atob(f.spec), n=raw.length, rate=f.rate>0?f.rate:n, m0=f.db_lo, mk=(f.db_hi-f.db_lo)/255;
+  let bin=C.sm; if(!bin||bin.length!==n){ bin=new Float32Array(n); for(let k=0;k<n;k++) bin[k]=raw.charCodeAt(k); C.sm=bin; } else { const wo=SM_OLD[SMOOTH]; for(let k=0;k<n;k++) bin[k]=bin[k]*wo+raw.charCodeAt(k)*(1-wo); }
+  const span=f.rate>0?Math.min(rate,Math.max((+f.bw||5000)*12,60000)):rate; let w0=f.tune-span/2; w0=Math.min(Math.max(w0,f.center-rate/2),f.center+rate/2-span);
+  const b0=Math.max(0,Math.floor(((w0-(f.center-rate/2))/rate)*n)), b1=Math.min(n,Math.ceil(b0+(span/rate)*n)); if(b1-b0<2) return;
+  const seg=Array.from(bin.subarray(b0,b1)), srt=seg.slice().sort((a,b)=>a-b);
+  const lo=m0+srt[Math.floor(srt.length*0.08)]*mk-8, hi=Math.max(m0+srt[srt.length-1]*mk+6,lo+45);
+  if(C.lo==null){ C.lo=lo; C.hi=hi; } else { C.lo+=0.1*(lo-C.lo); C.hi+=0.1*(hi-C.hi); }
+  const g=C.tr.getContext("2d"), W=F.W, H=F.H, yOf=db=>H-Math.max(0,Math.min(1,(db-C.lo)/(C.hi-C.lo)))*H, xOf=k=>((k-b0)/(b1-b0))*W;
+  g.fillStyle="#0b1620"; g.fillRect(0,0,W,H);
+  g.strokeStyle="#223445"; g.lineWidth=1; const stp=(C.hi-C.lo)>60?20:10; for(let v=Math.ceil(C.lo/stp)*stp;v<C.hi;v+=stp){ const y=yOf(v); g.beginPath(); g.moveTo(0,y); g.lineTo(W,y); g.stroke(); g.fillStyle="#5d7388"; g.font=(11*F.dpr)+"px sans-serif"; g.fillText(v,3,y-2); }
+  const bw=(+f.bw)||5000, kt=((f.tune-(f.center-rate/2))/rate)*n, kw=(bw/rate)*n; g.fillStyle="#3da5ff33"; g.fillRect(xOf(kt-kw/2),0,Math.max(2,(kw/(b1-b0))*W),H);
+  const SV=smoothed(bin,b0,b1,m0,mk,(b1-b0)/W);       /* the smoothness setting: drawing only */
+  g.beginPath(); g.moveTo(0,H); for(let k=b0;k<b1;k++) g.lineTo(xOf(k),yOf(SV[k-b0])); g.lineTo(W,H); g.closePath(); g.fillStyle="#2f8fe055"; g.fill();
+  g.beginPath(); for(let k=b0;k<b1;k++){ const x=xOf(k), y=yOf(SV[k-b0]); if(k===b0) g.moveTo(x,y); else g.lineTo(x,y); } g.strokeStyle="#6cc4ff"; g.lineWidth=1.5*F.dpr; g.stroke();
+  const W2=fit(C.wf); if(W2){ const w=C.wf.getContext("2d"); try{ w.drawImage(C.wf,0,0,W2.W,W2.H-2,0,2,W2.W,W2.H-2); }catch(e){} const row=w.createImageData(W2.W,2);
+    for(let x=0;x<W2.W;x++){ const k=b0+Math.floor((x/W2.W)*(b1-b0)), c=WFC(((m0+bin[k]*mk)-C.lo)/(C.hi-C.lo)); for(let r=0;r<2;r++){ const o=(r*W2.W+x)*4; row.data[o]=c[0]; row.data[o+1]=c[1]; row.data[o+2]=c[2]; row.data[o+3]=255; } } w.putImageData(row,0,0); }
+  C.f.textContent=(f.tune/1e6).toFixed(3)+" MHz"; if(f.smeter!=null&&f.smeter>-200) C.s.textContent=sTxt(f.smeter,f.tune/1e6)+"  "+Math.round(f.smeter)+" dBm"; }
+async function slotsOpen(){ if(!SLN.timer){ SLN.timer=1; slotsPoll(); } }
+async function slotsPoll(){
+  if(VIEW==="vSlots"&&!document.hidden){ try{
+    const j=await api("/api/slices"); const chs=(j.cfg&&j.cfg.channels)||[]; ensureCards(Math.max(chs.length,1));
+    if(!j.logging&&!j.running&&!SLN.busy){ SLN.busy=true; $("slotMsg").textContent="Starting the pictures..."; try{ await api("/api/slices/start",{}); }catch(e){ $("slotMsg").textContent=e.message; } SLN.busy=false; }
+    else $("slotMsg").textContent=j.error||((j.frames&&j.frames.length)?"":"Waiting for the first pictures...");
+    (j.frames||[]).forEach(f=>{ if(f&&f.spec&&f.channel!=null&&f.seq!==SLN.seq[f.channel]){ SLN.seq[f.channel]=f.seq; drawSlot(f.channel,f); } });
+  }catch(e){ $("slotMsg").textContent=e.message; } }
+  setTimeout(slotsPoll,VIEW==="vSlots"?700:1500); }
+$("smSel").value=String(SMOOTH); $("smSel").onchange=()=>{ SMOOTH=+$("smSel").value; try{ localStorage.setItem("phSmooth",String(SMOOTH)); }catch(e){} SLN.cards.forEach(c=>{ c.sm=null; }); };
+pollLive();
+</script></body></html>

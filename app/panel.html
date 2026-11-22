@@ -41,7 +41,9 @@ body.logging .jump,body.logging #barStat{display:none !important}
 #barHw .slb .sx{display:inline-block;width:6.2ch;white-space:nowrap;font-size:1.25em;font-variant-numeric:tabular-nums;color:#8a5a00}
 #barHw .slb .sdb{display:inline-block;width:7.6ch;text-align:right;font-size:.78em;color:var(--mut);font-variant-numeric:tabular-nums}
 #barHw .slb{display:none}
+#driveBar #barHw.hasph{grid-template-columns:minmax(0,.9fr) minmax(0,.8fr) minmax(0,1.4fr) minmax(0,1.7fr) auto}
 @media(max-width:1000px){#driveBar #barHw{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:1000px){#driveBar #barHw.hasph{grid-template-columns:repeat(2,minmax(0,1fr))}}
 #barHw .mst{flex-direction:row;align-items:center;gap:8px}
 #barHw .mstsvg{flex:none;width:calc(92px*var(--bz2))}#barHw .mstsvg svg{width:100%;height:auto;display:block}
 #barHw .mstt{display:flex;flex-direction:column;min-width:0;overflow:hidden}
@@ -539,6 +541,7 @@ body.only-slot #pracBanner{display:none !important}
  <span class="sp"></span>
  <button class="sm" onclick="setOpen()" title="Your radios, the GPS, how often to take a reading, gain, the iPhone/iPad address (QR code), tests, backup and help files">Settings&hellip;</button>
  <button class="sm" onclick="hwOpen()" title="GPS, radios and which radio measures each slot">Hardware setup&hellip;</button>
+ <button class="sm" id="bPhone" style="display:none" onclick="phoneAccessSet(true)" title="Phone and tablet access is off. Press to turn it on and show the QR code.">Phone / tablet: off</button>
  <span title="Make the numbers in the bar below smaller or larger"><button class="sm szb" onclick="barSize(-1)">A&minus;</button><button class="sm szb" onclick="barSize(1)">A+</button></span>
  <button class="sm" id="bRestartTop" style="border-color:#e0b36a;color:#8a5a00;font-weight:600" title="Stops any drive that is being recorded (saving it), closes the program and starts it again with a fresh browser tab" onclick="restartApp()">Restart</button>
  <button class="sm" id="bQuitTop" style="border-color:#e58a8a;color:#a02222;font-weight:600" title="Stops any drive that is being recorded (saving it), then closes the program" onclick="quitApp()">Close program</button>
@@ -590,6 +593,12 @@ body.only-slot #pracBanner{display:none !important}
    <span class="alr"><span class="lab">Strong signal</span><label class="chk"><input type="checkbox" id="alOn" onchange="alSave()"> <span>on</span></label> <label class="chk" title="Beeps if the GPS is lost or no new dots are saved while you are moving"><input type="checkbox" id="alarmOn" checked> <span>GPS</span></label><button class="sm" id="alMoreB" onclick="alPop()" title="Sound, volume, voice: speak the reading with the alert, say S every X seconds">&#9881; Sound &amp; voice</button></span>
    <span class="alr"><span class="alk">At</span><input type="range" id="alIdx" min="0" max="15" step="1" value="7" list="alTicks" oninput="alSave()" title="The S-level that sets off the alert"><b id="alIdxV">S7</b><button class="sm" onclick="alTest()" title="Hear the chosen sound at the chosen volume">&#9654; Test</button></span>
    <datalist id="alTicks"><option value="0"></option><option value="1"></option><option value="2"></option><option value="3"></option><option value="4"></option><option value="5"></option><option value="6"></option><option value="7"></option><option value="8"></option><option value="9"></option><option value="10"></option><option value="11"></option><option value="12"></option><option value="13"></option><option value="14"></option><option value="15"></option></datalist></div>
+ <div class="bbox hwx" id="phoneBox2" style="display:none;flex-direction:row;align-items:center;gap:9px" title="Use RFI Trail on a phone or tablet: scan this square with the camera. Press How? for the steps.">
+  <div id="phoneQr2" style="width:62px;height:62px;flex:0 0 auto;background:#fff;border:1px solid #cfd6e3;border-radius:5px"></div>
+  <div style="display:flex;flex-direction:column;gap:3px"><span class="lab">Phone / tablet</span>
+   <span><button class="sm" onclick="phoneHelp()">How?</button> <button class="sm" onclick="phoneAccessSet(false)" title="Turn phone and tablet access off. The Phone / tablet: off button at the top turns it back on.">Off</button></span>
+   <span class="sub2" id="phoneRst2" style="display:none;color:#8a5a00;font-weight:600">Press Restart</span></div>
+ </div>
  </div>
  <div id="alPop"><b>Strong signal alert</b>
   <span class="alr"><span class="alk">Sound</span><select id="alSnd" onchange="alSave();alTest()"><option value="beep">Beep</option><option value="double">Double beep</option><option value="siren">Siren</option><option value="chirp">Chirp</option><option value="bell">Bell</option><option value="buzz">Low buzz</option></select><button class="sm" onclick="alTest()">&#9654; Test</button></span>
@@ -783,20 +792,11 @@ body.only-slot #pracBanner{display:none !important}
  </div>
 
  <div id="cTools">
- <div id="phoneBox" style="margin:14px 0 4px;border-top:1px solid #d5dbe6;padding-top:8px">
-  <h3 style="margin:0 0 4px">iPhone / iPad</h3>
-  <div class="chk"><input type="checkbox" id="phoneAccess"><label for="phoneAccess">Let my iPhone/iPad open this window too (same Wi-Fi or hotspot). Takes effect after you press <b>Restart</b>.</label></div>
-  <div id="phoneUrl" class="mut" style="display:none">
-   <div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap;margin-top:6px">
-    <div id="phoneQr" style="width:190px;height:190px;background:#fff;border:1px solid #cfd6e3;border-radius:6px"></div>
-    <div style="flex:1 1 260px">
-     <div><b>Point the iPhone camera at this square</b> and tap the link that pops up.</div>
-     <div style="margin-top:6px">The computer and the iPhone must be on the same Wi-Fi or hotspot.</div>
-     <div style="margin-top:8px"><button class="sm" onclick="phoneCopy()">Copy address</button> <span class="mut" id="phoneCopied"></span></div>
-     <div class="mut" id="phoneTxt" style="margin-top:6px;word-break:break-all;font-size:12px"></div>
-    </div>
-   </div>
-  </div>
+ <div class="chk" style="margin-top:10px"><input type="checkbox" id="quitWhenClosed"><label for="quitWhenClosed">Close the program by itself when I close the browser window. It waits a few seconds first, and never closes while a drive or an audio recording is running.</label></div>
+ <div id="smoothBox" style="margin:14px 0 4px;border-top:1px solid #d5dbe6;padding-top:8px">
+  <h3 style="margin:0 0 4px">Picture smoothness (slot panadapters)</h3>
+  <div class="chk"><label for="picSmooth">Smoother line, easier on the eyes:</label> <select id="picSmooth"><option value="0">Normal (most detail)</option><option value="1">Light</option><option value="2">Medium</option><option value="3">Strong (smoothest)</option></select></div>
+  <div class="mut">Changes only how the pictures are drawn on this screen. Your logged readings and maps are not affected.</div>
  </div>
  <div id="audioBox" style="margin:14px 0 4px;border-top:1px solid #d5dbe6;padding-top:8px">
   <h3 style="margin:0 0 4px">Sound: AGC and volume</h3>
@@ -981,6 +981,24 @@ body.only-slot #pracBanner{display:none !important}
 <div id="busy"></div>
 <div id="toast"></div>
 
+<dialog id="dlgPhone">
+ <h3 style="margin-top:0">Use RFI Trail on a phone or tablet</h3>
+ <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start">
+  <div id="phoneQr3" style="width:190px;height:190px;background:#fff;border:1px solid #cfd6e3;border-radius:6px"></div>
+  <div style="flex:1 1 230px">
+   <ol style="margin:0;padding-left:20px">
+    <li>Put the phone or tablet on the <b>same Wi-Fi or hotspot</b> as this computer.</li>
+    <li>Open its <b>camera</b> (iPhone, iPad or Android) and point it at the square.</li>
+    <li>Tap the link that appears. RFI Trail opens in the phone's browser.</li>
+   </ol>
+   <div style="margin-top:8px"><button class="sm" onclick="phoneCopy()">Copy address</button> <span class="mut" id="phoneCopied2"></span></div>
+   <div class="mut" id="phoneTxt3" style="margin-top:6px;word-break:break-all;font-size:12px"></div>
+   <div id="phoneRestartNote" style="display:none;margin-top:8px;color:#8a5a00;font-weight:600">Press <b>Restart</b> at the top to finish turning phone access on. The QR code works after that.</div>
+  </div>
+ </div>
+ <div class="mut" style="margin-top:10px">The address has a secret key in it, so only a phone or tablet that scanned this square (or got the address) can open it. The <b>Off</b> button turns phone access off at once.</div>
+ <div class="row" style="justify-content:flex-end;margin-top:10px"><button class="pri" onclick="dlgPhone.close()">Close</button></div>
+</dialog>
 <dialog id="dlgEmail">
  <h3 style="margin-top:0">Email this map</h3>
  <div class="mut" id="emFile"></div>
@@ -1051,8 +1069,10 @@ async function api(path,body){
   const tracked = body!==undefined && busyBegin(path);
   try{ return await api0(path,body); } finally { if(tracked) busyEnd(); }
 }
+const CLIENT_ID=Math.random().toString(36).slice(2)+Date.now().toString(36);   /* names this page, so the program knows when the last page is closed */
+window.addEventListener("pagehide",()=>{ if(window.__quit) return; try{ fetch("/api/bye",{method:"POST",keepalive:true,headers:{"X-NT":"1","X-NT-Client":CLIENT_ID,"Content-Type":"application/json"},body:"{}"}); }catch(e){} });
 async function api0(path,body){
-  const r=await fetch(path,{method:body===undefined?"GET":"POST",headers:{"X-NT":"1","Content-Type":"application/json"},
+  const r=await fetch(path,{method:body===undefined?"GET":"POST",headers:{"X-NT":"1","X-NT-Client":CLIENT_ID,"Content-Type":"application/json"},
                             body:body===undefined?undefined:JSON.stringify(body)});
   let j; try{j=await r.json();}catch(e){throw new Error("The program did not answer. Is RFI Trail still running?");}
   if(!r.ok||j.ok===false) throw new Error(j.error||"Something went wrong");
@@ -1128,7 +1148,7 @@ async function findHl2(){
 function hl2GainReset(){ $("hl2g").value=15; gainChanged("hl2"); }
 
 /* ---------- slots: four live panadapters ---------- */
-const PAGE_VER="2.0.0a";        /* the version of this page: it must match the program version shown in the top bar */ try{ document.getElementById("aboutVer").textContent="v"+PAGE_VER; }catch(e){}
+const PAGE_VER="2.0.0i";        /* the version of this page: it must match the program version shown in the top bar */ try{ document.getElementById("aboutVer").textContent="v"+PAGE_VER; }catch(e){}
 
 /* ----- sound settings (2.0.0a): AGC-off volume, AGC strength, AGC recovery speed ----- */
 let AUDIO_T=null, audioTimer=0;
@@ -1416,7 +1436,7 @@ async function slEngine(){
 async function slPanLoop(){ const tok=++SLP2.tok; SLP2.seq=-1;
   while(tok===SLP2.tok&&SLP2.on){
     if(document.hidden){ await new Promise(r=>setTimeout(r,500)); continue; }
-    try{ const j=await (await fetch("/api/pan/frame?after="+SLP2.seq,{cache:"no-store"})).json();
+    try{ const j=await (await fetch("/api/pan/frame?after="+SLP2.seq,{cache:"no-store",headers:{"X-NT-Client":CLIENT_ID}})).json();
       if(tok!==SLP2.tok) break;
       if(j.viewonly){ SLP2.on=false; break; }
       if(!j.running){ SLP2.on=false; SLP2.err=j.error||""; break; }
@@ -1487,13 +1507,15 @@ function slFit(cv){ const r=cv.getBoundingClientRect(); if(r.width<20||r.height<
   const w=Math.round(r.width*dpr), h=Math.round(r.height*dpr); let ch=false;
   if(cv.width!==w){cv.width=w;ch=true;} if(cv.height!==h){cv.height=h;ch=true;}
   return {W:w,H:h,sc:dpr*Math.max(1,r.width/760),dpr:dpr,ch:ch}; }
+const SM_OLD=[0.45,0.6,0.75,0.86], SM_COLS=[0,2,5,10];            /* how much of the old picture is kept, and the averaging width in screen pixels */
+let SMOOTH=0; try{ const v=parseInt(localStorage.getItem("ntSmooth")); if(v>=0&&v<=3) SMOOTH=v; }catch(e){}
 function slDraw(i,f,force){
   const d=slotEl(i), cv=d.querySelector(".slsp"), wf=d.querySelector(".slwf"), p=slp(i), F=slFit(cv); if(!F) return;
   const g=cv.getContext("2d"), W=F.W, H=F.H, sc=F.sc;
   const raw=atob(f.spec), n=raw.length, rate=f.rate, m0=f.db_lo, mk=(f.db_hi-f.db_lo)/255;
   // light smoothing between frames, so the trace glides like a real panadapter instead of jumping
   let bin=cv._sm; if(!bin||bin.length!==n){ bin=new Float32Array(n); for(let k=0;k<n;k++) bin[k]=raw.charCodeAt(k); cv._sm=bin; }
-  else if(cv._seq!==f.seq){ for(let k=0;k<n;k++) bin[k]=bin[k]*0.45+raw.charCodeAt(k)*0.55; }
+  else if(cv._seq!==f.seq){ const wo=SM_OLD[SMOOTH]; for(let k=0;k<n;k++) bin[k]=bin[k]*wo+raw.charCodeAt(k)*(1-wo); }
   cv._seq=f.seq;
   const zoom=f.sdr?1:Math.max(1,+p.zoom||1), span=(rate>0?rate:Math.max(1,n))/zoom;     /* a flat meter-only line has rate 0 */
   let w0=f.tune-span/2; w0=Math.min(Math.max(w0,f.center-rate/2), f.center+rate/2-span);
@@ -1527,7 +1549,12 @@ function slDraw(i,f,force){
   const colDb=new Float32Array(W);
   for(let x=0;x<W;x++){ const a=Math.floor(b0+x*bw/W), b=Math.max(a+1,Math.floor(b0+(x+1)*bw/W)); let mm=0;
     for(let k=Math.max(0,a);k<Math.min(n,b);k++){ const v=bin[k]; if(v>mm)mm=v; }
-    const db=m0+mm*mk; colDb[x]=db; const y=yOf(db); if(x===0)g.moveTo(x,y); else g.lineTo(x,y); }
+    colDb[x]=m0+mm*mk; }
+  { const r=Math.round(SM_COLS[SMOOTH]*F.dpr);                       /* 2.0.0i: "Picture smoothness": a moving average along the trace, drawing only (the logged readings are untouched) */
+    if(r>0){ const src=Float32Array.from(colDb); let acc=0, cnt=0;
+      for(let x=0;x<Math.min(W,r);x++){ acc+=src[x]; cnt++; }
+      for(let x=0;x<W;x++){ const add=x+r, sub=x-r-1; if(add<W){ acc+=src[add]; cnt++; } if(sub>=0){ acc-=src[sub]; cnt--; } colDb[x]=acc/cnt; } } }
+  for(let x=0;x<W;x++){ const y=yOf(colDb[x]); if(x===0)g.moveTo(x,y); else g.lineTo(x,y); }
   g.stroke();
   if(/^cat/.test(String(f.radio||""))&&!(f.rate>0)){ g.fillStyle="rgba(190,220,255,.9)"; g.font=Math.round(12*sc)+"px sans-serif"; g.textAlign="center";        // CAT / Flex radios give a level reading, not a spectrum picture
     g.fillText("This radio gives a level reading only (no spectrum picture). The reading is in the meter and the top bar.",W/2,PH*0.45); g.textAlign="left"; }
@@ -1817,7 +1844,7 @@ function fillForm(cfg){
   $("useSdr").checked=(cfg.use_sdrplay!==false); $("useHl2").checked=!!cfg.use_hl2; $("useRtl").checked=!!cfg.use_rtl; $("useAnan").checked=!!cfg.use_anan; CAT=Array.isArray(cfg.cat_radios)?cfg.cat_radios.slice(0,4):[]; if(typeof catRender==="function"&&CATM.length){ catRender(); } SL.rtlGain=Object.assign({},cfg.rtl_gain_db||{}); $("hl2ip").value=cfg.hl2_ip||""; $("brSel").value=(cfg.browser==="default"?"default":"chrome"); $("hl2rate").value=String(cfg.hl2_rate||96000); $("hl2g").value=(cfg.hl2_gain_db===undefined?15:cfg.hl2_gain_db);
   let h="<tr><th>Slot</th><th title='Type a frequency here and its slot panel below changes at once'>MHz</th><th title='The signal power inside this width is what is logged and mapped'>Measure width (kHz)</th><th title='LSB measures below the frequency, USB above, the others both sides'>Mode</th><th>Calibration (dB)</th><th class=radcol title='Which radio measures this slot. Auto: the Hermes Lite 2 takes what it can hear; the SDRplay takes the rest.'>Radio</th><th>Level now (dB, S-units)</th><th title='The time of the last reading saved to the drive. While you are not logging it shows that the slot is live.'>Last reading</th></tr>";
   for(let i=0;i<4;i++) h+=chRow(cfg.channels[i]||{mhz:"",bw_khz:5,cal_db:0},i);
-  $("chTable").innerHTML=h; showRadioFields(); $("phoneAccess").checked=!!cfg.phone_access; panMemLoad(cfg);
+  $("chTable").innerHTML=h; showRadioFields(); $("quitWhenClosed").checked=cfg.quit_when_closed!==false; panMemLoad(cfg);
 }
 function slFiltHz(i,bwKhz){ try{ const v=slp(i).bwsel; if(v==="match") return Math.round((+bwKhz||5)*1000); return v?(+v||0):0; }catch(e){ return 0; } }      /* the slot's receive-filter width in Hz; 0 = automatic */
 function readForm(){
@@ -1985,8 +2012,24 @@ async function refreshAll(){
   $("pData").textContent=j.data_dir; $("pDrives").textContent=j.data_dir+"/Drives"; $("pMaps").textContent=j.data_dir+"/Maps";
   if(!formFilled){ fillForm(j.cfg); fillPorts(j.ports,j.cfg.gps_serial); formFilled=true; showGpsFields(); }
   renderDrives(j.drives); renderMaps(j.maps); renderExports(j.exports);
-  if(j.phone_url){ $("phoneUrl").style.display="block"; $("phoneTxt").textContent=j.phone_url; window.__phoneUrl=j.phone_url; if(j.phone_qr&&window.__phoneQr!==j.phone_qr){ window.__phoneQr=j.phone_qr; $("phoneQr").innerHTML=j.phone_qr; const sv=$("phoneQr").querySelector("svg"); if(sv){ sv.style.width="100%"; sv.style.height="100%"; } } } else $("phoneUrl").style.display="none";
+  phoneCardShow(j);
+  if(j.phone_url) window.__phoneUrl=j.phone_url;
 }
+function phoneCardShow(j){   /* the small QR box in the row of boxes: only on the computer itself, and only while phone access is on */
+  const here=["localhost","127.0.0.1","[::1]",""].indexOf(location.hostname)>=0;
+  const on=!!(j.cfg&&j.cfg.phone_access);
+  const show=!!(here&&on&&j.phone_url&&j.phone_qr);
+  $("bPhone").style.display=(here&&!on)?"":"none";
+  $("phoneBox2").style.display=show?"flex":"none";
+  $("barHw").classList.toggle("hasph",show);
+  $("phoneRst2").style.display=(show&&j.phone_restart)?"block":"none";
+  $("phoneRestartNote").style.display=(show&&j.phone_restart)?"block":"none";
+  if(on&&j.phone_qr&&window.__phoneQr2!==j.phone_qr){ window.__phoneQr2=j.phone_qr; $("phoneQr2").innerHTML=j.phone_qr; const sv=$("phoneQr2").querySelector("svg"); if(sv){ sv.style.width="100%"; sv.style.height="100%"; } }
+}
+function phoneHelp(){ $("phoneQr3").innerHTML=window.__phoneQr2||""; const sv=$("phoneQr3").querySelector("svg"); if(sv){ sv.style.width="100%"; sv.style.height="100%"; }
+  $("phoneTxt3").textContent=window.__phoneUrl||""; dlgPhone.showModal(); }
+function phoneAccessSet(v){ guard(async()=>{ await api("/api/config",{phone_access:v}); await refreshAll();
+  toast(v?"Phone and tablet access is on.":"Phone and tablet access is off. Press Phone / tablet at the top to turn it on again.",6000); }); }
 function showWarn(t){const b=$("warnBanner"); if(!t){b.style.display="none";return;} b.innerHTML="&#9888; "+t; b.style.display="block";}
 async function refreshDrivesOnly(){ const j=await api("/api/drives"); renderDrives(j.drives); renderMaps(j.maps); renderExports(j.exports); }
 
@@ -2178,7 +2221,7 @@ function trTick(lg){ const show=lg||document.body.classList.contains("car"); $("
 function setOpen(){ document.body.classList.add('setwin'); const c=$('cCollect'); if(c) c.scrollTop=0; }
 function setClose(){ document.body.classList.remove('setwin','win-dm','win-tools'); }
 function winOpen(k){ if(k==='tools'){ setOpen(); return; } setClose(); document.body.classList.add('win-'+k); const w=$('winDM'); if(w) w.scrollTop=0; }
-function phoneCopy(){ const u=window.__phoneUrl||""; if(!u) return; const done=()=>{ $("phoneCopied").textContent="Copied. Paste it into a message or email to yourself."; setTimeout(()=>{ $("phoneCopied").textContent=""; },6000); };
+function phoneCopy(){ const u=window.__phoneUrl||""; if(!u) return; const done=()=>{ $("phoneCopied2").textContent="Copied."; setTimeout(()=>{ $("phoneCopied2").textContent=""; },4000); };
   if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(u).then(done,()=>{ prompt("Copy this address:",u); }); } else prompt("Copy this address:",u); }
 function winClose(){ setClose(); }
 document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&/\b(setwin|win-dm|win-tools)\b/.test(document.body.className)) setClose(); });
@@ -2548,7 +2591,7 @@ function panUiStop(msg){
 async function panFrameLoop(){
   if(!PAN.on)return;
   try{
-    const r=await fetch("/api/pan/frame?after="+PAN.seq,{cache:"no-store"}), j=await r.json();
+    const r=await fetch("/api/pan/frame?after="+PAN.seq,{cache:"no-store",headers:{"X-NT-Client":CLIENT_ID}}), j=await r.json();
     if(j.viewonly && !PAN.viewOnly && PAN.on){ panUiStop("Logging started, so listening stopped. To keep watching, press 'Watch a band while logging'."); return; }
     if(!j.running && PAN.on && PAN.viewOnly){ panUiStop("Logging stopped, so the band view closed. Press Start panadapter to listen."); return; }
     if(!j.running && PAN.on){ panUiStop(j.error?("The panadapter stopped: "+j.error):"The panadapter stopped (logging or a test needed the radio, or this window was idle)."); return; }
@@ -3021,7 +3064,9 @@ function pracBanner(){ const b=$("pracBanner"); if(!b) return; const on=!!$("pra
 function pracOff(){ if(window.__logging){ toast("A drive is being recorded. Stop logging first, then turn Practice off."); return; } $("practice").checked=false; $("practice").onchange(); pracBanner(); }
 $("practice").addEventListener("change",pracBanner); setInterval(pracBanner,800); pracBanner();
 panInit(); mkLoad(); mkChanged(); panWire(); setInterval(panSlotLabels,1500); recList(); setInterval(recPoll,1000);
-$("phoneAccess").onchange=()=>guard(async()=>{await api("/api/config",{phone_access:$("phoneAccess").checked});toast("Saved. Quit and reopen RFI Trail to apply.");});
+$("picSmooth").value=String(SMOOTH);
+$("picSmooth").onchange=()=>{ SMOOTH=+$("picSmooth").value; try{ localStorage.setItem("ntSmooth",String(SMOOTH)); }catch(e){} for(let i=0;i<4;i++){ const d=slotEl(i); if(d&&d._f){ const cv=d.querySelector(".slsp"); if(cv) cv._sm=null; slDraw(i,d._f); } } toast("Picture smoothness saved."); };
+$("quitWhenClosed").onchange=()=>guard(async()=>{await api("/api/config",{quit_when_closed:$("quitWhenClosed").checked});toast($("quitWhenClosed").checked?"Saved. The program will close itself when you close the browser window.":"Saved. The program keeps running when you close the browser window; use Close program to stop it.");});
 refreshAll().then(()=>refreshLive()).catch(()=>{});
 let HID_T=0; setInterval(()=>{ if(document.hidden&&(++HID_T%4)) return; refreshLive(); },1200);      // a hidden tab asks a quarter as often
 setInterval(()=>{ if(!document.hidden) refreshDrivesOnly().catch(()=>{}); },8000);

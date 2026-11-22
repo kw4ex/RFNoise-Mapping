@@ -88,7 +88,8 @@ DEFAULT_CONFIG = {
     "perf": {},                      # result of the last "Max speed test" (reading-round time, max safe speed)
     "sdr_live": -1,                  # which SDRplay slot is the live one (-1 = the lowest-numbered SDRplay slot)
     "pan_mem": None,                 # saved panadapter memory frequencies (None = show the starter list)
-    "phone_access": False,           # let an iPhone/iPad open this window too (needs restart)
+    "phone_access": True,            # 2.0.0d: a phone/tablet (iPhone, iPad, Android) may open this window too, with the secret link/QR code
+    "quit_when_closed": True,        # 2.0.0c: close the program by itself when the browser window is closed
     "token": "",
 }
 
@@ -167,6 +168,73 @@ def dist_m(a, b):
 
 
 # ----------------------------------------------------------------------------
+# ----------------------------------------------------------------------------
+# 2.0.0c: close the program by itself when the browser window is closed.
+# Every open panel page announces itself with each request (X-NT-Client) and says goodbye when it is closed.
+CLIENTS = {}                       # page id -> time it was last heard from
+_CL = {"lock": threading.Lock(), "seen": False, "gone_at": 0.0}
+QC_GRACE = float(os.environ.get("NT_QC_GRACE", "20"))     # seconds after the last page said goodbye (a reload comes back sooner)
+QC_STALE = float(os.environ.get("NT_QC_STALE", "90"))    # a page not heard from for this long is treated as gone (frozen tab, crash)
+QC_PHONE = float(os.environ.get("NT_QC_PHONE", "1800"))   # a phone page may sleep longer (screen locked) before it counts as gone
+QC_NOPAGE = float(os.environ.get("NT_QC_NOPAGE", "300"))  # no page ever opened within this time after start-up
+
+
+def note_client(cid):
+    cid = (cid or "")[:64]
+    if not cid:
+        return
+    with _CL["lock"]:
+        CLIENTS[cid] = time.time()
+        _CL["seen"] = True
+
+
+def drop_client(cid):
+    with _CL["lock"]:
+        if CLIENTS.pop((cid or "")[:64], None) is not None and not CLIENTS:
+            _CL["gone_at"] = time.time()
+
+
+def quit_when_closed_due(now, started, busy):
+    """True when the program should close itself because its browser window is gone."""
+    if busy:
+        return False
+    with _CL["lock"]:
+        for k, v in list(CLIENTS.items()):
+            if now - v > (QC_PHONE if k.startswith("ph-") else QC_STALE):
+                del CLIENTS[k]
+                if not CLIENTS:
+                    _CL["gone_at"] = now - QC_GRACE      # a silent page is already past its grace time
+        if CLIENTS:
+            return False
+        if not _CL["seen"]:
+            return now - started > QC_NOPAGE
+        return now - _CL["gone_at"] >= QC_GRACE
+
+
+def shutdown_program(reason):
+    L.info(reason)
+    try:
+        PAN.stop(); SLICES.stop(); APP.stop()
+    except Exception:
+        pass
+    kill_stray_copies()
+    os._exit(0)
+
+
+def watch_browser():
+    started = time.time()
+    while True:
+        time.sleep(3)
+        try:
+            if not APP.cfg.get("quit_when_closed", True):
+                continue
+            busy = APP.running() or REC.active()          # never while a drive or an audio recording is going
+            if quit_when_closed_due(time.time(), started, busy):
+                shutdown_program("the browser window was closed, so the program closed itself")
+        except Exception:
+            pass
+
+
 def kill_stray_copies():
     """Stop any OTHER copy of this program (or its logger) still running, so none is left holding a radio.
     Skips this process. Mac and Linux only; on Windows the quit button alone is used."""
@@ -239,6 +307,14 @@ class App:
         if old is not None and "use_hl2" not in raw:
             self.cfg["use_hl2"] = (old == "hl2")
             self.cfg["use_sdrplay"] = (old != "hl2")
+        if not self.cfg.get("phone_default_2_0_0d"):          # 2.0.0d: phone/tablet access became the normal setting; carry it over once
+            self.cfg["phone_access"] = True
+            self.cfg["phone_default_2_0_0d"] = True
+            try:
+                with open(self.cfg_path, "w") as f:
+                    json.dump(self.cfg, f, indent=2)
+            except Exception:
+                pass
         for ch in self.cfg.get("channels", []):
             ch.setdefault("radio", "auto")
         os.environ["NT_ANAN_IP"] = str(self.cfg.get("anan_ip", "") or "")
@@ -1137,6 +1213,8 @@ class Handler(BaseHTTPRequestHandler):
         host = C.host_only(self.headers.get("Host"))
         if self._loopback():
             return host in ("localhost", "127.0.0.1", "[::1]", "")        # also stops "DNS rebinding" from other web sites
+        if not APP.cfg.get("phone_access", True):                       # 2.0.0e: switched off = a phone or tablet is refused straight away
+            return False
         cookie = self.headers.get("Cookie") or ""
         q = parse_qs(urlparse(self.path).query)
         tok = str(APP.cfg["token"])
@@ -1165,6 +1243,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         if not self._authorized():
             return self._send(403, "Forbidden. Open the link shown in the RFI Trail window.", "text/plain")
+        note_client(self.headers.get("X-NT-Client"))
         u = urlparse(self.path)
         path = u.path
         q = parse_qs(u.query)
@@ -1175,6 +1254,9 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/":
                 with open(os.path.join(HERE, "panel.html"), encoding="utf-8") as f:
                     return self._send(200, f.read(), "text/html; charset=utf-8", extra)
+            if path == "/phone":                       # 2.0.0g: the page built for a phone or tablet
+                with open(os.path.join(HERE, "phone.html"), encoding="utf-8") as f:
+                    return self._send(200, f.read().replace("@VERSION@", C.VERSION), "text/html; charset=utf-8", extra)
             if path == "/help":
                 with open(os.path.join(HERE, "guide.html"), encoding="utf-8") as f:
                     return self._send(200, f.read(), "text/html; charset=utf-8", extra)
@@ -1343,6 +1425,10 @@ class Handler(BaseHTTPRequestHandler):
         except ValueError:
             return self._fail("bad request")
         path = urlparse(self.path).path
+        if path == "/api/bye":                                   # a panel page was closed
+            drop_client(self.headers.get("X-NT-Client"))
+            return self._json({"ok": True})
+        note_client(self.headers.get("X-NT-Client"))
         hold = path in ("/api/check", "/api/fulltest", "/api/gps_detect", "/api/perftest", "/api/hardware/scan", "/api/hardware/rebuild")
         if hold:
             GPSMON.hold = True
@@ -1730,11 +1816,12 @@ class Handler(BaseHTTPRequestHandler):
                 warns.append(f"{label}: {msg}")
                 return default
 
-        phone = safe("phone address", lambda: f"http://{__import__('nt_logger').lan_ip()}:{APP.port}/?t={APP.cfg['token']}", "")
+        phone = safe("phone address", lambda: f"http://{__import__('nt_logger').lan_ip()}:{APP.port}/phone?t={APP.cfg['token']}", "")
         return {"version": C.VERSION, "platform": "mac" if C.IS_MAC else "windows" if C.IS_WIN else "linux",
                 "data_dir": APP.data, "cfg": {k: v for k, v in APP.cfg.items() if k != "token"},
                 "ports": safe("USB ports", check_setup.list_serial_ports, []),
                 "phone_url": phone if APP.cfg.get("phone_access") else "",
+                "phone_restart": bool(APP.cfg.get("phone_access")) and not getattr(APP, "bound_all", False),
                 "phone_qr": safe("phone QR code", lambda: phone_qr_svg(phone), "") if (phone and APP.cfg.get("phone_access")) else "",
                 "drives": safe("recorded drives", APP.drives, []), "maps": safe("maps", APP.maps, []),
                 "exports": safe("exports", APP.exports, []),
@@ -1753,10 +1840,60 @@ def phone_qr_svg(url):
 
 
 def serve(port):
-    host = "0.0.0.0" if APP.cfg.get("phone_access") else "127.0.0.1"
+    host = "0.0.0.0"          # 2.0.0h: always listening, so turning phone access on never needs a restart; _authorized() refuses every other computer while it is off
     srv = ThreadingHTTPServer((host, port), Handler)
     APP.server, APP.port = srv, port
+    APP.bound_all = (host == "0.0.0.0")
     return srv
+
+
+def _install_exit_notes():
+    """2.0.0b: write down WHY the program stops: a stop signal, a normal close, or a crash inside a radio library.
+    A "hang-up" signal (sent by some systems when the icon that started the program finishes) is noted and ignored,
+    so the program keeps running."""
+    import atexit
+    import faulthandler
+    import signal
+    try:
+        faulthandler.enable(file=open(os.path.join(L.log_dir(), "crash_trace.txt"), "a"), all_threads=True)
+    except Exception:
+        pass
+
+    def _name(num):
+        try:
+            return signal.Signals(num).name
+        except Exception:
+            return str(num)
+
+    def _hup(num, frame):
+        L.info("a hang-up signal (%s) was received and ignored; the program keeps running" % _name(num))
+
+    def _who():
+        """Who might have sent the stop signal: the programs that are running at this moment."""
+        try:
+            r = subprocess.run(["ps", "-axo", "pid=,ppid=,etime=,command="], capture_output=True, text=True, timeout=3)
+            keep = [x.strip()[:200] for x in r.stdout.splitlines()
+                    if any(k in x for k in ("nt_app", "nt_logger", "launcher", "pkill", "kill", "launchctl", "arch ", "RFI Trail"))
+                    and " ps -axo" not in x]
+            return " | ".join(keep[:12])
+        except Exception:
+            return "(could not list programs)"
+
+    def _term(num, frame):
+        L.info("the program was told to stop (signal %s). my pid %d, parent %d. Running now: %s"
+               % (_name(num), os.getpid(), os.getppid(), _who()))
+        raise SystemExit(0)
+
+    for nm, fnc in (("SIGHUP", _hup), ("SIGTERM", _term)):
+        try:
+            signal.signal(getattr(signal, nm), fnc)
+        except Exception:
+            pass
+    try:
+        signal.signal(signal.SIGPIPE, signal.SIG_IGN)       # a closed output pipe must not stop the program
+    except Exception:
+        pass
+    atexit.register(lambda: L.info("the program has closed"))
 
 
 def main():
@@ -1785,6 +1922,7 @@ def main():
         return
 
     L.setup("panel")
+    _install_exit_notes()
 
     # Started without a console window (Windows double-click)? Send messages to a log file instead.
     if sys.stdout is None or sys.stderr is None:
@@ -1829,6 +1967,7 @@ def main():
         pass
     port = free_port(args.port)
     srv = serve(port)
+    threading.Thread(target=watch_browser, daemon=True).start()
     url = f"http://localhost:{port}/"
     print(f"RFI Trail {C.VERSION} is running at {url}\nData folder: {APP.data}\nLeave this running; "
           "use the Quit button in the window (or close this) when finished.", flush=True)
