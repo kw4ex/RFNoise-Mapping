@@ -436,6 +436,7 @@ h4{margin:0 0 4px 0;font-size:13px}
 button{font-size:13px;padding:3px 8px}
 #printhdr{display:none}
 @page{size:landscape;margin:8mm}
+body.prepping #map{position:relative;inset:auto;height:150mm;width:100%}
 @media print{
   html,body{height:auto}
   .panel,.leaflet-control-container{display:none!important}
@@ -715,10 +716,27 @@ async function loadPower(){
 document.getElementById("tgPower").onchange=function(){ if(this.checked){ powerLayer.addTo(map); loadPower(); } else map.removeLayer(powerLayer); };
 
 // ---- printing: resize the map for the page, print, then restore
-function doPrint(){ window.print(); }
-window.addEventListener("beforeprint",()=>{ map.invalidateSize(); if(group.getLayers().length) map.fitBounds(group.getBounds().pad(0.05)); });
+/* 2.0.0i: the street pictures are fetched when the map is resized for the page, and the print preview used to be taken
+   before they had arrived (only the dots printed). Now the map is resized first, the pictures are waited for, then it prints. */
+let printing=false;
+/* 2.0.0i: 'group' is a plain layer group, which has no getBounds(); the old print code failed on that line, so the map was never
+   re-fitted to the page and the street pictures never loaded for the printout (only the dots appeared). */
+function fitAll(){ const ll=[]; group.eachLayer(l=>{ if(l.getLatLng) ll.push(l.getLatLng()); else if(l.getBounds){ const b=l.getBounds(); ll.push(b.getSouthWest(),b.getNorthEast()); } });
+  if(ll.length) map.fitBounds(L.latLngBounds(ll).pad(0.05)); }
+function tilesPending(){ return document.querySelectorAll("#map .leaflet-tile:not(.leaflet-tile-loaded)").length; }
+function doPrint(){
+  if(printing) return; printing=true;
+  const b=document.getElementById("print"); const old=b?b.textContent:""; if(b){ b.disabled=true; b.textContent="Getting the map ready to print..."; }
+  document.body.classList.add("prepping"); map.invalidateSize();
+  fitAll();
+  const t0=Date.now();
+  (function wait(){ const pend=tilesPending(), ms=Date.now()-t0;
+    if((ms>900&&pend===0)||ms>8000){ setTimeout(()=>{ try{ window.print(); }finally{ document.body.classList.remove("prepping"); map.invalidateSize(); printing=false; if(b){ b.disabled=false; b.textContent=old; } } },150); }
+    else setTimeout(wait,200); })();
+}
+window.addEventListener("beforeprint",()=>{ map.invalidateSize(); fitAll(); });
 window.addEventListener("afterprint",()=>{ map.invalidateSize(); });
-if(window.matchMedia){ const mq=window.matchMedia("print"); const f=e=>{ if(e.matches){ map.invalidateSize(); if(group.getLayers().length) map.fitBounds(group.getBounds().pad(0.05)); } };
+if(window.matchMedia){ const mq=window.matchMedia("print"); const f=e=>{ if(e.matches){ map.invalidateSize(); fitAll(); } };
   if(mq.addEventListener) mq.addEventListener("change",f); else if(mq.addListener) mq.addListener(f); }
 document.getElementById("print").onclick=doPrint;
 if(location.search.indexOf("print=1")>=0){ setTimeout(doPrint,3500); }   // lets the street tiles load first
