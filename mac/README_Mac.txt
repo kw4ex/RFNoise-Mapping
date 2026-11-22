@@ -1,4 +1,4 @@
-RFI Trail 2.0.0 - Mac
+RFI Trail 2.0.0a - Mac
 ================================================================
 Design and on-air testing by KW4EX. No warranty. Use at your own risk.
 Not made or approved by SDRplay, Apple or any radio maker.
@@ -31,7 +31,7 @@ WHAT YOU NEED
     library (the installer offers to help). Practice mode and maps need neither.
 
 INSTALL - STEP BY STEP
-  1. You need the Mac download: RFI_Trail_Mac_v2.0.0 (a folder, or the zip of the same name).
+  1. You need the Mac download: RFI_Trail_Mac_v2.0.0a (a folder, or the zip of the same name).
   2. If it is a zip, open Downloads and double-click it to unzip it. Keep the folders
      "mac" and "app" together.
   3. Open the "mac" folder. Right-click  Install_RFI_Trail.command  and choose Open,

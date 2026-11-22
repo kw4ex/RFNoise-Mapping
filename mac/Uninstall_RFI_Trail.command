@@ -17,7 +17,7 @@ done_exit() { echo; read -r -p "Press Return to close this window..." _; exit "$
 
 clear
 echo "============================================================"
-echo "   NOISE TRAIL  -  uninstall (Mac)"
+echo "   RFI TRAIL  -  uninstall (Mac)"
 echo "============================================================"
 echo "Here is what is on this Mac right now:"
 echo

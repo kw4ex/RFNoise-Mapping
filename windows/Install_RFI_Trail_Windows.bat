@@ -13,7 +13,7 @@ set "VER=__VER__"
 
 cls
 echo ============================================================
-echo    NOISE TRAIL  -  installer for Windows   (version %VER%)
+echo    RFI TRAIL  -  installer for Windows   (version %VER%)
 echo ============================================================
 echo.
 if not exist "%SRC%\nt_app.py" goto :nosrc
@@ -140,7 +140,12 @@ echo Network radios (ANAN, Hermes Lite 2, FlexRadio) need Windows to let their d
 echo I am about to open the small firewall helper. Windows will ask permission: answer Yes.
 set /p "FW=Allow the radio data through the firewall now? [Y/n] "
 if /i "%FW%"=="n" goto :fwdone
-if exist "%DEST%\Tools\Allow_ANAN_Firewall.bat" start "" "%DEST%\Tools\Allow_ANAN_Firewall.bat"
+if exist "%DEST%\Tools\Allow_ANAN_Firewall.bat" (
+  echo Opening the firewall helper. Answer Yes when Windows asks. Please wait here until it says it is finished...
+  call "%DEST%\Tools\Allow_ANAN_Firewall.bat" /fromsetup
+  echo.
+  echo Firewall step finished.
+)
 :fwdone
 
 rem ---- 6c. bring data over from the earlier test version ("Noise Trail") ----------------------

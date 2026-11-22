@@ -6,7 +6,7 @@ set "D=%~dp0"
 if "%D:~-1%"=="\" set "D=%D:~0,-1%"
 if not exist "%D%\rfitrail_install.flag" goto :wrongplace
 echo ============================================================
-echo    NOISE TRAIL  -  uninstall
+echo    RFI TRAIL  -  uninstall
 echo ============================================================
 echo Folder: %D%
 echo.

@@ -212,10 +212,16 @@ class _SliceDemod:
             out[i] = v - dc
         self.dc = dc
         decay = AGC_DECAY.get(self.agc)
-        if decay is None:                           # AGC off: fixed gain, true background level
-            return (np.tanh(out * FIXED_GAIN) * 0.8 * 32767.0).astype(np.int16)
+        import nt_common as _C
+        tune = _C.audio_tune()
+        if decay is None:                           # AGC off: fixed gain, true background level (the volume is a setting)
+            gain = 10.0 ** (tune["agc_off_db"] / 20.0) if tune["agc_off_db"] != 66.0 else FIXED_GAIN
+            return (np.tanh(out * gain) * 0.8 * 32767.0).astype(np.int16)
         pk = float(np.max(np.abs(out))) if out.size else 0.0
         hang_s, rel_s, step = AGC_TIME.get(self.agc, AGC_TIME["medium"])
+        rel_s = rel_s / max(0.1, tune["agc_recovery"])                                 # recovery speed setting
+        if tune["agc_strength_db"] > 0.0:
+            step = 10.0 ** (tune["agc_strength_db"] / 20.0)                            # strength setting: the most one burst may turn it down
         dt = out.size / float(AUDIO_RATE)
         if pk >= self.peak * 0.5:                   # a loud peak (or the signal is still near the held level): turn down, restart the hang
             self.peak = pk if self.peak < 2e-3 else max(self.peak, min(pk, self.peak * step))

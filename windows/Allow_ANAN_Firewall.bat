@@ -2,6 +2,8 @@
 rem Lets RFI Trail receive data from network radios (ANAN, Hermes Lite 2, FlexRadio) through the Windows firewall.
 rem Only from this computer's own network (remoteip=localsubnet), so nothing from the internet can reach it.
 setlocal
+set "QUIET="
+if /i "%~1"=="/fromsetup" set "QUIET=1"
 net session >nul 2>&1
 if not %errorlevel%==0 goto :elevate
 for %%I in ("%~dp0..\venv\Scripts") do set "V=%%~fI"
@@ -22,9 +24,18 @@ if defined BH if exist "%BH%\python.exe" netsh advfirewall firewall add rule nam
 echo.
 echo Done. RFI Trail may now receive data from network radios on this network.
 echo Close RFI Trail and start it again, then press Scan for radios.
+if defined QUIET (
+  echo This window closes by itself in a few seconds...
+  timeout /t 5 /nobreak >nul
+  exit /b 0
+)
 pause
 exit /b 0
 :elevate
 echo Windows will ask for permission to change the firewall. Please answer Yes.
-powershell -NoProfile -Command "Start-Process -FilePath '%~f0' -Verb RunAs"
+if defined QUIET (
+  powershell -NoProfile -Command "try { Start-Process -FilePath '%~f0' -ArgumentList '/fromsetup' -Verb RunAs -Wait } catch { Write-Host 'Permission was not given, so the firewall was not changed. You can run Tools\Allow_ANAN_Firewall.bat later.' }"
+) else (
+  powershell -NoProfile -Command "try { Start-Process -FilePath '%~f0' -Verb RunAs -Wait } catch { Write-Host 'Permission was not given, so the firewall was not changed.' }"
+)
 exit /b 0

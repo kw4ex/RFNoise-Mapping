@@ -798,6 +798,20 @@ body.only-slot #pracBanner{display:none !important}
    </div>
   </div>
  </div>
+ <div id="audioBox" style="margin:14px 0 4px;border-top:1px solid #d5dbe6;padding-top:8px">
+  <h3 style="margin:0 0 4px">Sound: AGC and volume</h3>
+  <div class="mut">How the sound of the slots behaves. Changes work at once and are remembered. They apply to every slot.</div>
+  <div class="row" style="margin-top:6px"><label for="agcOff" style="min-width:210px"><b>Volume with AGC off</b></label>
+   <input type="range" id="agcOff" min="40" max="90" step="1" oninput="audioChanged()" style="width:240px"> <span id="agcOffV" style="min-width:150px"></span>
+   <span class="mut">Higher = louder. Choose AGC off in a slot to hear it.</span></div>
+  <div class="row"><label for="agcStr" style="min-width:210px"><b>AGC strength</b></label>
+   <input type="range" id="agcStr" min="0" max="12" step="1" oninput="audioChanged()" style="width:240px"> <span id="agcStrV" style="min-width:150px"></span>
+   <span class="mut">The most one loud burst may turn the volume down. Lower = the sound dips less.</span></div>
+  <div class="row"><label for="agcRec" style="min-width:210px"><b>AGC recovery speed</b></label>
+   <input type="range" id="agcRec" min="0.25" max="4" step="0.25" oninput="audioChanged()" style="width:240px"> <span id="agcRecV" style="min-width:150px"></span>
+   <span class="mut">How fast the volume comes back after a burst. Higher = faster. Works with Fast, Medium and Slow.</span></div>
+  <div class="row"><button class="sm" onclick="audioReset()">Put the sound defaults back</button> <span class="mut" id="audioMsg"></span></div>
+ </div>
  <h3 style="margin:14px 0 4px">Tests, backup and help</h3>
  <div class="row">
   <button onclick="openFolder('data')">Open my data folder</button>
@@ -1003,7 +1017,7 @@ const $=id=>document.getElementById(id);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 let S=null, formFilled=false, wasLogging=false, stoppedByUser=false, emailFile=null, notesFile=null, tToast=null;
 
-const BUSY_MSG={"/api/cat/flex_find":"Listening for Flex radios on the network (about 3 seconds)","/api/cat/test":"Talking to the radio (it can try several speeds, up to about 20 seconds)","/api/logs/bundle":"Collecting the logs and settings into a support file","/api/fulltest":"Full test running: checking the software, radio and GPS, then making a practice map. About a minute, please wait",
+const BUSY_MSG={"/api/audio_tune":"Saving the sound settings","/api/cat/flex_find":"Listening for Flex radios on the network (about 3 seconds)","/api/cat/test":"Talking to the radio (it can try several speeds, up to about 20 seconds)","/api/logs/bundle":"Collecting the logs and settings into a support file","/api/fulltest":"Full test running: checking the software, radio and GPS, then making a practice map. About a minute, please wait",
  "/api/check":"Checking your setup (a GPS test takes a few seconds)",
  "/api/map":"Building your map. Large drives can take a minute",
  "/api/demo":"Running a practice drive and building its map",
@@ -1114,7 +1128,22 @@ async function findHl2(){
 function hl2GainReset(){ $("hl2g").value=15; gainChanged("hl2"); }
 
 /* ---------- slots: four live panadapters ---------- */
-const PAGE_VER="2.0.0";        /* the version of this page: it must match the program version shown in the top bar */ try{ document.getElementById("aboutVer").textContent="v"+PAGE_VER; }catch(e){}
+const PAGE_VER="2.0.0a";        /* the version of this page: it must match the program version shown in the top bar */ try{ document.getElementById("aboutVer").textContent="v"+PAGE_VER; }catch(e){}
+
+/* ----- sound settings (2.0.0a): AGC-off volume, AGC strength, AGC recovery speed ----- */
+let AUDIO_T=null, audioTimer=0;
+function audioMsg(t){ const e=document.getElementById("audioMsg"); if(e) e.textContent=t||""; }
+function audioShow(){ if(!AUDIO_T) return;
+  document.getElementById("agcOff").value=AUDIO_T.agc_off_db; document.getElementById("agcStr").value=AUDIO_T.agc_strength_db; document.getElementById("agcRec").value=AUDIO_T.agc_recovery;
+  document.getElementById("agcOffV").textContent=AUDIO_T.agc_off_db+" dB"+(AUDIO_T.agc_off_db===66?" (normal)":"");
+  document.getElementById("agcStrV").textContent=AUDIO_T.agc_strength_db>0?AUDIO_T.agc_strength_db+" dB":"built in (normal)";
+  document.getElementById("agcRecV").textContent=AUDIO_T.agc_recovery===1?"1.0x (normal)":AUDIO_T.agc_recovery+"x"; }
+async function audioLoad(){ try{ const j=await api("/api/audio_tune"); AUDIO_T=j.tune; audioShow(); }catch(e){} }
+function audioChanged(){ AUDIO_T={agc_off_db:+document.getElementById("agcOff").value, agc_strength_db:+document.getElementById("agcStr").value, agc_recovery:+document.getElementById("agcRec").value};
+  audioShow(); audioMsg("Saving..."); clearTimeout(audioTimer); audioTimer=setTimeout(audioSave,400); }
+async function audioSave(){ try{ const j=await api("/api/audio_tune",AUDIO_T); AUDIO_T=j.tune; audioMsg("Saved. The sound uses it now."); }catch(e){ audioMsg("Could not save: "+e.message); } }
+async function audioReset(){ audioMsg("Putting the sound defaults back..."); try{ const j=await api("/api/audio_tune",{reset:true}); AUDIO_T=j.tune; audioShow(); audioMsg("The sound defaults are back."); }catch(e){ audioMsg("Could not reset: "+e.message); } }
+audioLoad();
 const SL={logging:false,live:false,busy:false,starting:false,manualStop:false,lastTry:0,health:{},byCh:{},startErr:"",radio:"",lastSync:0,seen:{},last:{},paused:false,autoPaused:false};
 const SLH={0:[],1:[],2:[],3:[]};      // the last readings saved for each slot (for the readout shown when a slot's radio is busy mapping)
 const ONLY_SLICES=new URLSearchParams(location.search).get("view")==="slices";

@@ -6,7 +6,7 @@ RFI Trail logs the signal level on up to four frequencies you choose, together w
 
 ![The RFI Trail control panel (in Practice mode, with a simulated FlexRadio)](docs/images/panel.png)
 
-> **Status (2.0.0, a testing release):** shared as is, no warranty, use at your own risk. Tested on a Windows 11 PC and an Apple-silicon MacBook with a real **ANAN-7000DLE MkIII** and a real **FLEX-6700** (and, in the RF Noise Map versions, a real SDRplay RSP1 and Hermes Lite 2). **RTL-SDR dongles and CAT radios (Icom, Yaesu, Kenwood, Elecraft) have been tried only against simulated radios.** A full real-world noise-hunting drive is the next milestone. Reports are welcome on the [Issues](../../issues) page.
+> **Status (2.0.0a, a testing release):** shared as is, no warranty, use at your own risk. Tested on a Windows 11 PC and an Apple-silicon MacBook with a real **ANAN-7000DLE MkIII** and a real **FLEX-6700** (and, in the RF Noise Map versions, a real SDRplay RSP1 and Hermes Lite 2). **RTL-SDR dongles and CAT radios (Icom, Yaesu, Kenwood, Elecraft) have been tried only against simulated radios.** A full real-world noise-hunting drive is the next milestone. Reports are welcome on the [Issues](../../issues) page.
 
 **Read the story:** [The Story of RFI Trail](docs/The-Story-of-RFI-Trail.md) ([PDF](docs/guides/The-Story-of-RFI-Trail.pdf)): the idea, the road bumps, and what it does today. **User guide:** [PDF](docs/guides/RFI_Trail_User_Guide.pdf) (it is also built into the program: press **Help & guide**).
 
@@ -15,12 +15,12 @@ RFI Trail logs the signal level on up to four frequencies you choose, together w
 Get the newest zip from the [**Releases**](../../releases) page.
 
 **Windows 10 / 11**
-1. Download `RFI_Trail_Windows_v2.0.0.zip` and unzip it.
+1. Download `RFI_Trail_Windows_v2.0.0a.zip` and unzip it.
 2. Double-click `Install_RFI_Trail_Windows.bat`. It tells you what it is about to do before each step, and the usual answer is just Enter.
 3. At the end, say yes to the firewall question if you use a network radio (ANAN, Hermes Lite 2, FlexRadio).
 
 **Mac**
-1. Download `RFI_Trail_Mac_v2.0.0.zip` and unzip it.
+1. Download `RFI_Trail_Mac_v2.0.0a.zip` and unzip it.
 2. Open the `mac` folder and double-click `Install_RFI_Trail.command`. (If macOS objects, right-click it and choose Open.)
 
 First try: press **Settings**, then **Try a practice drive + map**. No radio is needed.

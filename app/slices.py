@@ -131,9 +131,9 @@ class SlicePreview:
                     res = sdr.measure_all([c for _, c in act], cfg)
                     for (k, c), (_lv, _t, fr) in zip(act, res):
                         if fr:
-                            RL.publish_spectrum(fr[0], fr[1], fr[2], c["mhz"] * 1e6, c["bw_khz"] * 1e3, fr[3], k, c.get("radio", ""))
+                            RL.publish_spectrum(fr[0], fr[1], fr[2], c["mhz"] * 1e6, c["bw_khz"] * 1e3, fr[3], RL.slot_idx(c, k), c.get("radio", ""))
                         elif _lv == _lv and str(c.get("radio", "")).startswith("cat"):        # a CAT radio: a flat line at its meter level
-                            RL.publish_meter(_lv, c["mhz"] * 1e6, c["bw_khz"] * 1e3, k, c.get("radio", ""))
+                            RL.publish_meter(_lv, c["mhz"] * 1e6, c["bw_khz"] * 1e3, RL.slot_idx(c, k), c.get("radio", ""))
                     if hasattr(sdr, "slot_notes"):                                           # a CAT radio says why it gave no reading
                         self.warn = {**getattr(self, "warn_base", {}), **sdr.slot_notes([c for _, c in act])}
                     time.sleep({"smooth": 0.004, "light": 0.15}.get(cfg.get("view_speed"), 0.03))      # picture speed (a runtime choice)
@@ -142,7 +142,7 @@ class SlicePreview:
                         lv = sdr.measure(ch["mhz"] * 1e6, ch["bw_khz"] * 1e3, 0.0, 0.0, cfg)
                         fr = sdr.last_frame()
                         if fr:
-                            RL.publish_spectrum(fr[0], fr[1], fr[2], ch["mhz"] * 1e6, ch["bw_khz"] * 1e3, lv, k)
+                            RL.publish_spectrum(fr[0], fr[1], fr[2], ch["mhz"] * 1e6, ch["bw_khz"] * 1e3, lv, RL.slot_idx(ch, k))
                         if not self.running:
                             break
                 if hasattr(sdr, "health"):
@@ -161,6 +161,14 @@ class SlicePreview:
                 sdr.close()
             except Exception:
                 pass
+
+
+    def pos(self, slot):
+        """Where panel slot `slot` (0 to 3) sits in the radio's channel list (the sound engine counts positions). Falls back to
+        the slot number when it is not in the list."""
+        import nt_logger as RL
+        p = RL.pos_of_slot((self.cfg or {}).get("channels", []), slot)
+        return p if p >= 0 else int(slot)
 
 
 SLICES = SlicePreview()

@@ -1,4 +1,4 @@
-NOISE TRAIL __VER__ for Windows  -  START HERE
+RFI TRAIL __VER__ for Windows  -  START HERE
 ==============================================
 
 Find where radio noise (power lines, poles, noisy buildings) is strongest: drive a route with a radio and a GPS,

@@ -10,7 +10,7 @@ import re
 import sys
 
 APP_NAME = "RFI Trail"
-VERSION = "2.0.0"
+VERSION = "2.0.0a"
 IS_MAC = sys.platform == "darwin"
 IS_WIN = sys.platform.startswith("win")
 
@@ -252,3 +252,62 @@ def host_only(h):
     if h.startswith("["):
         return h[:h.find("]") + 1] if "]" in h else h
     return h.split(":")[0]
+
+
+# ----------------------------------------------------------------------------
+# Sound tuning (2.0.0a): the AGC-off volume, the AGC strength and the AGC recovery speed. One small file in the Settings
+# folder, read by the control panel and by the logger (two programs), so a change reaches both at once.
+# ----------------------------------------------------------------------------
+AUDIO_TUNE_DEFAULT = {"agc_off_db": 66.0, "agc_strength_db": 0.0, "agc_recovery": 1.0}
+# agc_off_db: volume when AGC is Off (66 dB is the old fixed value). agc_strength_db: the most one loud burst may turn the
+# volume down (0 = the built-in value for each speed). agc_recovery: 1 = as before, 2 = twice as fast, 0.5 = half as fast.
+_AT = {"t": 0.0, "mt": -1.0, "v": dict(AUDIO_TUNE_DEFAULT)}
+
+
+def _audio_tune_path():
+    return os.path.join(sub_dir("Settings"), "audio_tune.json")
+
+
+def audio_tune_clean(d):
+    out = dict(AUDIO_TUNE_DEFAULT)
+    try:
+        out["agc_off_db"] = max(40.0, min(90.0, float(d.get("agc_off_db", out["agc_off_db"]))))
+        out["agc_strength_db"] = max(0.0, min(12.0, float(d.get("agc_strength_db", out["agc_strength_db"]))))
+        out["agc_recovery"] = max(0.25, min(4.0, float(d.get("agc_recovery", out["agc_recovery"]))))
+    except Exception:
+        return dict(AUDIO_TUNE_DEFAULT)
+    return out
+
+
+def audio_tune():
+    """The current sound tuning. Looks at the file at most once a second."""
+    import time as _t
+    now = _t.time()
+    if now - _AT["t"] < 1.0:
+        return _AT["v"]
+    _AT["t"] = now
+    try:
+        p = _audio_tune_path()
+        mt = os.path.getmtime(p)
+        if mt != _AT["mt"]:
+            import json
+            with open(p, encoding="utf-8") as f:
+                _AT["v"] = audio_tune_clean(json.load(f))
+            _AT["mt"] = mt
+    except FileNotFoundError:
+        _AT["v"] = dict(AUDIO_TUNE_DEFAULT)
+    except Exception:
+        pass                                   # a damaged file: keep what we had
+    return _AT["v"]
+
+
+def audio_tune_save(d):
+    import json
+    v = audio_tune_clean(d)
+    os.makedirs(sub_dir("Settings"), exist_ok=True)
+    with open(_audio_tune_path(), "w", encoding="utf-8") as f:
+        json.dump(v, f)
+    _AT["v"] = v
+    _AT["t"] = 0.0
+    _AT["mt"] = -1.0
+    return v

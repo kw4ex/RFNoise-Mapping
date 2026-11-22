@@ -1213,6 +1213,8 @@ class Handler(BaseHTTPRequestHandler):
                     out.update(j)
                     return self._json(out)
                 return self._json(PAN.get_frame(after))
+            if path == "/api/audio_tune":
+                return self._json({"ok": True, "tune": C.audio_tune(), "default": C.AUDIO_TUNE_DEFAULT})
             if path == "/api/slices/audio":
                 ch = int((q.get("ch") or ["0"])[0] or 0)
                 after = int((q.get("after") or ["0"])[0] or 0)
@@ -1224,7 +1226,7 @@ class Handler(BaseHTTPRequestHandler):
                     return self._send(200, data, "application/octet-stream",
                                       {"X-Seq": str(hd.get("X-Seq", after)), "X-Rate": str(hd.get("X-Rate", 12000))})
                 import hl2_audio
-                data, last = hl2_audio.SND.audio(ch, after)
+                data, last = hl2_audio.SND.audio(SLICES.pos(ch), after)
                 return self._send(200, data, "application/octet-stream",
                                   {"X-Seq": str(last), "X-Rate": str(hl2_audio.AUDIO_RATE)})
             if path == "/api/slices":
@@ -1493,6 +1495,9 @@ class Handler(BaseHTTPRequestHandler):
                             return {"ok": True, "restarted": True}
                 SLICES.set(channels=chans)
             return {"ok": True}
+        if path == "/api/audio_tune":                      # the sound settings (2.0.0a): saved to a small file both programs read
+            v = C.audio_tune_save(C.AUDIO_TUNE_DEFAULT if b.get("reset") else {**C.audio_tune(), **{k: b[k] for k in C.AUDIO_TUNE_DEFAULT if k in b}})
+            return {"ok": True, "tune": v}
         if path == "/api/slices/listen":
             ch = int(b.get("channel", 0))
             if APP.running():
@@ -1501,14 +1506,14 @@ class Handler(BaseHTTPRequestHandler):
                 if not SLICES.running:
                     raise ValueError("Start the slices preview (or logging) first.")
                 import hl2_audio
-                hl2_audio.SND.listen(ch, bool(b.get("on")), b.get("mode"), b.get("bw"), b.get("agc"))
+                hl2_audio.SND.listen(SLICES.pos(ch), bool(b.get("on")), b.get("mode"), b.get("bw"), b.get("agc"))
             return {"ok": True}
         if path == "/api/slices/sound_mode":
             if APP.running():
                 APP.logger_call("/slice_mode", b, timeout=3)
             else:
                 import hl2_audio
-                hl2_audio.SND.set_mode(int(b.get("channel", 0)), b.get("mode"), b.get("bw"), b.get("agc"))
+                hl2_audio.SND.set_mode(SLICES.pos(int(b.get("channel", 0))), b.get("mode"), b.get("bw"), b.get("agc"))
             return {"ok": True}
         if path == "/api/slices/rec":
             ch = int(b.get("channel", 0))
@@ -1520,7 +1525,7 @@ class Handler(BaseHTTPRequestHandler):
             import hl2_audio
             chans = APP.cfg.get("channels", [])
             mhz = chans[ch]["mhz"] if 0 <= ch < len(chans) else 0
-            name = hl2_audio.SND.record(ch, bool(b.get("on")), "slice%d_%sMHz" % (ch + 1, mhz),
+            name = hl2_audio.SND.record(SLICES.pos(ch), bool(b.get("on")), "slice%d_%sMHz" % (ch + 1, mhz),
                                         b.get("mode"), b.get("bw"), b.get("agc"))
             return {"ok": True, "file": name or ""}
         if path == "/api/slices/stop":

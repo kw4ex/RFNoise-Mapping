@@ -76,6 +76,23 @@ MAX_CHANNELS = 4
 AUTO_PAUSE_MPS = 0.7        # slower than this (about 1.5 mph) counts as standing still
 
 
+def slot_idx(ch, k):
+    """The panel slot (0 to 3) a channel belongs to. A slot that is empty, off or cannot be used is left out of the radio's
+    list, so a channel's position in that list is not its slot number: the "slot" it carries is (2.0.0a)."""
+    try:
+        return int(ch.get("slot", k + 1)) - 1
+    except Exception:
+        return k
+
+
+def pos_of_slot(chans, slot):
+    """Position in the radio's channel list of panel slot `slot` (0 to 3), or -1 when that slot is not running."""
+    for i, c in enumerate(chans or []):
+        if slot_idx(c, i) == int(slot):
+            return i
+    return -1
+
+
 def _iso_ms(t=None):
     """UTC time as text with milliseconds, e.g. 2026-11-14T03:21:07.482Z"""
     d = datetime.fromtimestamp(time.time() if t is None else t, timezone.utc)
@@ -1140,7 +1157,7 @@ def make_handler(settings, state, stop_event, sdr=None):
                     q = dict(p.split("=", 1) for p in self.path.split("?", 1)[1].split("&"))
                 except Exception:
                     q = {}
-                data, last = hl2_audio.SND.audio(int(q.get("ch", 0)), int(q.get("after", 0)))
+                data, last = hl2_audio.SND.audio(max(0, pos_of_slot(settings.get()["channels"], int(q.get("ch", 0)))), int(q.get("after", 0)))
                 self.send_response(200)
                 self.send_header("Content-Type", "application/octet-stream")
                 self.send_header("Content-Length", str(len(data)))
@@ -1184,20 +1201,21 @@ def make_handler(settings, state, stop_event, sdr=None):
                 elif self.path == "/slice_listen":
                     import hl2_audio
                     req = json.loads(body)
-                    hl2_audio.SND.listen(int(req.get("channel", 0)), bool(req.get("on")),
+                    hl2_audio.SND.listen(max(0, pos_of_slot(settings.get()["channels"], int(req.get("channel", 0)))), bool(req.get("on")),
                                          req.get("mode"), req.get("bw"), req.get("agc"))
                 elif self.path == "/slice_mode":
                     import hl2_audio
                     req = json.loads(body)
-                    hl2_audio.SND.set_mode(int(req.get("channel", 0)), req.get("mode"), req.get("bw"), req.get("agc"))
+                    hl2_audio.SND.set_mode(max(0, pos_of_slot(settings.get()["channels"], int(req.get("channel", 0)))), req.get("mode"), req.get("bw"), req.get("agc"))
                 elif self.path == "/slice_rec":
                     import hl2_audio
                     req = json.loads(body)
-                    ch = int(req.get("channel", 0))
+                    slot = int(req.get("channel", 0))
                     chans = settings.get()["channels"]
+                    ch = max(0, pos_of_slot(chans, slot))              # the sound engine counts positions in the radio's list
                     mhz = chans[ch]["mhz"] if 0 <= ch < len(chans) else 0
                     name = hl2_audio.SND.record(ch, bool(req.get("on")),
-                                                "slice%d_%gMHz" % (ch + 1, mhz),
+                                                "slice%d_%gMHz" % (slot + 1, mhz),
                                                 req.get("mode"), req.get("bw"), req.get("agc"))
                     return self._send(200, json.dumps({"file": name or ""}))
                 elif self.path == "/pause":
@@ -1472,10 +1490,10 @@ def main():
                 sdr.pos = (lat, lon)
                 for k, (lv, _t, fr) in enumerate(sdr.measure_all(chans, cfg)):
                     if fr:
-                        publish_spectrum(fr[0], fr[1], fr[2], chans[k]["mhz"] * 1e6, chans[k]["bw_khz"] * 1e3, fr[3], k,
+                        publish_spectrum(fr[0], fr[1], fr[2], chans[k]["mhz"] * 1e6, chans[k]["bw_khz"] * 1e3, fr[3], slot_idx(chans[k], k),
                                          chans[k].get("radio", ""))
                     elif lv == lv and str(chans[k].get("radio", "")).startswith("cat"):          # a CAT radio: meter only
-                        publish_meter(lv, chans[k]["mhz"] * 1e6, chans[k]["bw_khz"] * 1e3, k, chans[k].get("radio", ""))
+                        publish_meter(lv, chans[k]["mhz"] * 1e6, chans[k]["bw_khz"] * 1e3, slot_idx(chans[k], k), chans[k].get("radio", ""))
                 if hasattr(sdr, "health"):
                     state["radio_health"] = sdr.health()
             except Exception:
@@ -1491,16 +1509,17 @@ def main():
             ch = chans[k]
             try:
                 lo, rate, spec, level = sdr.spectrum(ch["mhz"] * 1e6, ch["bw_khz"] * 1e3, lat, lon, cfg)
-                publish_spectrum(lo, rate, spec, ch["mhz"] * 1e6, ch["bw_khz"] * 1e3, level, k, ch.get("radio", ""))
+                publish_spectrum(lo, rate, spec, ch["mhz"] * 1e6, ch["bw_khz"] * 1e3, level, slot_idx(ch, k), ch.get("radio", ""))
             except Exception:
                 return False
             return True
-        if not (0 <= ci < len(chans)) or not hasattr(sdr, "spectrum"):
+        cp = pos_of_slot(chans, ci)                      # ci is a panel slot; find where that slot sits in the radio's list
+        if cp < 0 or not hasattr(sdr, "spectrum"):
             return False
         if time.time() - pan_state["t"] < 0.04:
             return False
         pan_state["t"] = time.time()
-        ch = chans[ci]
+        ch = chans[cp]
         try:
             lo, rate, spec, level = sdr.spectrum(ch["mhz"] * 1e6, ch["bw_khz"] * 1e3, lat, lon, cfg)
             publish_spectrum(lo, rate, spec, ch["mhz"] * 1e6, ch["bw_khz"] * 1e3, level, ci)
@@ -1584,17 +1603,17 @@ def main():
                 if results is not None:
                     level, t_read, fr = results[ci]
                     if fr:
-                        publish_spectrum(fr[0], fr[1], fr[2], ch["mhz"] * 1e6, ch["bw_khz"] * 1e3, fr[3], ci,
+                        publish_spectrum(fr[0], fr[1], fr[2], ch["mhz"] * 1e6, ch["bw_khz"] * 1e3, fr[3], slot_idx(ch, ci),
                                          ch.get("radio", ""))
                 else:
                     level = sdr.measure(ch["mhz"] * 1e6 + band_shift_hz(ch), ch["bw_khz"] * 1e3, lat, lon, cfg)
                     t_read = time.time()
                 if math.isnan(level):
                     continue
-                if results is None and ci == cfg.get("pan_channel", -1):
+                if results is None and slot_idx(ch, ci) == cfg.get("pan_channel", -1):
                     lf = sdr.last_frame() if hasattr(sdr, "last_frame") else None
                     if lf:
-                        publish_spectrum(lf[0], lf[1], lf[2], ch["mhz"] * 1e6, ch["bw_khz"] * 1e3, lf[3], ci)
+                        publish_spectrum(lf[0], lf[1], lf[2], ch["mhz"] * 1e6, ch["bw_khz"] * 1e3, lf[3], slot_idx(ch, ci))
                 w.writerow([_iso_ms(t_read), f"{lat:.7f}", f"{lon:.7f}", f"{fix.speed_mps*MPH_PER_MPS:.1f}",
                             f"{ch['mhz']:.4f}", f"{ch['bw_khz']:.1f}",
                             f"{level:.2f}", f"{level + ch['cal_db']:.2f}",
@@ -1602,7 +1621,7 @@ def main():
                             "" if fix.hdop is None else fix.hdop, pos_iso,
                             ch.get("slot", ci + 1), ch.get("radio", ""),
                             C.s_unit_text(level + ch["cal_db"], ch["mhz"])])
-                last.append({"ch": ci, "mhz": ch["mhz"], "level": level + ch["cal_db"], "t": t_read})
+                last.append({"ch": slot_idx(ch, ci), "pos": ci, "mhz": ch["mhz"], "level": level + ch["cal_db"], "t": t_read})
             if hasattr(sdr, "health"):
                 state["radio_health"] = sdr.health()
             fh.flush()
@@ -1619,8 +1638,8 @@ def main():
             dots += 1
             lv = [None] * len(chans)
             for x in last:
-                if 0 <= x["ch"] < len(lv):
-                    lv[x["ch"]] = round(x["level"], 1)
+                if 0 <= x["pos"] < len(lv):
+                    lv[x["pos"]] = round(x["level"], 1)
             track = state.setdefault("track", [])
             track.append([dots, round(lat, 6), round(lon, 6), lv])
             if len(track) > 30000:

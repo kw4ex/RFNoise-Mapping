@@ -379,13 +379,16 @@ class Receiver:
             return np.zeros(L, np.int16), p
         pk = float(np.max(np.abs(a))) + 1e-9
         dt = L / float(AUDIO_RATE)                  # fast attack, a short hang, then a smooth recovery (about 0.6 s for 20 dB)
+        tune = C.audio_tune()
+        step = 10.0 ** (tune["agc_strength_db"] / 20.0) if tune["agc_strength_db"] > 0.0 else 1.41   # most one burst may turn it down (setting)
+        rel_s = 0.09 / max(0.1, tune["agc_recovery"])                                                # recovery speed (setting)
         if pk >= self.lvl * 0.5:
-            self.lvl = pk if self.lvl < 2e-3 else max(self.lvl, min(pk, self.lvl * 1.41))     # a burst cannot turn the volume down by more than ~3 dB per step
+            self.lvl = pk if self.lvl < 2e-3 else max(self.lvl, min(pk, self.lvl * step))     # a burst cannot turn the volume down by more than ~3 dB per step
             self.hang = 0.02
         elif self.hang > 0.0:
             self.hang -= dt
         else:
-            self.lvl = max(pk, self.lvl * (0.1 ** (dt / 0.09)))
+            self.lvl = max(pk, self.lvl * (0.1 ** (dt / rel_s)))
         self.lvl = max(self.lvl, 1e-6)
         target = 0.35 / max(self.lvl, 1e-6)
         g1 = min(target, 3e4)

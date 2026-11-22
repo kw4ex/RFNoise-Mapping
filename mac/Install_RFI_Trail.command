@@ -290,7 +290,7 @@ preflight
 clear
 cat <<'EOF'
 ============================================================
-   NOISE TRAIL  -  installer for Mac
+   RFI TRAIL  -  installer for Mac
 ============================================================
 What would you like to do?
 
