@@ -56,8 +56,8 @@ th{background:#f0f3f7}
 <h2 id="install">2. Download and install</h2>
 <p>RFI Trail comes as <b>one download for each kind of computer</b>. Each one is a zip file with a short <span class="k">START_HERE.txt</span> inside. No account is needed, and nothing is sent anywhere.</p>
 <ul>
- <li><b>Mac:</b> <span class="k">RFI_Trail_Mac_v2.0.0a.zip</span> (the folder of the same name is the unzipped copy)</li>
- <li><b>Windows 10 / 11:</b> <span class="k">RFI_Trail_Windows_v2.0.0a.zip</span></li>
+ <li><b>Mac:</b> <span class="k">RFI_Trail_Mac_v2.0.0i.zip</span> (the folder of the same name is the unzipped copy)</li>
+ <li><b>Windows 10 / 11:</b> <span class="k">RFI_Trail_Windows_v2.0.0i.zip</span></li>
 </ul>
 <div class="box tip">The installer works as an <b>update</b> too: run the newer package's installer and it replaces the program and keeps your drives, maps, recordings and settings.</div>
 
@@ -241,6 +241,16 @@ th{background:#f0f3f7}
  <li>Ticking the box plays a test beep so you can set the volume.</li>
 </ul>
 
+<h3>Phone and tablet page (iPhone, iPad, Android)</h3>
+<p>A small <b>Phone / tablet</b> box with a QR code sits with the other boxes at the top of the main screen. Point the phone or tablet <b>camera</b> at it and tap the link that appears. The phone and the computer must be on the <b>same Wi-Fi or hotspot</b>. Press <b>How?</b> in the box for these steps, <b>Off</b> to switch phone access off, and the <b>Phone / tablet</b> button at the top to switch it on again. No restart is needed.</p>
+<p>The phone page has three tabs: <b>Live</b> (a big S-reading for the strongest slot, one row per slot, and large <b>Start</b>, <b>Stop</b> and <b>Mark spot</b> buttons, plus a strong-signal alert with sound and vibration; press <b>Test the sound</b> once, because phones only allow sound after a touch), <b>Map</b> (a full-screen map that follows you; the street tiles need the phone to have internet) and <b>Slots</b> (the four panadapters with waterfalls, on a page you scroll). <b>Full view</b> at the bottom of the Live tab opens the regular screen.</p>
+
+<h3>Picture smoothness</h3>
+<p>In <b>Settings</b>, <b>Picture smoothness</b> makes the slot panadapter line smoother and easier on the eyes: Normal (most detail), Light, Medium or Strong. It changes only how the picture is drawn on that screen. Your logged readings and maps are not affected. The phone page has its own Smoothness list on the Slots tab.</p>
+
+<h3>Closing the program, and keeping a Mac awake</h3>
+<p>By default the program closes by itself a few seconds after you close the browser window, and it never does so during a drive or an audio recording. Untick <b>Close the program by itself when I close the browser window</b> in Settings to turn this off. On a Mac, clicking the icon asks <b>Allow clamshell mode?</b>; Yes keeps the Mac awake while RFI Trail runs so you can close the lid while it is plugged in, and it ends by itself when the program closes.</p>
+
 <h3>Bigger, bolder text</h3>
 <p>The top bar, the drive bar, the status boxes, the slots, Settings, Hardware setup and the map pages use larger, bolder type for reading at a glance. <b>A&minus;</b> and <b>A+</b> change the size of the bar under the title. Maps made with older versions are shown with the same larger text.</p>
 
@@ -371,6 +381,8 @@ Only <b>one program</b> can use the radio at a time: close Thetis or SDR Console
 <tr><td>"no SDRplay found"</td><td>Close other SDR programs (see the yellow box in the window). Plug it in directly (not through a weak hub). Make sure the SDRplay API is installed and the computer was restarted. Windows: the <b>SDRplay API Service</b> must be running.</td></tr>
 <tr><td>GPS says "connecting" or "retrying" (iPhone)</td><td>Is the computer on the iPhone's hotspot? Is GPS2IP open and switched on, with Sockets on? Do the address and port match the app exactly?</td></tr>
 <tr><td>GPS says "no GPS fix yet"</td><td>The GPS needs a view of the sky. Put it on the dashboard or roof; wait a minute or two.</td></tr>
+<tr><td>Mac: the window says "Lost contact with program"</td><td>Close the window, then click the icon again; the icon checks for a stuck copy and tells you. The reason is written in <code>~/Library/Logs/RFI_Trail.log</code>.</td></tr>
+<tr><td>The phone cannot open the page</td><td>Is the phone on the same Wi-Fi or hotspot as the computer? Is <b>Phone / tablet</b> on (the QR box is showing)? Allow RFI Trail through the firewall if asked. Scan the QR code again.</td></tr>
 <tr><td>Map shows dots but no streets</td><td>The street background needs internet when you open the map. Connect and reload. Use the layers button to try <b>Satellite</b>.</td></tr>
 <tr><td>Dots are far from the road</td><td>See section 10 (GPS accuracy). Try the USB GPS, or place the GPS where it sees more sky.</td></tr>
 <tr><td>Email button opens a blank email</td><td>Your email program can't be controlled automatically. Drag the file shown in the folder window into the email.</td></tr>
@@ -392,7 +404,7 @@ Only <b>one program</b> can use the radio at a time: close Thetis or SDR Console
 <tr><td><b>KML</b></td><td>A file format Google Earth opens.</td></tr>
 <tr><td><b>AM / FM</b></td><td>Radio modulation types. AM responds to amplitude noise (like power-line noise); FM mostly ignores it.</td></tr>
 </table>
-<div class="box tip"><b>Sound: AGC and volume (new in 2.0.0a).</b> Press <span class="btn">Settings&hellip;</span> and find <b>Sound: AGC and volume</b>. Three sliders change how every slot sounds, and the change works at once and is remembered: <b>Volume with AGC off</b> (higher is louder; use it when a slot is set to AGC <b>Off</b> and is too quiet), <b>AGC strength</b> (the most one loud burst may turn the volume down; lower means the sound dips less; "built in" is the normal setting) and <b>AGC recovery speed</b> (how fast the volume comes back after a burst; higher is faster, and it works with Fast, Medium and Slow). <b>Put the sound defaults back</b> returns all three to normal.</div>
+<div class="box tip"><b>Sound: AGC and volume (new in 2.0.0i).</b> Press <span class="btn">Settings&hellip;</span> and find <b>Sound: AGC and volume</b>. Three sliders change how every slot sounds, and the change works at once and is remembered: <b>Volume with AGC off</b> (higher is louder; use it when a slot is set to AGC <b>Off</b> and is too quiet), <b>AGC strength</b> (the most one loud burst may turn the volume down; lower means the sound dips less; "built in" is the normal setting) and <b>AGC recovery speed</b> (how fast the volume comes back after a burst; higher is faster, and it works with Fast, Medium and Slow). <b>Put the sound defaults back</b> returns all three to normal.</div>
 <h2 id="thanks">About RFI Trail, and thanks</h2>
 <p>RFI Trail finds radio-frequency interference (power-line and other noise) by logging signal level against your GPS position as you drive, and draws it on a street map. It is the successor to <b>RF Noise Map</b>. Designed and tested on the air by KW4EX. No warranty; use at your own risk.</p>
 <p><b>With thanks to Jeff Stuparits, W4DD.</b> This program exists because of Jeff: his own noise-mapping program and his generous help, to me and to many other hams, with isolating noise were the inspiration and the source of many of its ideas.</p>

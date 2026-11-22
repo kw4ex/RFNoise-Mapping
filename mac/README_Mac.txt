@@ -1,4 +1,4 @@
-RFI Trail 2.0.0a - Mac
+RFI Trail 2.0.0i - Mac
 ================================================================
 Design and on-air testing by KW4EX. No warranty. Use at your own risk.
 Not made or approved by SDRplay, Apple or any radio maker.
@@ -24,6 +24,16 @@ ABOUT RFI TRAIL
   available for CAT/Flex slots yet.
   Neither the CAT radio table nor the Flex support has been checked on real radios yet.
 
+WHAT IS NEW SINCE 2.0.0a (versions b to i)
+  - The Desktop icon now starts the program in a way macOS 27 does not stop. It also checks for a
+    copy that is already running (or a different version, or a stuck one) and tells you what it found.
+    If the window says "Lost contact with program", read ~/Library/Logs/RFI_Trail.log.
+  - When you click the icon it asks "Allow clamshell mode?". Yes keeps the Mac awake while RFI Trail
+    runs, so you can close the lid while the Mac is plugged in. It ends by itself when RFI Trail closes.
+  - Closing the browser window closes the program (a setting, on by default; never during a drive).
+  - Phone and tablet access is on by default: scan the QR code on the main screen (see the user guide).
+    If the Mac asks whether to allow incoming connections, choose Allow.
+
 WHAT YOU NEED
   - A Mac, a radio (SDRplay, Hermes Lite 2, ANAN, FlexRadio, RTL-SDR or a CAT radio), and a GPS (iPhone with the GPS2IP app, or a USB GPS).
   - Internet while installing (it downloads two small helper libraries).
@@ -31,7 +41,7 @@ WHAT YOU NEED
     library (the installer offers to help). Practice mode and maps need neither.
 
 INSTALL - STEP BY STEP
-  1. You need the Mac download: RFI_Trail_Mac_v2.0.0a (a folder, or the zip of the same name).
+  1. You need the Mac download: RFI_Trail_Mac_v2.0.0i (a folder, or the zip of the same name).
   2. If it is a zip, open Downloads and double-click it to unzip it. Keep the folders
      "mac" and "app" together.
   3. Open the "mac" folder. Right-click  Install_RFI_Trail.command  and choose Open,

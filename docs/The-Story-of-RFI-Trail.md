@@ -258,6 +258,10 @@ Version 1.3.0 ties the two radios together: a **"Your radios"** box, and a **Rad
 - **Each of the four slots picks its own radio**, or Auto decides. Only radios that a slot actually uses are ever opened or checked.
 - **Hardware setup** window: Scan for radios, a status line, a **Ready to drive?** check, radios that were not found are hidden (with Show all), saved setups, and calibration colours per slot.
 
+### On a phone, in the car (2.0.0b to 2.0.0i)
+- A **phone and tablet page** (QR code on the main screen, on by default): big live readout, Start / Stop / Mark spot, a strong-signal alert on the phone, a map that follows you and the four panadapters. **Picture smoothness** gives a smoother panadapter line without touching the logged readings.
+- The program can **close itself when the browser window closes**, and on a Mac the icon asks whether to **keep the Mac awake** (clamshell) while it runs.
+
 ### Mapping and listening
 - Up to **four frequencies** logged at once, saved **by distance or by time**, timed to the millisecond so a map can show one dot every X feet; **Leaflet street map**, **Google Earth (.kml)** export, backups.
 - Every slot is a full **panadapter** with a waterfall and a built-in receiver (AM, SAM, USB, LSB, CW, narrow FM), click-to-tune, memories, band jumps and clickable known-frequency markers, audio recording to WAV, a per-slot S-meter.

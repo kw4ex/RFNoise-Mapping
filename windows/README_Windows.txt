@@ -6,6 +6,13 @@ Not made or approved by SDRplay, Microsoft or any radio maker.
 Find where radio noise (power lines, poles, noisy buildings) is strongest: drive a route with a radio
 and a GPS and the program draws the readings as coloured dots on a street map.
 
+WHAT IS NEW SINCE 2.0.0a (versions b to i)
+  - Phone and tablet access is on by default: scan the QR code on the main screen to open a page built
+    for a small screen (see the user guide). Allow RFI Trail through the Windows firewall when asked.
+  - Closing the browser window closes the program (a setting, on by default; never during a drive).
+  - A Picture smoothness setting makes the panadapter line smoother (drawing only, readings unchanged).
+  Note: these Windows changes were tested on a Mac only; Windows testing of 2.0.0i is still to do.
+
 WHAT YOU NEED
   - A Windows 10 or 11 computer (a laptop for the car).
   - A GPS: an iPhone with the GPS2IP app, or a USB GPS puck.
