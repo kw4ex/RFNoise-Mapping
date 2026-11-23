@@ -436,15 +436,19 @@ h4{margin:0 0 4px 0;font-size:13px}
 button{font-size:13px;padding:3px 8px}
 #printhdr{display:none}
 @page{size:landscape;margin:8mm}
-body.prepping #map{position:relative;inset:auto;height:150mm;width:100%}
+body.prepping #map{position:relative;inset:auto;height:150mm;width:190mm;max-width:100%}
+body.prepping .panel,body.prepping .leaflet-control-container{display:none!important}
+#snapimg{display:none}
 @media print{
   html,body{height:auto}
+  body.snap #map{display:none!important}
+  body.snap #snapimg{display:block;width:190mm;max-width:100%;height:auto;border:1px solid #888}
   .panel,.leaflet-control-container{display:none!important}
   #printhdr{display:block;margin:0 0 4mm 0;font-size:12px}
   #printhdr h2{margin:0 0 2px 0;font-size:18px}
   #pbar{width:60%}
   #pbarlab{width:60%}
-  #map{position:relative;inset:auto;height:150mm;width:100%;border:1px solid #888}
+  #map{position:relative;inset:auto;height:150mm;width:190mm;max-width:100%;border:1px solid #888}
   *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 }
 __NT_BIG__</style></head><body>
@@ -723,20 +727,46 @@ let printing=false;
    re-fitted to the page and the street pictures never loaded for the printout (only the dots appeared). */
 function fitAll(){ const ll=[]; group.eachLayer(l=>{ if(l.getLatLng) ll.push(l.getLatLng()); else if(l.getBounds){ const b=l.getBounds(); ll.push(b.getSouthWest(),b.getNorthEast()); } });
   if(ll.length) map.fitBounds(L.latLngBounds(ll).pad(0.05)); }
+
+/* 2.0.0i: the printout is a flat picture of the map (street pictures + dots drawn onto one canvas) instead of the live map,
+   because some browsers print only the dots and leave the street pictures out. If the picture cannot be made, the live map is printed as before. */
+function makeSnap(){
+  try{
+    const el=document.getElementById("map"), R=el.getBoundingClientRect(), k=2;
+    const cv=document.createElement("canvas"); cv.width=Math.round(R.width*k); cv.height=Math.round(R.height*k);
+    const g=cv.getContext("2d"); g.fillStyle="#e8e8e8"; g.fillRect(0,0,cv.width,cv.height);
+    const put=(im,w)=>{ const r=im.getBoundingClientRect(); if(r.width<1||r.height<1) return;
+      const op=parseFloat(getComputedStyle(im).opacity); g.globalAlpha=isNaN(op)?1:op; g.drawImage(im,(r.left-R.left)*k,(r.top-R.top)*k,r.width*k,r.height*k); g.globalAlpha=1; };
+    el.querySelectorAll(".leaflet-tile-pane img.leaflet-tile-loaded").forEach(put);
+    el.querySelectorAll(".leaflet-overlay-pane canvas").forEach(put);
+    el.querySelectorAll(".leaflet-marker-pane img").forEach(put);
+    const at=el.querySelector(".leaflet-control-attribution"); if(at){ const t=at.textContent.replace(/\s+/g," ").trim();
+      g.font=(10*k)+"px sans-serif"; const w=g.measureText(t).width+8*k; g.fillStyle="rgba(255,255,255,.8)"; g.fillRect(cv.width-w,cv.height-14*k,w,14*k); g.fillStyle="#333"; g.fillText(t,cv.width-w+4*k,cv.height-4*k); }
+    const url=cv.toDataURL("image/png");      // throws if a street picture could not be read (then the live map is printed)
+    let im=document.getElementById("snapimg"); if(!im){ im=document.createElement("img"); im.id="snapimg"; el.parentNode.insertBefore(im,el.nextSibling); }
+    im.src=url; document.body.classList.add("snap"); return im;
+  }catch(e){ document.body.classList.remove("snap"); return null; }
+}
+function dropSnap(){ document.body.classList.remove("snap"); const im=document.getElementById("snapimg"); if(im) im.remove(); }
 function tilesPending(){ return document.querySelectorAll("#map .leaflet-tile:not(.leaflet-tile-loaded)").length; }
 function doPrint(){
   if(printing) return; printing=true;
   const b=document.getElementById("print"); const old=b?b.textContent:""; if(b){ b.disabled=true; b.textContent="Getting the map ready to print..."; }
-  document.body.classList.add("prepping"); map.invalidateSize();
-  fitAll();
+  document.body.classList.add("prepping"); map.invalidateSize(); fitAll();
   const t0=Date.now();
   (function wait(){ const pend=tilesPending(), ms=Date.now()-t0;
-    if((ms>900&&pend===0)||ms>8000){ setTimeout(()=>{ try{ window.print(); }finally{ document.body.classList.remove("prepping"); map.invalidateSize(); printing=false; if(b){ b.disabled=false; b.textContent=old; } } },150); }
+    if((ms>900&&pend===0)||ms>8000){ setTimeout(()=>{ const snap=makeSnap(); let ended=false;
+      const end=()=>{ if(ended) return; ended=true; window.removeEventListener("afterprint",end); dropSnap(); document.body.classList.remove("prepping"); map.invalidateSize(); printing=false; if(b){ b.disabled=false; b.textContent=old; } };
+      /* Chrome builds the preview AFTER print() returns and rebuilds it when a print setting changes, so the page must stay in its print state until the print window is closed */
+      window.addEventListener("afterprint",end); setTimeout(end,600000);
+      const go=()=>{ try{ window.print(); }catch(e){ end(); } };
+      /* the flat picture must be fully decoded before the print preview is built, or the first preview shows an empty box */
+      if(snap&&snap.decode) snap.decode().then(go,go); else go(); },150); }
     else setTimeout(wait,200); })();
 }
-window.addEventListener("beforeprint",()=>{ map.invalidateSize(); fitAll(); });
+window.addEventListener("beforeprint",()=>{ map.invalidateSize(); });
 window.addEventListener("afterprint",()=>{ map.invalidateSize(); });
-if(window.matchMedia){ const mq=window.matchMedia("print"); const f=e=>{ if(e.matches){ map.invalidateSize(); fitAll(); } };
+if(window.matchMedia){ const mq=window.matchMedia("print"); const f=e=>{ if(e.matches){ map.invalidateSize(); } };
   if(mq.addEventListener) mq.addEventListener("change",f); else if(mq.addListener) mq.addListener(f); }
 document.getElementById("print").onclick=doPrint;
 if(location.search.indexOf("print=1")>=0){ setTimeout(doPrint,3500); }   // lets the street tiles load first
