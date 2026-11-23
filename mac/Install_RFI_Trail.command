@@ -79,7 +79,7 @@ diagnose() {
         "The radio driver module cannot find the SDRplay library" \
         "The driver module was built, but it points at a differently named SDRplay file, or the SDRplay API is not installed." \
         "Install the SDRplay API (macOS) from sdrplay.com, restart the Mac, then run this installer again and answer y to the radio driver step (it re-points the module for you)." \
-        "https://www.sdrplay.com/softwarehome/"
+        "https://www.sdrplay.com/api/"
     rule "is not writable|Permission denied.*(homebrew|/usr/local|/opt)|Error: .*not writable|cannot create .*(Cellar|Homebrew)" \
         "Homebrew does not own its folders" \
         "Homebrew (the tool that installs the radio library) cannot write to its own folders, usually because it was first set up with another account." \
@@ -119,7 +119,7 @@ diagnose() {
         "The SDRplay radio is not being found" \
         "The radio is unplugged or on a hub, the SDRplay background service is not running, or another SDR program has the radio." \
         "(1) Plug the radio straight into the Mac. (2) Quit SDRuno, SDR++, CubicSDR and similar programs. (3) Restart the SDRplay service: in Terminal  sudo killall -9 sdrplay_apiService  (it restarts by itself), or restart the Mac. (4) Check the SDRplay API is version 3.15 or newer. Then press 'Check setup' in the RFI Trail panel." \
-        "https://www.sdrplay.com/softwarehome/"
+        "https://www.sdrplay.com/api/"
     rule "SoapySDR.*(not found|not installed|not available)|radio library.*(not available|missing)|No module named .SoapySDR" \
         "The SoapySDR radio library is not set up" \
         "The program cannot find the library that talks to the SDRplay (practice mode and maps still work)." \
@@ -366,10 +366,13 @@ if ask "Set up the SDRplay radio driver now?"; then
         echo "  1) Choose macOS, download the API installer, and run it."
         echo "  2) When it finishes, RESTART the Mac (the SDRplay service needs it)."
         echo "  3) After restarting, double-click this installer again."
-        open "https://www.sdrplay.com/softwarehome/" 2>/dev/null
-        say "Stopped here on purpose: install the SDRplay API, restart, then run this installer again."
-        pause_exit 0
+        open "https://www.sdrplay.com/api/" 2>/dev/null
+        echo "(If the page does not open, go to  www.sdrplay.com/api  and use the macOS download.)"
+        say "I will finish installing RFI Trail now (steps 4 to 8). After you install the SDRplay API and restart the Mac, run this installer again and answer y here to add the radio driver."
+        note_warn "The SDRplay API is not installed yet. Get it from www.sdrplay.com/api, restart the Mac, then run this installer again and answer y at the radio driver step."
+        SKIP_DRV=1
     fi
+    if [ -z "$SKIP_DRV" ]; then
     say "SDRplay API found."
     if [ -z "$BREW" ]; then
         echo "Homebrew (a standard Mac tool installer) is needed for the next part."
@@ -461,6 +464,7 @@ if ask "Set up the SDRplay radio driver now?"; then
         rm -rf "$TMP"
     else
         say "Skipping the driver module (no Homebrew)."
+    fi
     fi
 else
     say "Skipped the radio driver. Practice mode and maps will still work."
