@@ -108,6 +108,36 @@ def _bound_socket(ifname):
     return s
 
 
+def _socket_toward(ip, port=PORT):
+    """The socket to stream with. On a Mac or PC with several network ports (Wi-Fi AND a USB network adapter) the radio's
+    169.254.x.x address can be reached from more than one of them, and an ordinary socket may send out of the wrong one,
+    so the radio never answers. Ask out of each port in turn and keep the one the radio really answers on.
+    Returns None when there is only one port, or none answers (the caller then uses an ordinary socket)."""
+    ports = _interfaces()
+    if len(ports) < 2:
+        return None
+    pkt = bytes([0xEF, 0xFE, 0x02]) + bytes(60)
+    for name, _a, _b in ports:
+        try:
+            s = _bound_socket(name)
+        except OSError:
+            continue
+        try:
+            s.sendto(pkt, (ip, port))
+            t_end = time.time() + 0.6
+            while time.time() < t_end:
+                try:
+                    data, addr = s.recvfrom(2048)
+                except socket.timeout:
+                    continue
+                if addr[0] == ip and data[:2] == b"\xEF\xFE":
+                    return s
+        except OSError:
+            pass
+        s.close()
+    return None
+
+
 OTHER_RADIOS = {}                              # ip -> board code of radios that answered but are not a Hermes Lite 2
 
 
@@ -285,9 +315,11 @@ class Hl2Client:
 
     # ---- life cycle -----------------------------------------------------
     def start(self):
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.sock = _socket_toward(self.ip, self.port)                              # the network port the radio answers on
+        if self.sock is None:
+            self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            self.sock.bind(("", 0))
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 4 * 1024 * 1024)
-        self.sock.bind(("", 0))
         self.sock.settimeout(0.25)
         self._stop.clear()
         self.sock.sendto(self._packet(self._frames()[:2]), (self.ip, self.port))     # tell it what we want first

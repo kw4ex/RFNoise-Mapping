@@ -478,8 +478,9 @@ __NT_BIG__</style></head><body>
   <label class="tg"><input type="checkbox" id="tgMarks" checked> &#128681; Marked spots</label>
   <label class="tg"><input type="checkbox" id="tgSflag"> Flag high noise: S-level <select id="sflagSel"><option value="5">S5</option><option value="7">S7</option><option value="9" selected>S9</option><option value="19">S9+10</option><option value="29">S9+20</option><option value="39">S9+30</option></select> or stronger</label>
   <div class="sm" id="sflagMsg"></div>
-  <label class="tg"><input type="checkbox" id="tgPower"> Power lines &amp; poles (OpenStreetMap)</label>
+  <label class="tg"><input type="checkbox" id="tgPower"> Power lines, poles &amp; substations (OpenStreetMap)</label>
   <div class="sm" id="powerMsg"></div>
+  <button class="sm" id="pwHere" style="display:none" title="Load the power lines for the part of the map you are looking at now">Load for this view</button>
   Also show <select id="freq2"><option value="">(nothing)</option></select> as rings
   <div class="sm" id="f2info"></div>
  </details>
@@ -529,8 +530,8 @@ const BASES={
  "Topo (Esri)":TL(ES+"World_Topo_Map/MapServer/tile/{z}/{y}/{x}",{attribution:ESRI}),
  "USGS imagery (US only)":TL("https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/{z}/{y}/{x}",{maxNativeZoom:16,attribution:"USGS The National Map"}),
  "USGS topo (US only)":TL("https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/tile/{z}/{y}/{x}",{maxNativeZoom:16,attribution:"USGS The National Map"}),
- "Light grey (dots stand out)":TL("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",{subdomains:"abcd",attribution:OSMA+" &copy; CARTO"}),
- "Dark":TL("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",{subdomains:"abcd",attribution:OSMA+" &copy; CARTO"}),
+ "Light grey (dots stand out)":TL(ES+"Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}",{maxNativeZoom:16,attribution:ESRI+", HERE, Garmin, OpenStreetMap contributors"}),
+ "Dark":TL(ES+"Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}",{maxNativeZoom:16,attribution:ESRI+", HERE, Garmin, OpenStreetMap contributors"}),
  "No background (works offline)":L.layerGroup([])
 };
 let baseName="Street (OpenStreetMap)", baseLayer=null;
@@ -698,25 +699,30 @@ drawHot();
 // ---- power lines and poles from OpenStreetMap (needs internet; not every pole is mapped)
 const powerLayer=L.layerGroup(), pwMsg=document.getElementById("powerMsg"); let powerDone=false, powerBusy=false;
 function dataBounds(){ const pts=[]; freqs.forEach(f=>DATA[f].forEach(r=>pts.push([r.lat,r.lon]))); return L.latLngBounds(pts); }
-async function loadPower(){
-  if(powerDone||powerBusy) return; powerBusy=true; pwMsg.textContent="Loading power lines from OpenStreetMap...";
-  let b=dataBounds().pad(0.05); if(b.getNorth()-b.getSouth()>0.25||b.getEast()-b.getWest()>0.25) b=map.getBounds();
+async function loadPower(here){
+  if(powerBusy||(powerDone&&!here)) return; powerBusy=true; pwMsg.textContent="Loading power lines from OpenStreetMap...";
+  let b=dataBounds().pad(0.05); if(here||b.getNorth()-b.getSouth()>0.25||b.getEast()-b.getWest()>0.25) b=map.getBounds();
+  if(b.getNorth()-b.getSouth()>0.4||b.getEast()-b.getWest()>0.4){ powerBusy=false; pwMsg.textContent="Zoom in a little more, then press Load for this view (a very large area is too much for the free service)."; document.getElementById("pwHere").style.display=""; return; }
+  powerLayer.clearLayers();
   const bb=[b.getSouth(),b.getWest(),b.getNorth(),b.getEast()].map(x=>x.toFixed(5)).join(",");
-  const q='[out:json][timeout:25];(way["power"~"^(line|minor_line)$"]('+bb+');node["power"~"^(pole|tower)$"]('+bb+'););out geom;';
+  const q='[out:json][timeout:25];(way["power"~"^(line|minor_line|cable)$"]('+bb+');way["power"="substation"]('+bb+');node["power"~"^(pole|tower|substation|transformer)$"]('+bb+');node["man_made"="utility_pole"]('+bb+'););out geom;';
   let j=null;
   for(const ep of ["https://overpass-api.de/api/interpreter","https://overpass.kumi.systems/api/interpreter"]){
     try{ const r=await fetch(ep,{method:"POST",body:"data="+encodeURIComponent(q),headers:{"Content-Type":"application/x-www-form-urlencoded"}}); if(!r.ok) continue; j=await r.json(); break; }catch(e){}
   }
   powerBusy=false;
   if(!j){ pwMsg.textContent="Could not load power lines (needs internet). Untick and tick again to retry."; return; }
-  let nl=0,np=0;
+  let nl=0,np=0,ns=0;
   (j.elements||[]).forEach(e=>{
     const t=e.tags||{}, info=hesc(t.power||"")+(t.voltage?", "+hesc(t.voltage)+" V":"")+(t.operator?"<br>"+hesc(t.operator):"");
-    if(e.type==="way"&&e.geometry){ nl++; L.polyline(e.geometry.map(g=>[g.lat,g.lon]),{color:t.power==="line"?"#e67e00":"#b35900",weight:t.power==="line"?3.5:2.5,dashArray:t.power==="line"?null:"6 4",opacity:0.9}).bindPopup("<b>Power "+info+"</b>").addTo(powerLayer); }
-    else if(e.type==="node"&&e.lat!=null){ np++; L.circleMarker([e.lat,e.lon],{radius:t.power==="tower"?5:3.5,color:"#000",weight:1,fillColor:"#ffd400",fillOpacity:1}).bindPopup("<b>"+(t.power==="tower"?"Tower":"Pole")+"</b>"+(t.voltage?"<br>"+hesc(t.voltage)+" V":"")+geoLinks(e.lat,e.lon)).addTo(powerLayer); }
+    if(e.type==="way"&&t.power==="substation"&&e.geometry){ ns++; L.polygon(e.geometry.map(g=>[g.lat,g.lon]),{color:"#7a1fa2",weight:2,fillColor:"#c77dff",fillOpacity:0.45}).bindPopup("<b>Substation"+(t.name?": "+hesc(t.name):"")+"</b>"+(t.voltage?"<br>"+hesc(t.voltage)+" V":"")+(t.operator?"<br>"+hesc(t.operator):"")).addTo(powerLayer); }
+    else if(e.type==="way"&&e.geometry){ nl++; L.polyline(e.geometry.map(g=>[g.lat,g.lon]),{color:t.power==="line"?"#e67e00":"#b35900",weight:t.power==="line"?3.5:2.5,dashArray:t.power==="line"?null:"6 4",opacity:0.9}).bindPopup("<b>Power "+info+"</b>").addTo(powerLayer); }
+    else if(e.type==="node"&&e.lat!=null){ const kind=t.power==="tower"?"Tower":t.power==="substation"?"Substation":t.power==="transformer"?"Transformer":"Pole"; if(kind==="Pole"||kind==="Tower") np++; else ns++;
+      L.circleMarker([e.lat,e.lon],{radius:kind==="Tower"?5:kind==="Pole"?3.5:6,color:"#000",weight:1,fillColor:kind==="Substation"?"#c77dff":kind==="Transformer"?"#7fd1ff":"#ffd400",fillOpacity:1}).bindPopup("<b>"+kind+"</b>"+(t.ref?" "+hesc(t.ref):"")+(t.voltage?"<br>"+hesc(t.voltage)+" V":"")+(t.operator?"<br>"+hesc(t.operator):"")+geoLinks(e.lat,e.lon)).addTo(powerLayer); }
   });
-  powerDone=true; pwMsg.textContent=nl+" line"+(nl==1?"":"s")+" and "+np+" pole/tower"+(np==1?"":"s")+" found (OpenStreetMap data: coverage varies, not every pole is mapped).";
+  powerDone=true; pwMsg.textContent=nl+" line"+(nl==1?"":"s")+", "+np+" pole/tower"+(np==1?"":"s")+" and "+ns+" substation/transformer"+(ns==1?"":"s")+" found (orange = lines, yellow = poles, purple = substations). OpenStreetMap coverage varies: not every pole is mapped. Press Load for this view to look at another area."; document.getElementById("pwHere").style.display="";
 }
+document.getElementById("pwHere").onclick=()=>{ if(!document.getElementById("tgPower").checked){ document.getElementById("tgPower").checked=true; powerLayer.addTo(map); } loadPower(true); };
 document.getElementById("tgPower").onchange=function(){ if(this.checked){ powerLayer.addTo(map); loadPower(); } else map.removeLayer(powerLayer); };
 
 // ---- printing: resize the map for the page, print, then restore

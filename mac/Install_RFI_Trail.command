@@ -613,6 +613,7 @@ start_agent() {          # 1st choice: an "interactive" macOS background job (no
         echo "<key>ProgramArguments</key><array><string>/bin/bash</string><string>-c</string><string>cd &quot;$DEST/app&quot; &amp;&amp; exec \${ARCHPFX}&quot;\$PY&quot; nt_app.py</string></array>"
         echo '<key>ProcessType</key><string>Interactive</string>'
         echo '<key>RunAtLoad</key><true/>'
+        echo '<key>AbandonProcessGroup</key><true/>'
         echo "<key>StandardOutPath</key><string>\$LOG</string>"
         echo "<key>StandardErrorPath</key><string>\$LOG</string>"
         echo '</dict></plist>'

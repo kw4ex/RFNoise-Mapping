@@ -283,6 +283,8 @@ def close_browser_tabs(port):
 
 # The application state (one instance)
 # ----------------------------------------------------------------------------
+MUTE_ALL = [False]      # master mute for sound in every browser tab
+
 class App:
     def __init__(self):
         self.data = C.data_dir()
@@ -1269,6 +1271,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(self.full_state())
             if path == "/api/live":
                 return self._json(self.live_state())
+            if path == "/api/mute":                    # master mute, shared by every open browser tab
+                return self._json({"ok": True, "mute": bool(MUTE_ALL[0])})
             if path == "/api/gps":                     # live GPS for the top bar and the Hardware window
                 return self._json({"ok": True, **GPSMON.info()})
             if path == "/api/hardware":
@@ -1447,6 +1451,9 @@ class Handler(BaseHTTPRequestHandler):
                 GPSMON.hold = False
 
     def route_post(self, path, b):
+        if path == "/api/mute":
+            MUTE_ALL[0] = bool((b or {}).get("mute"))
+            return {"ok": True, "mute": MUTE_ALL[0]}
         if path == "/api/config":
             APP.update_cfg(b)
             return {"ok": True}
@@ -1759,7 +1766,20 @@ class Handler(BaseHTTPRequestHandler):
             APP.stop()
             kill_stray_copies()                              # 0.4.0f: no old copy may be left holding the radio
             port = APP.port
-            if path == "/api/restart":                       # start a fresh copy a few seconds after this one has gone
+            kick = None
+            if path == "/api/restart" and sys.platform == "darwin":
+                # 2.0.0i: on the Mac the program runs as a macOS background job, and macOS removes any helper left behind
+                # when the program exits, so the little launcher below never got to start the new copy. Ask macOS itself
+                # to restart the job instead (it stops this copy and starts a new one).
+                try:
+                    lab = os.environ.get("XPC_SERVICE_NAME", "")
+                    tgt = "gui/%d/%s" % (os.getuid(), lab)
+                    if lab and lab not in ("0",) and not lab.startswith("application.") and \
+                       subprocess.run(["launchctl", "print", tgt], capture_output=True, timeout=5).returncode == 0:
+                        kick = tgt
+                except Exception:
+                    kick = None
+            if path == "/api/restart" and not kick:          # start a fresh copy a few seconds after this one has gone
                 try:
                     args0 = [a for a in sys.argv[1:] if a != "--no-browser"]
                     launcher = ("import subprocess,sys,time\ntime.sleep(3)\n"
@@ -1778,9 +1798,14 @@ class Handler(BaseHTTPRequestHandler):
             def _finish():
                 close_browser_tabs(port)
                 time.sleep(0.4)
+                if kick:
+                    try:
+                        subprocess.run(["launchctl", "kickstart", "-k", kick], timeout=20)   # stops this copy and starts a fresh one
+                    except Exception as e:
+                        print("Restart through launchctl failed:", e, flush=True)
                 os._exit(0)
             threading.Thread(target=_finish, daemon=True).start()
-            threading.Timer(12.0 if C.IS_MAC else 0.4, lambda: os._exit(0)).start()   # safety net
+            threading.Timer((30.0 if kick else 12.0) if C.IS_MAC else 0.4, lambda: os._exit(0)).start()   # safety net
             return {"ok": True}
         raise ValueError("unknown request")
 

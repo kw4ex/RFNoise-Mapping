@@ -44,6 +44,53 @@ body.logging .jump,body.logging #barStat{display:none !important}
 #driveBar #barHw.hasph{grid-template-columns:minmax(0,.9fr) minmax(0,.8fr) minmax(0,1.4fr) minmax(0,1.7fr) auto}
 @media(max-width:1000px){#driveBar #barHw{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:1000px){#driveBar #barHw.hasph{grid-template-columns:repeat(2,minmax(0,1fr))}}
+/* Compact view: the whole top bar stays on one line */
+body.compact header{padding:4px 12px;gap:4px 10px}
+body.compact header h1{font-size:16px}
+body.compact #driveBar{padding:4px 10px}
+body.compact #driveBar #drvRow1,body.compact #driveBar .dbrow{flex-wrap:nowrap;gap:5px 7px}
+body.compact #driveBar .dbrow>*{flex:none;white-space:nowrap}
+body.compact #driveBar .dbrow>input[type=text]{flex:1 1 60px;min-width:0;width:auto;padding:3px 6px;font-size:13px}
+body.compact #driveBar #route{max-width:140px}
+body.compact #driveBar #markNote{max-width:100px}
+body.compact #driveBar .dbrow>span[style*="flex:1"]{flex:1 1 0;min-width:0}
+body.compact #driveBar .dbrow button{padding:3px 9px;font-size:13px}
+body.compact #driveBar #drvRow1 button.pri,body.compact #driveBar #drvRow1 button.stop{font-size:14px;padding:4px 12px}
+body.compact #driveBar .chk{font-size:13px}
+body.compact #driveBar{--bz:1;--bz2:.82}
+body.compact #driveBar #barHw,body.compact #driveBar #barHw.hasph{grid-template-columns:minmax(0,.8fr) minmax(0,.8fr) minmax(0,1fr) max-content auto;gap:5px;margin-top:4px}
+body.compact #driveBar #barHw:not(.hasph){grid-template-columns:minmax(0,.8fr) minmax(0,.8fr) minmax(0,1fr) max-content}
+body.compact #barHw .bbox{padding:3px 8px}
+body.compact #barHw .mstsvg{width:calc(64px*var(--bz2))}
+/* Compact, second pass: everything squeezed so nothing drops to a new line, also while a drive is being recorded */
+body.compact header{flex-wrap:nowrap;overflow:hidden;white-space:nowrap}
+body.compact header .sp{flex:1 1 0;min-width:0}
+body.compact header button.sm,body.compact header a.btn{padding:2px 7px;font-size:12px}
+body.compact header .pill{font-size:11px;padding:1px 7px}
+body.compact #driveBar #barLive,body.compact #driveBar #barHw{flex-wrap:nowrap;gap:5px;margin-top:4px}
+body.compact #barLive .bbox,body.compact #barHw .bbox{padding:2px 7px;font-size:12px;min-width:0;overflow:hidden;white-space:nowrap;flex:1 1 0;line-height:1.2}
+body.compact #barLive .bbox .lab,body.compact #barHw .bbox .lab{font-size:9px}
+body.compact #barLive .bbox.snd{flex-wrap:nowrap;gap:2px 6px;flex:0 1 auto}
+body.compact #barLive .bbox.snd .lab{width:auto}
+body.compact #bigSpeed{min-width:0;padding:0 8px}
+body.compact #bigSpeed b{font-size:26px}
+body.compact #bigSpeed span{font-size:12px}
+body.compact .sub2,body.compact #barHw .mstsvg{display:none}
+body.compact #barHw .bbox.alb{flex:2 1 0}
+body.compact #barHw .bbox.alb .alr{display:inline-flex;flex-wrap:nowrap;align-items:center;gap:4px;margin:0}
+body.compact #barHw .bbox.alb .alr input[type=range]{width:56px}
+body.compact #barHw .bbox.mst{flex:1 1 0}
+body.compact #barHw .bbox.alb .alr .lab{display:none}
+body.compact #barHw .bbox.alb .alr:first-of-type .lab{display:inline;font-size:10px;text-transform:uppercase}
+body.compact #barHw .bbox.alb{flex-direction:row;flex-wrap:nowrap;align-items:center;gap:0 8px;white-space:nowrap;flex:0 0 auto;overflow:visible}
+body.compact #barHw .bbox.alb button{white-space:nowrap;padding:1px 6px;font-size:11px}
+body.compact #barHw .bbox.alb .chk{font-size:12px;gap:2px}
+body.compact #barLive,body.compact #barHw{align-items:center}
+body.compact #barHw .bbox{align-self:center}
+body.compact #phoneBox2{flex:0 0 auto!important;gap:5px!important;padding:2px 6px!important}
+body.compact #phoneQr2{width:34px!important;height:34px!important}
+body.compact #mstS{font-size:20px}
+body.compact #driveBar #barLive{flex-wrap:nowrap;gap:5px}
 #barHw .mst{flex-direction:row;align-items:center;gap:8px}
 #barHw .mstsvg{flex:none;width:calc(92px*var(--bz2))}#barHw .mstsvg svg{width:100%;height:auto;display:block}
 #barHw .mstt{display:flex;flex-direction:column;min-width:0;overflow:hidden}
@@ -542,6 +589,8 @@ body.only-slot #pracBanner{display:none !important}
  <button class="sm" onclick="setOpen()" title="Your radios, the GPS, how often to take a reading, gain, the iPhone/iPad address (QR code), tests, backup and help files">Settings&hellip;</button>
  <button class="sm" onclick="hwOpen()" title="GPS, radios and which radio measures each slot">Hardware setup&hellip;</button>
  <button class="sm" id="bPhone" style="display:none" onclick="phoneAccessSet(true)" title="Phone and tablet access is off. Press to turn it on and show the QR code.">Phone / tablet: off</button>
+ <button class="sm" id="bMuteAll" onclick="muteAllToggle()" title="Silences ALL sound at once: every slot, the strong-signal alert and the spoken readings. Press again to hear them again.">&#128266; Sound on</button>
+ <button class="sm" id="bView" onclick="viewToggle()" title="Compact: the top bar squeezed onto one line and the 4 slots two across, pictures only. Normal: roomy top bar and one slot per row at full size.">View: Normal</button>
  <span title="Make the numbers in the bar below smaller or larger"><button class="sm szb" onclick="barSize(-1)">A&minus;</button><button class="sm szb" onclick="barSize(1)">A+</button></span>
  <button class="sm" id="bRestartTop" style="border-color:#e0b36a;color:#8a5a00;font-weight:600" title="Stops any drive that is being recorded (saving it), closes the program and starts it again with a fresh browser tab" onclick="restartApp()">Restart</button>
  <button class="sm" id="bQuitTop" style="border-color:#e58a8a;color:#a02222;font-weight:600" title="Stops any drive that is being recorded (saving it), then closes the program" onclick="quitApp()">Close program</button>
@@ -590,7 +639,7 @@ body.only-slot #pracBanner{display:none !important}
    <div class="mstsvg" id="mstSvg"></div>
    <div class="mstt"><span class="lab">Highest</span><b class="mstS" id="mstS">&ndash;</b><span class="sub2" id="mstW">&nbsp;</span><span class="sub2" id="mstP">&nbsp;</span></div></div>
   <div class="bbox alb hwx" id="hwAl" title="Plays a sound (and can speak the S-reading) when the highest reading reaches the S-level you choose">
-   <span class="alr"><span class="lab">Strong signal</span><label class="chk"><input type="checkbox" id="alOn" onchange="alSave()"> <span>on</span></label> <label class="chk" title="Beeps if the GPS is lost or no new dots are saved while you are moving"><input type="checkbox" id="alarmOn" checked> <span>GPS</span></label><button class="sm" id="alMoreB" onclick="alPop()" title="Sound, volume, voice: speak the reading with the alert, say S every X seconds">&#9881; Sound &amp; voice</button></span>
+   <span class="alr"><span class="lab">Strong signal</span><label class="chk"><input type="checkbox" id="alOn" onchange="alSave()"> <span>on</span></label> <label class="chk" title="Tick to hear the alert beep; untick for silent alerts"><input type="checkbox" id="alSndM" onchange="alQuick()"> <span>Sound</span></label> <label class="chk" title="Tick to have the S-reading spoken with the alert"><input type="checkbox" id="alVoiceM" onchange="alQuick()"> <span>Voice</span></label> <label class="chk" title="Beeps if the GPS is lost or no new dots are saved while you are moving"><input type="checkbox" id="alarmOn" checked> <span>GPS</span></label><button class="sm" id="alMoreB" onclick="alPop()" title="Sound, volume, voice: speak the reading with the alert, say S every X seconds">&#9881; Sound &amp; voice</button></span>
    <span class="alr"><span class="alk">At</span><input type="range" id="alIdx" min="0" max="15" step="1" value="7" list="alTicks" oninput="alSave()" title="The S-level that sets off the alert"><b id="alIdxV">S7</b><button class="sm" onclick="alTest()" title="Hear the chosen sound at the chosen volume">&#9654; Test</button></span>
    <datalist id="alTicks"><option value="0"></option><option value="1"></option><option value="2"></option><option value="3"></option><option value="4"></option><option value="5"></option><option value="6"></option><option value="7"></option><option value="8"></option><option value="9"></option><option value="10"></option><option value="11"></option><option value="12"></option><option value="13"></option><option value="14"></option><option value="15"></option></datalist></div>
  <div class="bbox hwx" id="phoneBox2" style="display:none;flex-direction:row;align-items:center;gap:9px" title="Use RFI Trail on a phone or tablet: scan this square with the camera. Press How? for the steps.">
@@ -1031,6 +1080,8 @@ body.only-slot #pracBanner{display:none !important}
 </dialog>
 
 <script>
+let MUTE_ALL=false; try{ MUTE_ALL=localStorage.getItem("ntMuteAll")==="1"; }catch(e){}   // master mute, declared first so every function can see it
+
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 let S=null, formFilled=false, wasLogging=false, stoppedByUser=false, emailFile=null, notesFile=null, tToast=null;
@@ -1252,7 +1303,7 @@ function ensureSlots(){ const grid=$("slGrid"); if(grid.children.length===4){ me
   grid.innerHTML=""; for(let i=0;i<4;i++){ const d=document.createElement("div"); d.className="slbox empty"; d.innerHTML=slotHTML(i); if(POPSLOT===i+1) d.classList.add("me"); grid.appendChild(d); slotInit(i,d); }
   meterHome();
   try{ if(!localStorage.getItem("ntSlCompactReset")){ localStorage.setItem("ntSlCompactReset","1"); localStorage.removeItem("ntSlCompact"); } }catch(e){}    // once: an old Full-size choice from an earlier version is cleared so the 2-across view shows
-  if(localStorage.getItem("ntSlCompact")!=="0"){ grid.classList.add("compact"); $("bSlCompact").textContent="Full-size view"; } }
+  viewApply(); }
 const RADIO_MAX={hl2:38,anan:55};            /* highest MHz each radio can hear */
 const RADIO_NAME={hl2:"the Hermes Lite 2",anan:"the ANAN"};
 const SL_DEF={hl2:["7.2","LSB"],anan:["7.2","LSB"],sdrplay:["146.52","NFM"]};
@@ -1447,7 +1498,7 @@ function slPanFrame(j){ const i=SLP2.slot; if(i<0||!isSdSlot(i)) return; const d
   j.tune=(parseFloat(rowEl("cm",i).value)||0)*1e6; j.bw=(+rowEl("cb",i).value||5)*1e3; j.sdr=true; j.radio="sdrplay"; j._at=Date.now();
   d._frozen=j; d._f=j; slDraw(i,j); }
 function slPanAudioSync(){ const i=SLP2.slot, p=i>=0?slp(i):null;
-  const want=SLP2.on&&p&&isSdSlot(i)&&slLiveIdx()===i&&!SL.logging&&p.vol>0&&!p.mute&&(!POPSLOT||POPSLOT===i+1)&&!popClaimed(i);
+  const want=SLP2.on&&p&&isSdSlot(i)&&slLiveIdx()===i&&!SL.logging&&p.vol>0&&!p.mute&&!MUTE_ALL&&(!POPSLOT||POPSLOT===i+1)&&!popClaimed(i);
   if(want){ const o=slsChan("pan"); o.on=true; if(!o.timer) slsPoll("pan"); slsGainSet(i); }
   else if(SLS.ch["pan"]){ const o=SLS.ch["pan"]; o.on=false; clearTimeout(o.timer); o.timer=null; } }
 function slScopeSd(i,cv){ const F=slFit(cv); if(!F) return; const g=cv.getContext("2d"), W=F.W, H=F.H, sc=F.sc, f=slotEl(i)._f; g.fillStyle="#0b1620"; g.fillRect(0,0,W,H);
@@ -1723,9 +1774,7 @@ function slFallback(i){     // while mapping, a radio that has to retune between
     g.fillText("last "+h.length+" readings: "+lo.toFixed(0)+" to "+hi.toFixed(0)+" dB",10*F.dpr,y0-6*sc); } }
 function slPassband(mode,bwSel,measHz){ const bw=(bwSel==="match"?+measHz:+bwSel)||BWDEF[mode]||8000;
   if(mode==="LSB") return {lo:-bw,hi:0}; if(mode==="USB") return {lo:0,hi:bw}; return {lo:-bw/2,hi:bw/2}; }
-function slCompact(){ const g=$("slGrid"), on=!g.classList.contains("compact"); g.classList.toggle("compact",on);
-  $("bSlCompact").textContent=on?"Full-size view":"Compact view (all 4 on one screen)";
-  try{localStorage.setItem("ntSlCompact",on?"1":"0");}catch(e){}
+function slCompact(){ const on=!COMPACT; COMPACT=on; try{ localStorage.setItem("ntCompact",on?"1":"0"); }catch(e){} viewApply();
   if(on) $("cSlices").scrollIntoView({behavior:"smooth",block:"start"}); }
 
 /* ----- tuning pushes ----- */
@@ -1751,7 +1800,7 @@ function slsUnlock(){ const c=SLS.actx; if(!c||c.state==="running") return;     
   try{ const r=c.resume(); if(r&&r.catch) r.catch(()=>{}); const b=c.createBuffer(1,1,22050), s=c.createBufferSource(); s.buffer=b; s.connect(c.destination); s.start(0); }catch(e){} }
 for(const ev of ["pointerdown","mousedown","mouseup","click","touchstart","touchend","keydown"]) document.addEventListener(ev,slsUnlock,true);
 function slsChan(c){ let o=SLS.ch[c]; if(!o){ const ctx=slsCtx(), g=ctx.createGain(), pre=ctx.createGain(), an=ctx.createAnalyser(); an.fftSize=1024; an.smoothingTimeConstant=0.6; pre.connect(g); pre.connect(an); g.connect(ctx.destination); o=SLS.ch[c]={gain:g,pre:pre,an:an,after:0,aNext:0,timer:null,req:0,on:false}; } return o; }
-function slsGainSet(i){ const c=slotCh(i); if(c<0) return; const sd=isSdSlot(i), o=slsChan(sd?"pan":c), p=slp(i), f=slotEl(i)._f, shut=(!sd&&p.sq>-119&&f&&f.smeter<p.sq); o.gain.gain.value=(p.mute||shut)?0:(p.vol/100)*(sd?2.5:1.5); }
+function slsGainSet(i){ const c=slotCh(i); if(c<0) return; const sd=isSdSlot(i), o=slsChan(sd?"pan":c), p=slp(i), f=slotEl(i)._f, shut=(!sd&&p.sq>-119&&f&&f.smeter<p.sq); o.gain.gain.value=(MUTE_ALL||p.mute||shut)?0:(p.vol/100)*(sd?2.5:1.5); }
 async function slsPoll(c){
   const o=SLS.ch[c]; if(!o||!o.on){ if(o) o.timer=null; return; }
   try{ const r=await fetch(c==="pan"?("/api/pan/audio?after="+o.after):("/api/slices/audio?ch="+c+"&after="+o.after),{cache:"no-store"});
@@ -1771,7 +1820,7 @@ let slsSyncT=null; function slsSyncSoon(){ clearTimeout(slsSyncT); slsSyncT=setT
 async function slsSync(){
   if(SL.syncBusy||!SL.live) return; SL.syncBusy=true;
   try{
-    const want={}; for(let i=0;i<4;i++){ const c=slotCh(i); if(c>=0&&SL.byCh[c]&&(slRadioFor(i,SL.byCh[c])==="hl2"||slRadioFor(i,SL.byCh[c])==="anan"||/^cat[1-4]$/.test(slRadioFor(i,SL.byCh[c])))&&slp(i).vol>0&&!slp(i).mute&&(!POPSLOT||POPSLOT===i+1)&&!popClaimed(i)) want[c]=i; }
+    const want={}; for(let i=0;i<4;i++){ const c=slotCh(i); if(c>=0&&SL.byCh[c]&&(slRadioFor(i,SL.byCh[c])==="hl2"||slRadioFor(i,SL.byCh[c])==="anan"||/^cat[1-4]$/.test(slRadioFor(i,SL.byCh[c])))&&slp(i).vol>0&&!slp(i).mute&&!MUTE_ALL&&(!POPSLOT||POPSLOT===i+1)&&!popClaimed(i)) want[c]=i; }
     for(const c in want){ const i=want[c], o=slsChan(+c), st=SLS.sound[c]||{};
       if(!st.listen&&Date.now()-o.req>2500){ o.req=Date.now(); await api("/api/slices/listen",Object.assign({channel:+c,on:true},slsPrefs(i))); }
       o.on=true; if(!o.timer) slsPoll(+c); slsGainSet(i);
@@ -2109,7 +2158,7 @@ async function quickMap(){
 let AUD=null;
 function audio(){ try{ if(!AUD) AUD=new (window.AudioContext||window.webkitAudioContext)(); if(AUD.state==="suspended") AUD.resume(); }catch(e){} return AUD; }
 document.addEventListener("click",()=>audio(),{once:false});
-function beep(freq,dur,vol){ const a=audio(); if(!a) return; try{ const o=a.createOscillator(), g=a.createGain(); o.type="sine"; o.frequency.value=freq;
+function beep(freq,dur,vol){ if(MUTE_ALL) return; const a=audio(); if(!a) return; try{ const o=a.createOscillator(), g=a.createGain(); o.type="sine"; o.frequency.value=freq;
   g.gain.value=vol||0.18; o.connect(g); g.connect(a.destination); o.start(); g.gain.setTargetAtTime(0,a.currentTime+dur*0.7,0.03); o.stop(a.currentTime+dur); }catch(e){} }
 function toneToggle(){ if($("toneOn").checked){ audio(); beep(660,0.15); try{localStorage.setItem("ntTone","1");}catch(e){} } else { try{localStorage.setItem("ntTone","0");}catch(e){} } }
 function fmtDur(s){ s=Math.max(0,Math.round(s)); const h=Math.floor(s/3600), m=Math.floor(s%3600/60), x=s%60; return (h?h+":"+String(m).padStart(2,"0"):m)+":"+String(x).padStart(2,"0"); }
@@ -2181,7 +2230,7 @@ function carMode(on){ const b=document.body; const v=(on===undefined)?!b.classLi
   $("bCar").textContent=v?"Exit car mode":"Car mode"; $("cTrack").style.display=(v||window.__logging)?"block":"none"; fixBarTop(); setTimeout(()=>{ if(TR.map) TR.map.invalidateSize(); },200); if(v) trInit(); }
 
 /* ---------- live track map ---------- */
-const TR={map:null,pts:[],seq:0,mk:null,layer:null,markLayer:null,lo:-100,hi:-90,loading:false,lastRecolor:0,nMarks:-1};
+const TR={me:null,centered:false,map:null,pts:[],seq:0,mk:null,layer:null,markLayer:null,lo:-100,hi:-90,loading:false,lastRecolor:0,nMarks:-1};
 function loadLeaflet(){ return new Promise((res,rej)=>{ if(window.L) return res();
   const l=document.createElement("link"); l.rel="stylesheet"; l.href="/vendor/leaflet.css"; document.head.appendChild(l);
   const sc=document.createElement("script"); sc.src="/vendor/leaflet.js"; sc.onload=()=>res(); sc.onerror=()=>rej(new Error("map library")); document.head.appendChild(sc); }); }
@@ -2191,7 +2240,17 @@ async function trInit(){
   TR.map=L.map("liveMap",{preferCanvas:true,zoomControl:true}).setView([39.77,-86.16],16);
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"&copy; OpenStreetMap contributors"}).addTo(TR.map);
   TR.layer=L.layerGroup().addTo(TR.map); TR.markLayer=L.layerGroup().addTo(TR.map); TR.loading=false;
+  TR.centered=false; TR.me=null; trMe(window.__lastGps);
   setTimeout(()=>TR.map.invalidateSize(),300);
+}
+/* "You are here": a blue dot at the live GPS position, shown in Car mode and while recording, even before the first dot is saved */
+function trMe(g){
+  if(!TR.map||!g||g.state!=="fix"||g.lat==null||g.lon==null) return;
+  const ll=[g.lat,g.lon];
+  if(!TR.me){ TR.me=L.circleMarker(ll,{radius:9,color:"#fff",weight:3,fillColor:"#1a73e8",fillOpacity:1}).bindTooltip("You are here").addTo(TR.map); }
+  else TR.me.setLatLng(ll);
+  if(!TR.centered){ TR.centered=true; TR.map.setView(ll,17); }
+  else if($("trFollow")&&$("trFollow").checked&&!TR.map.getBounds().pad(-0.25).contains(ll)) TR.map.panTo(ll);
 }
 const TR_STOPS=["#313695","#4575b4","#74add1","#abd9e9","#ffffbf","#fdae61","#f46d43","#d73027","#a50026"].map(h=>[1,3,5].map(i=>parseInt(h.substr(i,2),16)));
 function trColor(v){ const f=Math.max(0,Math.min(1,(v-TR.lo)/((TR.hi-TR.lo)||1))), x=f*(TR_STOPS.length-1), i=Math.min(Math.floor(x),TR_STOPS.length-2), u=x-i;
@@ -2740,6 +2799,26 @@ function fitRow1(force){
 addEventListener("resize",()=>fitRow1()); setInterval(()=>fitRow1(),1200); setTimeout(()=>fitRow1(true),300);
 function barSize(d){ BAR_Z=Math.min(2.2,Math.max(1,Math.round((BAR_Z+d*0.2)*10)/10)); $("driveBar").style.setProperty("--bz",BAR_Z); try{localStorage.setItem("ntBarZ",String(BAR_Z));}catch(e){} fixBarTop(); fitRow1(true); }
 $("driveBar").style.setProperty("--bz",BAR_Z);
+
+/* ---------- compact view and master mute ---------- */
+function muteAllShow(){ const b=$("bMuteAll"); if(!b) return; b.innerHTML=MUTE_ALL?"&#128263; MUTED":"&#128266; Sound on"; b.style.background=MUTE_ALL?"#fde1de":""; b.style.borderColor=MUTE_ALL?"#d93025":""; b.style.color=MUTE_ALL?"#a02222":""; b.style.fontWeight=MUTE_ALL?"700":""; }
+function muteAllApply(){
+  for(const c in SLS.ch){ try{ const o=SLS.ch[c]; if(MUTE_ALL) o.gain.gain.value=0; }catch(e){} }
+  for(let i=0;i<4;i++){ try{ slsGainSet(i); }catch(e){} }
+  if(MUTE_ALL){ try{ window.speechSynthesis&&window.speechSynthesis.cancel(); }catch(e){} }
+  try{ slsSyncSoon(); slPanAudioSync(); }catch(e){} }
+function muteAllSet(v){ if(v===MUTE_ALL) return; MUTE_ALL=v; try{ localStorage.setItem("ntMuteAll",v?"1":"0"); }catch(e){} muteAllShow(); muteAllApply(); }
+async function muteAllSync(){ try{ const j=await api("/api/mute"); muteAllSet(!!j.mute); }catch(e){} }
+setInterval(muteAllSync,1500); setTimeout(muteAllSync,500);   // every open tab, in any browser, follows the one master mute
+function muteAllToggle(){ MUTE_ALL=!MUTE_ALL; try{ localStorage.setItem("ntMuteAll",MUTE_ALL?"1":"0"); }catch(e){} try{ api("/api/mute",{mute:MUTE_ALL}); }catch(e){} muteAllShow(); muteAllApply();
+  toast(MUTE_ALL?"All sound is muted (slots, alerts and voice). Press MUTED again to hear them.":"Sound is back on.",4000); }
+let COMPACT=false;
+try{ const c=localStorage.getItem("ntCompact"); COMPACT=c!==null?c==="1":localStorage.getItem("ntSlCompact")!=="0"; }catch(e){ COMPACT=true; }
+function viewApply(){ document.body.classList.toggle("compact",COMPACT); const b=$("bView"); if(b) b.textContent=COMPACT?"View: Compact":"View: Normal";
+  const g=$("slGrid"); if(g&&g.children.length===4){ g.classList.toggle("compact",COMPACT); const sb=$("bSlCompact"); if(sb) sb.textContent=COMPACT?"Full-size view":"Compact view (all 4 on one screen)"; try{ localStorage.setItem("ntSlCompact",COMPACT?"1":"0"); }catch(e){} }
+  try{ fixBarTop(); }catch(e){} }
+function viewToggle(){ COMPACT=!COMPACT; try{ localStorage.setItem("ntCompact",COMPACT?"1":"0"); }catch(e){} viewApply(); setTimeout(()=>{ try{ fitRow1(true); fixBarTop(); if(TR.map) TR.map.invalidateSize(); }catch(e){} },60); }
+muteAllShow(); viewApply();
 /* ---------- radios on a CAT cable ---------- */
 let CAT=[], CATM=[], CATPORTS=[];
 function catModel(id){ return CATM.find(m=>m.id===id)||null; }
@@ -2804,6 +2883,7 @@ function hwSlotsLine(){
     if(mb){ mb.classList.toggle("off",!on); mb.querySelector(".mrn").textContent=on?hwRadName(r):"off"; mb.querySelector(".mfq").textContent=on?(+e.value).toFixed(3)+" MHz":""; }
     if(!on){ MT[i].v=null; meterDraw(i); } } }
 function gpsShow(g){
+  window.__lastGps=g; try{ trMe(g); }catch(e){}
   const st=g.state, fix=st==="fix", few=fix&&g.sats!=null&&g.sats<4;
   let t="–", c=" ";
   if(fix){ t="Fix · "+(g.sats!=null?g.sats+" sats":"sats ?"); c=g.lat.toFixed(5)+", "+g.lon.toFixed(5); }
@@ -2885,17 +2965,20 @@ function masterDraw(){ if(!$("mn4")) return; const has=MM.v!=null, t="";
   $("mstP").textContent=MM.peak!=null?("peak "+sTxt(MM.peak,MM.pm)+" · slot "+(MM.pi+1)):"";
   $("hwMst").classList.toggle("hot",has&&AL.on&&AL.thr!=null&&sNum(MM.v,MM.m)>=AL.thr); }
 /* ---- warning: sound, volume and the S-level at which it plays ---- */
+let ALSND=true; try{ ALSND=localStorage.getItem('ntAlSndOn')!=='0'; }catch(e){}
+function alQuick(){ ALSND=$('alSndM').checked; $('alVoice').checked=$('alVoiceM').checked; try{ localStorage.setItem('ntAlSndOn',ALSND?'1':'0'); }catch(e){} alSave(); }
 const AL={on:false,snd:"beep",vol:60,idx:7,thr:null,t:0,voice:false,every:0,ts:0};
 function alPop(){ const e=$('alPop'); e.style.display=e.style.display==='block'?'none':'block'; }
 function alLabel(ix){ return ix<=0?"Off":ix<=9?"S"+ix:"S9+"+((ix-9)*10); }
 function alThr(ix){ return ix<=0?null:ix<=9?ix:9+(ix-9)*10/6; }
 function alLoad(){ try{ const g=k=>localStorage.getItem(k); AL.on=g("ntAlOn")==="1"; AL.snd=g("ntAlSnd")||"beep"; const v=parseInt(g("ntAlVol")); AL.vol=(v>=0&&v<=100)?v:60; const x=parseInt(g("ntAlIdx")); AL.idx=(x>=0&&x<=15)?x:7; AL.voice=g("ntAlVoice")==="1"; const ev=parseInt(g("ntAlEvery")); AL.every=(ev>=0&&ev<=600)?ev:0; }catch(e){}
   $("alOn").checked=AL.on; $("alSnd").value=AL.snd; $("alVol").value=AL.vol; $("alIdx").value=AL.idx; $("alVoice").checked=AL.voice; $("alEvery").value=AL.every; alShow(); }
-function alShow(){ { const mb=$("alMoreB"); if(mb) mb.innerHTML=(AL.voice||AL.every>0)?"&#128266; Voice on":"&#9881; Sound &amp; voice"; } AL.thr=alThr(AL.idx); $("alVolV").textContent=AL.vol; $("alIdxV").textContent=alLabel(AL.idx); }
+function alShow(){ { const a=$('alSndM'), b=$('alVoiceM'); if(a) a.checked=ALSND; if(b) b.checked=!!AL.voice; }
+ {  const mb=$("alMoreB"); if(mb) mb.innerHTML=(AL.voice||AL.every>0)?"&#128266; Voice on":"&#9881; Sound &amp; voice"; } AL.thr=alThr(AL.idx); $("alVolV").textContent=AL.vol; $("alIdxV").textContent=alLabel(AL.idx); }
 function alSave(){ AL.on=$("alOn").checked; AL.snd=$("alSnd").value; AL.vol=+$("alVol").value; AL.idx=+$("alIdx").value; AL.voice=$("alVoice").checked; AL.every=Math.max(0,Math.min(600,parseInt($("alEvery").value)||0)); AL.ts=Date.now(); alShow();
   try{ localStorage.setItem("ntAlOn",AL.on?"1":"0"); localStorage.setItem("ntAlSnd",AL.snd); localStorage.setItem("ntAlVol",String(AL.vol)); localStorage.setItem("ntAlIdx",String(AL.idx)); localStorage.setItem("ntAlVoice",AL.voice?"1":"0"); localStorage.setItem("ntAlEvery",String(AL.every)); }catch(e){}
   if(MM.v!=null) masterDraw(); }
-function alPlay(name,vol){ const a=audio(); if(!a||vol<=0) return; const g0=Math.pow(vol/100,1.6)*0.7, now=a.currentTime;
+function alPlay(name,vol){ const a=audio(); if(!a||vol<=0||MUTE_ALL||!ALSND) return; const g0=Math.pow(vol/100,1.6)*0.7, now=a.currentTime;
   const tone=(f,t0,d,type,f2,gain)=>{ try{ const o=a.createOscillator(), g=a.createGain(); o.type=type||"sine"; o.frequency.setValueAtTime(f,now+t0); if(f2) o.frequency.linearRampToValueAtTime(f2,now+t0+d);
     const pk=g0*(gain||1); g.gain.setValueAtTime(0.0001,now+t0); g.gain.linearRampToValueAtTime(pk,now+t0+0.015); g.gain.setTargetAtTime(0,now+t0+d*0.7,Math.max(0.02,d*0.12)); o.connect(g); g.connect(a.destination); o.start(now+t0); o.stop(now+t0+d+0.1); }catch(e){} };
   if(name==="beep") tone(880,0,0.22);
@@ -2905,7 +2988,7 @@ function alPlay(name,vol){ const a=audio(); if(!a||vol<=0) return; const g0=Math
   else if(name==="bell"){ tone(1318,0,0.9,"sine",null,1); tone(2637,0,0.5,"sine",null,0.3); }
   else if(name==="buzz") tone(140,0,0.38,"sawtooth",null,0.8); }
 function sSay(v,m,un){ const o=v-s9(m); let t; if(o>=1) t="S, 9 plus "+Math.round(o); else { const n=Math.round(9+o/6); t="S, "+(n<1?0:n); } return t; }
-function say(text,force){ try{ const ss=window.speechSynthesis; if(!ss||AL.vol<=0) return; if(ss.speaking&&!force) return; const u=new SpeechSynthesisUtterance(text); u.volume=Math.min(1,AL.vol/100); u.rate=1.0; ss.speak(u); }catch(e){} }
+function say(text,force){ try{ const ss=window.speechSynthesis; if(!ss||AL.vol<=0||MUTE_ALL) return; if(ss.speaking&&!force) return; const u=new SpeechSynthesisUtterance(text); u.volume=Math.min(1,AL.vol/100); u.rate=1.0; ss.speak(u); }catch(e){} }
 function alTest(){ audio(); alPlay(AL.snd,AL.vol); if(AL.voice) setTimeout(()=>say("S, 9 plus 20.",true),500); else if(AL.every>0) setTimeout(()=>say("S, 7.",true),500); }
 setInterval(()=>{ if(!AL.every||MM.v==null||!(SL.logging||SL.live)) return; const t=Date.now(); if(t-AL.ts<AL.every*1000) return; AL.ts=t; say(sSay(MM.v,MM.m,MM.un)); },1000);
 function alCheck(n){ if(!AL.on||AL.thr==null||n<AL.thr) return; const t=Date.now(); if(t-AL.t<900) return; AL.t=t; alPlay(AL.snd,AL.vol); if(AL.voice&&MM.v!=null){ AL.ts=t; setTimeout(()=>say(sSay(MM.v,MM.m,MM.un)),450); } }
