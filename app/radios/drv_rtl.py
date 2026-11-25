@@ -16,6 +16,9 @@ class RtlDriver(B.RadioDriver):
         n = max(1, min(4, len(found))) if found else 4
         return [("rtl%d" % k, "RTL-SDR %d" % k) for k in range(1, n + 1)]
 
+    def driver_state(self):
+        return C.soapy_driver_state("rtlsdr", "the RTL-SDR dongles")
+
     def detect(self, cfg, practice=False):
         if practice:
             return {"found": [{"label": "Pretend RTL-SDR %d" % k, "detail": "practice mode"} for k in (1, 2, 3, 4)], "note": "Practice mode."}

@@ -174,7 +174,7 @@ def dist_m(a, b):
 CLIENTS = {}                       # page id -> time it was last heard from
 _CL = {"lock": threading.Lock(), "seen": False, "gone_at": 0.0}
 QC_GRACE = float(os.environ.get("NT_QC_GRACE", "20"))     # seconds after the last page said goodbye (a reload comes back sooner)
-QC_STALE = float(os.environ.get("NT_QC_STALE", "90"))    # a page not heard from for this long is treated as gone (frozen tab, crash)
+QC_STALE = float(os.environ.get("NT_QC_STALE", "240"))    # a page not heard from for this long is treated as gone (frozen tab, crash)
 QC_PHONE = float(os.environ.get("NT_QC_PHONE", "1800"))   # a phone page may sleep longer (screen locked) before it counts as gone
 QC_NOPAGE = float(os.environ.get("NT_QC_NOPAGE", "300"))  # no page ever opened within this time after start-up
 
@@ -377,7 +377,7 @@ class App:
                 raise ValueError("Pick the USB GPS port first (or choose iPhone / Practice mode).")
             return f"serial:{c['gps_serial']}:{int(c['gps_baud'])}"
         if not c["gps_host"]:
-            raise ValueError("Type the iPhone address shown in the GPS2IP app.")
+            raise ValueError("Type the iPhone address (on the hotspot it is usually 172.20.10.1) and the port shown in the GPS app.")
         return f"tcp:{c['gps_host']}:{int(c['gps_port'])}"
 
     HL2_MAX_MHZ = 38.0
@@ -476,6 +476,8 @@ class App:
                         "mode": (str(ch.get("mode") or "AM").upper() if str(ch.get("mode") or "AM").upper() in ("AM", "SAM", "USB", "LSB", "NFM") else "AM"),
                         "radio": rad,
                         "filt_hz": max(0, int(float(ch.get("filt_hz") or 0))),      # receive filter width the slot asked for (0 = automatic)
+                        "pan_follow": bool(ch.get("pan_follow")), "pan_ctr": max(0, int(float(ch.get("pan_ctr") or 0))),
+                        "span_khz": min(1600.0, max(0.0, float(ch.get("span_khz") or 0))),      # Flex zoom: panadapter width asked for (0 = default)
                         "slot": slot_no})                  # the slot number on the panel, kept in the drive file
         if for_slices:            # the live-view engine (the panadapter) owns the SDRplay; the slices preview only serves the other radios
             for c2 in out:
@@ -1164,14 +1166,25 @@ class GpsMonitor:
         self.last_poll = time.time()
         fix = g.latest()
         status = getattr(g, "status", "")
+        extra = {"types": dict(getattr(g, "types", {}) or {}), "recent": list(getattr(g, "recent", []) or []),
+                 "rmc_a": getattr(g, "rmc_a", 0), "rmc_v": getattr(g, "rmc_v", 0)}
+        if getattr(g, "lines", 0) and fix is not None and time.time() - fix.t_rx >= 5:
+            status = ("Connected to the GPS app, but its position stopped updating %d s ago. Check the phone: Location Services on, "
+                      "the app set to 'While Using' with Precise Location, and the app open on screen." % int(time.time() - fix.t_rx))
+        elif getattr(g, "lines", 0) and fix is None and getattr(g, "rmc_a", 0) == 0 and getattr(g, "rmc_v", 0) > 0:
+            status = ("Connected to the GPS app, but the phone has no position fix. The satellite count shown is only what the app reports. "
+                      "Check Location Services on the phone and take it where it can see the sky.")
+        elif getattr(g, "lines", 0) and fix is None and getattr(g, "rmc_a", 0) + getattr(g, "rmc_v", 0) == 0:
+            status = ("Connected and receiving %s, but no RMC (position) sentence yet. In the GPS app turn on RMC / GPRMC." %
+                      (", ".join(sorted(getattr(g, "types", {}) or {})) or "data"))
         if fix is None:
             return {"source": "monitor", "state": "nofix", "lat": None, "lon": None, "sats": getattr(g, "sats", None),
                     "hdop": getattr(g, "hdop", None), "age_s": None, "speed_mph": None, "status": status,
-                    "lines": getattr(g, "lines", 0)}
+                    "lines": getattr(g, "lines", 0), **extra}
         age = 0.0 if spec == "sim" else round(max(0.0, time.time() - fix.t_rx), 1)
         return {"source": "monitor", "state": "fix" if age < 5 else "nofix", "lat": round(fix.lat, 6), "lon": round(fix.lon, 6),
                 "sats": fix.sats, "hdop": fix.hdop, "age_s": age, "speed_mph": round(fix.speed_mps * 2.23694, 1),
-                "status": status, "lines": getattr(g, "lines", 0)}
+                "status": status, "lines": getattr(g, "lines", 0), **extra}
 
 
 GPSMON = GpsMonitor()
@@ -1273,6 +1286,23 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(self.live_state())
             if path == "/api/mute":                    # master mute, shared by every open browser tab
                 return self._json({"ok": True, "mute": bool(MUTE_ALL[0])})
+            if path == "/api/rtl_usb":                 # "Watch the USB ports": is a dongle visible right now?
+                import rtl_diag
+                return self._json(rtl_diag.watch_usb())
+            if path == "/api/rtl_install":             # progress of the one-click driver install
+                import rtl_diag
+                st = rtl_diag.INSTALL
+                return self._json({"ok": True, "running": st["running"], "done": st["done"], "success": st["ok"], "log": st["log"][-1500:]})
+            if path == "/api/keepalive":               # 2.0.0j: a page hidden behind another window still says "I am here" so the radio is not let go
+                try:
+                    now = time.time()
+                    if getattr(SLICES, "running", False):
+                        SLICES.last_poll = now
+                    if getattr(PAN, "running", False) and hasattr(PAN, "last_poll"):
+                        PAN.last_poll = now
+                except Exception:
+                    pass
+                return self._json({"ok": True})
             if path == "/api/gps":                     # live GPS for the top bar and the Hardware window
                 return self._json({"ok": True, **GPSMON.info()})
             if path == "/api/hardware":
@@ -1433,7 +1463,7 @@ class Handler(BaseHTTPRequestHandler):
             drop_client(self.headers.get("X-NT-Client"))
             return self._json({"ok": True})
         note_client(self.headers.get("X-NT-Client"))
-        hold = path in ("/api/check", "/api/fulltest", "/api/gps_detect", "/api/perftest", "/api/hardware/scan", "/api/hardware/rebuild")
+        hold = path in ("/api/check", "/api/fulltest", "/api/gps_detect", "/api/gps_iphone", "/api/perftest", "/api/hardware/scan", "/api/hardware/rebuild")
         if hold:
             GPSMON.hold = True
             GPSMON.release()
@@ -1601,6 +1631,27 @@ class Handler(BaseHTTPRequestHandler):
                 import hl2_audio
                 hl2_audio.SND.listen(SLICES.pos(ch), bool(b.get("on")), b.get("mode"), b.get("bw"), b.get("agc"))
             return {"ok": True}
+        if path == "/api/flex_jacks":
+            import json as _j
+            fp = os.path.join(C.sub_dir("Settings"), "flex_jacks_mute.json")
+            os.makedirs(os.path.dirname(fp), exist_ok=True)
+            if "mute" in b:
+                with open(fp, "w", encoding="utf-8") as f:
+                    _j.dump({"mute": bool(b.get("mute"))}, f)
+            try:
+                cur = bool(_j.load(open(fp, encoding="utf-8")).get("mute"))
+            except Exception:
+                cur = False
+            return {"ok": True, "mute": cur}
+        if path == "/api/slices/radio_mute":
+            if APP.running():
+                APP.logger_call("/slice_radio_mute", b, timeout=5)
+            else:
+                if not SLICES.running:
+                    raise ValueError("Start the slices preview (or logging) first.")
+                import hl2_audio
+                hl2_audio.SND.radio_mute(SLICES.pos(int(b.get("channel", 0))), bool(b.get("on")))
+            return {"ok": True}
         if path == "/api/slices/sound_mode":
             if APP.running():
                 APP.logger_call("/slice_mode", b, timeout=3)
@@ -1724,7 +1775,7 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/perftest":
             PAN.stop(); SLICES.stop(); GPSMON.release()
             return {"ok": True, "perf": APP.perf_test()}
-        if path in ("/api/check", "/api/fulltest", "/api/gps_detect"):
+        if path in ("/api/check", "/api/fulltest", "/api/gps_detect", "/api/rtl_diag"):
             PAN.stop(); SLICES.stop(); GPSMON.release()
         if path == "/api/check":
             if APP.running():
@@ -1737,6 +1788,26 @@ class Handler(BaseHTTPRequestHandler):
                 except ValueError as e:
                     return {"ok": True, "results": [{"name": "GPS", "status": "fix", "message": str(e)}]}
             return {"ok": True, "results": check_setup.run_checks(spec)}
+        if path == "/api/rtl_diag":                  # "Check my dongle" (Hardware setup)
+            if APP.running():
+                return {"ok": True, "answer": "Stop logging first, then check the dongle (the radio is busy while logging).", "checks": [], "fixes": [], "dongle_ok": False}
+            import rtl_diag
+            return rtl_diag.run(APP.cfg)
+        if path == "/api/rtl_fix":                   # one-click fixes from the dongle check
+            import rtl_diag
+            fx = str(b.get("fix", ""))
+            if fx == "use_dongle":
+                c = APP.cfg
+                other = any(c.get(k) for k in ("use_hl2", "use_anan", "use_cat"))
+                upd = {"use_rtl": True}
+                if not other:
+                    upd["use_sdrplay"] = False
+                APP.update_cfg(upd)
+                return {"ok": True, "set": upd}
+            if fx == "install_drivers":
+                st = rtl_diag.install_start()
+                return {"ok": True, "running": st["running"], "log": st["log"]}
+            raise ValueError("unknown fix")
         if path == "/api/free_devices":
             if APP.running():
                 return {"ok": True, "closed": [], "note": "Stop logging first."}
@@ -1756,6 +1827,10 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as e:
                 items = [{"step": "Full test", "status": "fix", "message": f"The test could not run: {e}"}]
             return {"ok": True, "results": items}
+        if path == "/api/gps_iphone":                      # "Find my iPhone": test the GPS2IP connection and say what was found
+            GPSMON.release(); time.sleep(0.5)               # the live monitor's own connection must be closed first (some apps serve one at a time)
+            res = gps_detect.find_iphone(str(b.get("host") or ""), int(b.get("port") or 11123), scan=bool(b.get("scan", True)), budget_s=20)
+            return {"ok": True, **{("found" if k == "ok" else k): v for k, v in res.items()}}
         if path == "/api/gps_detect":
             if APP.running():
                 return {"ok": True, "found": [], "note": "Stop logging first, then press Find my GPS."}

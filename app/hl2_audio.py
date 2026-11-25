@@ -282,8 +282,10 @@ class _FlexSound:
             time.sleep(0.09)
             try:
                 x = self.api.audio_pull()
+                if x.size:
+                    self.last_x = time.time()
                 if not x.size:
-                    if not self.told and time.time() - self.t_start > 4.0:       # nothing came: say what did arrive, for the log
+                    if not self.told and time.time() - self.t_start > 4.0 and time.time() - getattr(self, 'last_x', self.t_start) > 4.0:       # nothing came: say what did arrive, for the log
                         self.told = True
                         try:
                             import nt_log
@@ -293,6 +295,13 @@ class _FlexSound:
                         except Exception:
                             pass
                     continue
+                if not getattr(self, "lvl_told", False) and time.time() - self.t_start > 6.0:
+                    self.lvl_told = True
+                    try:
+                        import nt_log
+                        nt_log.info("Flex: sound from the radio is arriving, level %.1f dB below full scale (peak %.4f)." % (20 * np.log10(max(float(np.sqrt(np.mean(x * x))), 1e-9)), float(np.max(np.abs(x)))))
+                    except Exception:
+                        pass
                 xc = np.concatenate((self.tail, x))
                 n = len(self.taps)
                 if xc.size < n + 2:
@@ -363,6 +372,15 @@ class SliceSound:
         if mode:
             d.set_mode(mode, bw, agc)
         return d
+
+    def radio_mute(self, ch, on):
+        """Mute the Flex slice at the radio itself (not just here). Only a Flex in Control mode can do this."""
+        if self.lookup is None:
+            raise ValueError("The radio is not running.")
+        got = self.lookup(ch)
+        if not got or got[0] != "flex":
+            raise ValueError("Muting at the radio works for a Flex slot (Control mode).")
+        return got[1].set_radio_mute(on)
 
     def listen(self, ch, on, mode=None, bw=None, agc=None):
         if not on:

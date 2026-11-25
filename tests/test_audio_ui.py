@@ -15,7 +15,7 @@ try:
         pg = b.new_page(viewport={"width": 1400, "height": 900}); errs = []
         pg.on("pageerror", lambda e: errs.append(str(e)))
         pg.goto("http://127.0.0.1:%d/?t=tok" % port); time.sleep(3)
-        assert pg.evaluate("document.getElementById('aboutVer').textContent") == "v2.0.0i"
+        assert pg.evaluate("document.getElementById('aboutVer').textContent") == "v2.0.0j"
         assert pg.evaluate("document.getElementById('agcOff').value") == "66"
         assert "normal" in pg.evaluate("document.getElementById('agcOffV').textContent")
         pg.evaluate("(()=>{const e=document.getElementById('agcOff'); e.value=78; e.dispatchEvent(new Event('input'));})()")

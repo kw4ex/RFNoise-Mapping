@@ -25,7 +25,7 @@ ABOUT
 
 NEED HELP?
   - In the program, point at anything and press the ? key (or F1) for a short explanation.
-  - The "Help & guide" button at the top of the program opens the full guide. A printable copy is in this
+  - The "Guide" button at the top of the program opens the full guide. A printable copy is in this
     download: RFI_Trail_User_Guide.pdf (and RFI_Trail_Help.html).
   - mac/README_Mac.txt has the details (Hermes Lite 2 network setup, SDRplay driver, problems and fixes).
   - If the installer has a problem it explains the likely cause and can make one small "support file" (logs only,

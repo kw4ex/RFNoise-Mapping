@@ -23,7 +23,7 @@ ABOUT
 
 NEED HELP?
   - In the program, point at anything and press the ? key (or F1) for a short explanation.
-  - The "Help & guide" button at the top of the program opens the full guide. A printable copy is in this
+  - The "Guide" button at the top of the program opens the full guide. A printable copy is in this
     download: RFI_Trail_User_Guide.pdf (and RFI_Trail_Help.html).
   - README_Windows.txt has the details (radios, firewall, updating, removing, problems).
   - NOTE: this Windows installer is new and has not yet been tried on a real Windows PC. If a step fails it says

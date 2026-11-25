@@ -6,12 +6,16 @@ Not made or approved by SDRplay, Microsoft or any radio maker.
 Find where radio noise (power lines, poles, noisy buildings) is strongest: drive a route with a radio
 and a GPS and the program draws the readings as coloured dots on a street map.
 
-WHAT IS NEW SINCE 2.0.0a (versions b to i)
+WHAT IS NEW SINCE 2.0.0a (versions b to j)
+  - FlexRadio slots: zoom, drag the tuning bar to retune, a Centre button and Keep centred, and Mute radio speaker.
+  - GPS wording now fits whichever phone app you use (GPS2IP, NMEA Gps...). "Hide unused" hides slots with no radio.
+  - Point at anything and press ? for help. The top bar and the Compact and Car views are tidier (no wrapping or overlap).
+    The full list is in docs/release-notes/v2.0.0j.md.
   - Phone and tablet access is on by default: scan the QR code on the main screen to open a page built
     for a small screen (see the user guide). Allow RFI Trail through the Windows firewall when asked.
   - Closing the browser window closes the program (a setting, on by default; never during a drive).
   - A Picture smoothness setting makes the panadapter line smoother (drawing only, readings unchanged).
-  Note: these Windows changes were tested on a Mac only; Windows testing of 2.0.0i is still to do.
+  Note: these Windows changes were tested on a Mac only; Windows testing of 2.0.0j is still to do.
 
 WHAT YOU NEED
   - A Windows 10 or 11 computer (a laptop for the car).
@@ -47,14 +51,14 @@ REAL RADIOS
 
 HELP
   - Point at any button, box or number in the program and press the ? key (or F1): a short explanation opens.
-  - The full guide: the "Help & guide" button at the top of the program, or RFI_Trail_User_Guide.pdf (to print)
+  - The full guide: the "Guide" button at the top of the program, or RFI_Trail_User_Guide.pdf (to print)
     and RFI_Trail_Help.html in the install folder.
   - Problems: the install log is  Logs\install_log.txt ; while the program runs, errors go to
     Logs\program_errors.log. In the program: Settings > "Show recent problems" or "Make a support file".
     Send the support file to KW4EX or Claude. Nothing is ever sent automatically.
 
 STOP / REMOVE
-  - Stop_RFI_Trail.bat closes a running program. In the program, "Close program" does the same.
+  - Stop_RFI_Trail.bat closes a running program. In the program, "Quit" does the same.
   - The installer also keeps a copy of this download in KW4EX_Downloads\RFI_Trail_Windows_vX next to the RFI_Trail folder.
   - Uninstall_RFI_Trail.bat (in the install folder): remove the program only (your data is kept), or everything.
 

@@ -56,8 +56,8 @@ th{background:#f0f3f7}
 <h2 id="install">2. Download and install</h2>
 <p>RFI Trail comes as <b>one download for each kind of computer</b>. Each one is a zip file with a short <span class="k">START_HERE.txt</span> inside. No account is needed, and nothing is sent anywhere.</p>
 <ul>
- <li><b>Mac:</b> <span class="k">RFI_Trail_Mac_v2.0.0i.zip</span> (the folder of the same name is the unzipped copy)</li>
- <li><b>Windows 10 / 11:</b> <span class="k">RFI_Trail_Windows_v2.0.0i.zip</span></li>
+ <li><b>Mac:</b> <span class="k">RFI_Trail_Mac_v2.0.0j.zip</span> (the folder of the same name is the unzipped copy)</li>
+ <li><b>Windows 10 / 11:</b> <span class="k">RFI_Trail_Windows_v2.0.0j.zip</span></li>
 </ul>
 <div class="box tip">The installer works as an <b>update</b> too: run the newer package's installer and it replaces the program and keeps your drives, maps, recordings and settings.</div>
 
@@ -112,7 +112,7 @@ th{background:#f0f3f7}
 <p>The practice route is made up, so it won't follow real streets. Real drives will.</p>
 
 <h2 id="gps">5. Connect the GPS</h2>
-<p>The GPS choice (iPhone or USB), and a live display of the fix, satellites and position, are in the <b>Hardware setup</b> window (button at the top right of the page). The top bar also always shows the GPS: a light, the satellites and your coordinates.</p>
+<p>The GPS choice (iPhone or USB), and a live display of the fix, satellites and position, are in the <b>Hardware setup</b> window (the <b>Hardware</b> button at the top right of the page). The top bar also always shows the GPS: a light, the satellites and your coordinates.</p>
 <h3>Option A: iPhone</h3>
 <ol>
  <li>On the iPhone, install <b>GPS2IP</b> from the App Store. A free <b>GPS2IP Lite</b> lets you try it; the full version (a few dollars) is the one to use.</li>
@@ -178,7 +178,7 @@ th{background:#f0f3f7}
 <div class="box tip">The level shown is <b>dBFS, not calibrated</b>. It is good for comparing places, not for absolute measurements. Recording <b>always uses fixed gain</b>, never automatic gain, so the picture shows what is recorded.</div>
 
 <h2 id="hardware">Hardware setup, S-units and Max speed test</h2>
-<p>The things you set once before driving have their own window, so they stay out of the way while you map. Press <span class="btn">Hardware setup</span> at the top (or in the drive bar). Close it with <b>Close this window</b>; nothing is lost.</p>
+<p>The things you set once before driving have their own window, so they stay out of the way while you map. Press <span class="btn">Hardware</span> at the top (or in the drive bar). Close it with <b>Close this window</b>; nothing is lost.</p>
 <p><b>Adding a radio later, and the ANAN.</b> You do not have to decide everything during the install. Open <b>Hardware setup</b> at any time and press <span class="btn">Scan for radios</span>: network radios (Hermes Lite 2, ANAN) need no driver and are found straight away. A GPS puck is found with <span class="btn">Find my GPS</span>. Only the SDRplay needs its driver and PothosSDR installed first; after installing them, run the installer again and choose <b>Upgrade or repair</b>. The <b>ANAN</b> (Apache Labs, Protocol 2 firmware, for example the ANAN-7000DLE MkIII) is found and identified by the scan (address, firmware, and whether another program such as Thetis is using it). Tick <b>ANAN</b> under <b>Your radios</b> and pick it in a slot's Radio chooser. It reads up to <b>four slots at the same instant</b>, all on its main antenna input, and it never transmits (PTT off, drive zero, and the radio is told to stop when you stop). Close Thetis first: one program at a time can use the radio. Levels are shown in dBFS, not yet calibrated to dBm, and you can <b>listen to and record</b> an ANAN slot like a Hermes slot (volume, Mute, Record; AM, SAM, USB, LSB, NFM; AGC and Zoom as on the Hermes). The ANAN hears up to about 55 MHz; a frequency above that is turned down with a message. If nothing arrives, run <b>Allow_ANAN_Firewall.bat</b> (in the <b>Tools</b> folder) once: it adds one Windows Firewall rule for Python, for your own network only, after you approve it. If the scan does not find the radio, check the cable and power, and that it has its Protocol 2 firmware.</p>
 <ol>
  <li><b>GPS:</b> the fix, the satellites (with HDOP), your position and speed, kept up to date. Choose iPhone or USB and press <b>Find my GPS</b> here. The program listens to the GPS while it is not recording; the moment you press Start it lets go so the recording can use it.</li>
@@ -190,7 +190,8 @@ th{background:#f0f3f7}
 <p>The bar under the title is larger now: press <b>A&minus;</b> or <b>A+</b> to make it smaller or larger. Under the speed and health numbers is a <b>hardware line</b> that is always in view: the GPS (fix, satellites, coordinates), the radio and frequency of each slot, and the max speed. The big speed row appears while you record.</p>
 <p><b>Meters and the alert.</b> Each slot now shows its own S-meter at the lower right of the slot (switch them off with the <b>S-meters</b> tick box in <b>Settings</b>; each meter has its own <b>Reset peak</b> button). In the top bar the <b>Strong signal</b> box has <b>on</b>, <b>GPS</b>, the <b>At</b> level and <b>Test</b>; press <b>&#9881; Sound &amp; voice</b> for the sound, volume, speaking the reading and saying S every X seconds (the button reads <b>Voice on</b> while either voice setting is on).</p>
 <p><b>Settings and the slots.</b> Slots open in Compact view. Under each picture are the <b>Tune</b> row (frequency, step and mode) and the sound row (speaker icon). The padlock beside <b>Pop out</b> locks the slot&rsquo;s frequency. Under the Tune row you also see <b>Filter</b> and <b>AGC</b>; the sound row has the volume slider, a <b>Mute</b> button (it reads <b>Listen</b> while muted), <b>Squelch</b> and <b>Record</b>; <b>Zoom</b> is at the top of the slot, beside <b>Pop out</b>. The last line has <b>Band</b> (jump to a band), <b>Width</b> (the kHz that is measured and logged), <b>Auto scale</b>, and the <b>Gain</b>, <b>Memory</b> and (SDRplay only) <b>Band view</b> buttons. Each of those three opens a small box over the slot with only its own controls; <b>Close</b> shuts it. The <b>Settings&hellip;</b> button at the top opens one window with your radios, the GPS, how often to take a reading (every so many feet, or every so many seconds), pause when stopped, and the gain settings. <b>Esc</b> closes it.</p>
-<p><b>Restart.</b> The <b>Restart</b> button at the top, beside <b>Close program</b>, saves any drive being recorded, closes the program and starts it again; a new browser tab opens by itself after about 10 seconds. Use it after changing radios or when something looks stuck.</p>
+<p><b>FlexRadio slots.</b> A Flex slot has <b>Zoom</b> (&minus; / slider / +), which narrows or widens the radio's own panadapter. Click the picture, or <b>drag the yellow tuning bar</b> (it follows the pointer), to retune. <b>Centre</b> puts the tuned frequency in the middle; tick <b>Keep centred</b> to keep it there while you tune. <b>Mute radio speaker</b> silences the radio's own speaker and headphone jacks only. <b>Hide unused</b> (top bar) hides slots that have no radio, so only the slots in use are shown. Point at any button and press <b>?</b> to read what it does.</p>
+<p><b>Restart.</b> The <b>Restart</b> button at the top, beside <b>Quit</b>, saves any drive being recorded, closes the program and starts it again; a new browser tab opens by itself after about 10 seconds. Use it after changing radios or when something looks stuck.</p>
 <p><b>Where the slot controls are.</b> Under each slot&rsquo;s picture, the <b>Tune</b> row has the frequency (type it, or use &minus; and +), the <b>Step</b> of each click and the <b>Mode</b>. The sound row below it (speaker icon) has the <b>volume</b> slider (above 0 you hear the slot), a <b>Mute</b> tick box and <b>Record</b> for that slot&rsquo;s audio. Any number of slots can play at once.</p>
 <h3>Four slot boxes and the S-meters</h3>
 <p>The control row at the top is much larger. Under the speed and health numbers the hardware line is now <b>four fixed boxes, one per slot</b>, between the GPS box and the fastest-safe-speed box. Each slot box shows the radio, the frequency and the <b>live S-unit and dB reading</b> of that slot. The numbers have fixed columns, so they no longer jump when a value gets longer or shorter. <b>Hardware setup</b> and <b>Max speed test</b> are buttons in the top control row.</p>
@@ -210,7 +211,7 @@ th{background:#f0f3f7}
  <li><b>The ? Help button</b> (bottom right of the page) switches on <b>help mode</b>: click anything and it is explained <i>instead of</i> being pressed. Press <span class="k">Esc</span> to leave help mode.</li>
  <li>Inside a text box, <span class="k">?</span> just types a question mark. Press <span class="k">F1</span> there to get that box's explanation.</li>
  <li>It works on the main page and on <b>every map page</b>, including maps you made long ago. On a map, point at the frequency list, the colour range, the layers, the hot-spot list, the replay controls and so on.</li>
- <li>An item with no written explanation shows its own tooltip text instead. The full written guide (this page) is the <b>Help &amp; guide</b> button at the top.</li>
+ <li>An item with no written explanation shows its own tooltip text instead. The full written guide (this page) is the <b>Guide</b> button at the top.</li>
 </ul>
 
 <h3>Hardware setup helpers</h3>
@@ -269,7 +270,7 @@ th{background:#f0f3f7}
 <p><b>Level numbers:</b> readings are in <b>dB relative to the receiver's maximum</b> (so they're negative; closer to zero = stronger). They compare places perfectly well. See section 10 for true dBm.</p>
 
 <h3>Your radios, and which radio measures which frequency</h3>
-<p>The <b>Hardware setup</b> window (button at the top) has a <b>Radios</b> section. Tick what you have &mdash; one radio or several:</p>
+<p>The <b>Hardware setup</b> window (the <b>Hardware</b> button at the top) has a <b>Radios</b> section. Tick what you have &mdash; one radio or several:</p>
 <ul>
  <li><b>SDRplay RSP1</b> (USB): one receiver, so its frequencies take turns. Covers VHF, airband, 70&nbsp;cm and the FM band.</li>
  <li><b>Hermes Lite 2</b> (network cable): several receivers that run <b>at the same time</b>, so its frequencies are all read at the same instant with no retuning. HF only (about 0.1&ndash;38&nbsp;MHz).</li>
@@ -300,7 +301,7 @@ Only <b>one program</b> can use the radio at a time: close Thetis or SDR Console
 <ol>
  <li><b>Drivers (once).</b><br>
   <b>Windows:</b> the radio library <b>PothosSDR</b> already contains the RTL-SDR driver. If you have no SDRplay, run the installer and answer <b>yes</b> to the SDRplay question so it sets up PothosSDR and Python 3.9, then skip the SDRplay driver page. Then give each dongle its USB driver with the free tool <b>Zadig</b> (zadig.akeo.ie): plug in <b>one</b> dongle, open Zadig, choose <b>Options &rarr; List All Devices</b>, pick the entry that reads <b>Bulk-In, Interface (Interface 0)</b> (never your keyboard or mouse), make sure <b>WinUSB</b> is shown, press <b>Replace Driver</b>, wait for the message, and repeat for each dongle. This changes only that dongle.<br>
-  <b>Mac:</b> open Terminal and run <b>brew install soapysdr soapyrtlsdr</b> (needs Homebrew, which the Mac installer can set up). No driver swap is needed.</li>
+  <b>Mac:</b> the installer offers to add the drivers (step 3b). Later, open <b>Hardware setup</b> and press <b>Install the RTL-SDR drivers</b> (needs Homebrew, which the installer can set up), then plug the dongle in and press <b>Check my dongle</b>: it checks the USB ports, the drivers and the Python match and gives one plain answer, with a one-click fix such as <b>Use my dongle</b> (ticks RTL-SDR, unticks SDRplay). Each check is saved as a report in the Reports folder. No driver swap is needed.</li>
  <li>In the program, under <b>Radios</b> in <b>Hardware setup</b>, tick <b>RTL-SDR dongles</b> and press <span class="btn">Find my dongles</span>. It lists the dongles it sees as <b>RTL-SDR 1</b>, <b>2</b>, &hellip; in order of their serial numbers.</li>
  <li><b>Give each dongle its own serial number (one minute each).</b> New dongles often all carry the same number, so the computer cannot tell them apart and the slots could swap after a replug. With <b>only one dongle plugged in</b>, open a command window (Windows: the <b>bin</b> folder of PothosSDR; Mac: Terminal) and type <b>rtl_eeprom -s 00000001</b>, answer <b>y</b>, unplug and replug. Do the next dongle with <b>00000002</b>, and so on. <b>Find my dongles</b> warns you while two dongles still share a number.</li>
  <li>In any slot's <b>Radio</b> chooser pick <b>RTL-SDR 1</b> to <b>4</b>. The slot shows a live picture of about <b>2&nbsp;MHz</b> around the frequency, with a <b>Gain</b> slider for that dongle (0&ndash;49&nbsp;dB, start at 30; higher hears weaker signals but overloads sooner). Each dongle has its own gain.</li>

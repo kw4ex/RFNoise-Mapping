@@ -11,7 +11,7 @@ import time
 
 import nt_log as L
 
-IDLE_STOP_S = 180         # free the radio when the browser stops asking for pictures (never during a recording)
+IDLE_STOP_S = 600         # free the radio when the browser stops asking for pictures (never during a recording)
 
 
 class SlicePreview:

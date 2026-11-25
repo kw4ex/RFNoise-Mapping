@@ -1,4 +1,4 @@
-RFI Trail 2.0.0i - Mac
+RFI Trail 2.0.0j - Mac
 ================================================================
 Design and on-air testing by KW4EX. No warranty. Use at your own risk.
 Not made or approved by SDRplay, Apple or any radio maker.
@@ -24,13 +24,17 @@ ABOUT RFI TRAIL
   available for CAT/Flex slots yet.
   Neither the CAT radio table nor the Flex support has been checked on real radios yet.
 
-WHAT IS NEW SINCE 2.0.0a (versions b to i)
+WHAT IS NEW SINCE 2.0.0a (versions b to j)
   - The Desktop icon now starts the program in a way macOS 27 does not stop. It also checks for a
     copy that is already running (or a different version, or a stuck one) and tells you what it found.
     If the window says "Lost contact with program", read ~/Library/Logs/RFI_Trail.log.
   - When you click the icon it asks "Allow clamshell mode?". Yes keeps the Mac awake while RFI Trail
     runs, so you can close the lid while the Mac is plugged in. It ends by itself when RFI Trail closes.
   - Closing the browser window closes the program (a setting, on by default; never during a drive).
+  - FlexRadio slots: zoom, drag the tuning bar to retune, a Centre button and Keep centred, and Mute radio speaker.
+  - GPS wording now fits whichever phone app you use (GPS2IP, NMEA Gps...). "Hide unused" hides slots with no radio.
+  - Point at anything and press ? for help. The top bar and the Compact and Car views are tidier (no wrapping or overlap).
+    The full list is in docs/release-notes/v2.0.0j.md.
   - Phone and tablet access is on by default: scan the QR code on the main screen (see the user guide).
     If the Mac asks whether to allow incoming connections, choose Allow.
 
@@ -41,7 +45,7 @@ WHAT YOU NEED
     library (the installer offers to help). Practice mode and maps need neither.
 
 INSTALL - STEP BY STEP
-  1. You need the Mac download: RFI_Trail_Mac_v2.0.0i (a folder, or the zip of the same name).
+  1. You need the Mac download: RFI_Trail_Mac_v2.0.0j (a folder, or the zip of the same name).
   2. If it is a zip, open Downloads and double-click it to unzip it. Keep the folders
      "mac" and "app" together.
   3. Open the "mac" folder. Right-click  Install_RFI_Trail.command  and choose Open,
@@ -86,7 +90,7 @@ HERMES LITE 2 ON A MAC (NETWORK SETUP)
 
 RTL-SDR DONGLES (NOT YET TRIED ON REAL DONGLES)
   Up to four USB dongles (for example the RTL-SDR Blog V3), any dongle in any slot.
-  In Terminal run:  brew install soapysdr soapyrtlsdr   (no driver swap on a Mac).
+  The installer offers to add these drivers for you (step 3b). To add them later, open RFI Trail > Hardware setup > RTL-SDR and press 'Install the RTL-SDR drivers', or run the installer again. Then press 'Check my dongle': it looks at the USB ports, the drivers and the Python match and tells you what to do. (By hand it is:  brew install soapysdr soapyrtlsdr librtlsdr.)
   In the program tick "RTL-SDR dongles" under Your radios and press "Find my
   dongles". Give each dongle its own serial number first, one dongle plugged in at
   a time:  rtl_eeprom -s 00000001   then unplug and replug. Use a powered USB hub.
@@ -118,5 +122,5 @@ REMOVE IT LATER
   backup zip in your home folder, or everything with no backup. A record is kept
   in ~/Library/Logs/RFI_Trail_uninstall.log.
 
-The full guide is in the app (Help & guide button) and, to print, RFI_Trail_User_Guide.pdf next to the mac folder. In the program, point at anything and press the ? key (or F1)
+The full guide is in the app (Guide button) and, to print, RFI_Trail_User_Guide.pdf next to the mac folder. In the program, point at anything and press the ? key (or F1)
 for a short explanation of it.

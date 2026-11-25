@@ -258,7 +258,7 @@ class CatRadio:
                     raise CatError("%s: no network address yet. Press 'Find on network' or type the radio's address." % self.name)
                 import radios.flex_api as FX
                 try:
-                    link = FX.FlexLink(port, gui=(self.mode == "control"))
+                    link = FX.shared_link(port, gui=(self.mode == "control"))
                 except FX.FlexError as e:
                     raise CatError(str(e))
             else:
@@ -280,6 +280,9 @@ class CatRadio:
         self._lastd = self.d
         self.want_mode = "AM"            # mode and receive-filter width the slot asks for (set by the logger before each measure())
         self.want_filt = 0
+        self.want_follow = False         # Flex: keep the tuned signal centred in the picture
+        self.want_ctr = 0                # Flex: a newer number = centre the picture once (the Centre button)
+        self.want_span = 0.0             # Flex zoom: the width (kHz) of the slot's panadapter, 0 = leave it alone
         self._mf = {}                    # slot -> (mode, filter) last sent to the radio
         self.cur = 0                     # the slot being measured; the logger sets it before each measure()
         self.mismatch = None             # follow mode: the frequency the radio is really on, when it is not the slot's
@@ -327,10 +330,18 @@ class CatRadio:
             self.mismatch = None
             key, d = self._api_for()
             self._lastd = d
+            if self.mode == "control" and is_flex(self.model) and self.want_span > 0 and hasattr(d, "set_span"):
+                d.set_span(self.want_span * 1e3)
+            if self.mode == "control" and is_flex(self.model) and hasattr(d, "set_pan_mode"):
+                d.set_pan_mode(self.want_follow, self.want_ctr)
             if self.mode == "control":
                 last = self._freqs.get(key)
+                dial = freq_hz                                    # the slice must sit on the DIAL frequency (the carrier); the band measured is centred freq_hz
+                if is_flex(self.model):
+                    wm = str(self.want_mode or "AM").upper()
+                    dial = freq_hz + bw_hz / 2.0 if wm == "LSB" else (freq_hz - bw_hz / 2.0 if wm == "USB" else freq_hz)
                 if last is None or abs(last - freq_hz) > 0.5:
-                    d.set_freq(freq_hz)
+                    d.set_freq(freq_hz, dial) if is_flex(self.model) else d.set_freq(freq_hz)
                     time.sleep(self.settle_s)
                     self._freqs[key] = freq_hz
                 mf = (self.want_mode, self.want_filt)
@@ -386,7 +397,11 @@ class CatRadio:
 
     def close(self):
         try:
-            self.link.close()
+            if is_flex(self.model):
+                import radios.flex_api as FX
+                FX.release_link(self.link, [self.d] + list(self._apis.values()))
+            else:
+                self.link.close()
         except Exception:
             pass
 

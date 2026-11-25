@@ -226,12 +226,22 @@ class NmeaGps(threading.Thread):
         self.hdop = None
         self.status = "starting"
         self.lines = 0
+        self.rmc_a = self.rmc_v = 0          # how many RMC sentences said "valid" / "no fix"
+        self.types = {}                      # sentence type -> count, to show what the GPS app really sends
+        self.recent = []                     # the last few raw sentences, for the "what is arriving" display
         self.lock = threading.Lock()
         self._halt = threading.Event()
+        self._sock = None
 
     def stop(self):
         """Stop listening and let go of the serial port / network connection."""
         self._halt.set()
+        s = self._sock
+        if s is not None:                    # close at once so a GPS app that serves one connection is free for the next one
+            try:
+                s.close()
+            except Exception:
+                pass
 
     # -- open the right kind of connection and yield text lines forever
     def _lines(self):
@@ -244,6 +254,7 @@ class NmeaGps(threading.Thread):
                     self.status = f"connecting to {host}:{port}"
                     s = socket.create_connection((host, int(port)), timeout=10)
                     s.settimeout(5)
+                    self._sock = s
                     self.status = f"connected {host}:{port}"
                     buf = b""
                     while not self._halt.is_set():
@@ -299,6 +310,13 @@ class NmeaGps(threading.Thread):
             self.lines += 1
             f = line.split("*")[0].split(",")
             kind = f[0][3:]  # "RMC", "GGA" ... (ignores GP/GN/GL prefix)
+            self.types[kind] = self.types.get(kind, 0) + 1
+            self.recent = (self.recent + [line[:90]])[-6:]
+            if kind == "RMC" and len(f) > 2:
+                if f[2] == "A":
+                    self.rmc_a += 1
+                else:
+                    self.rmc_v += 1
             try:
                 if kind == "GGA" and len(f) > 8:
                     self.sats = int(f[7]) if f[7] else None
@@ -307,12 +325,16 @@ class NmeaGps(threading.Thread):
                     lat = nmea_to_degrees(f[3], f[4])
                     lon = nmea_to_degrees(f[5], f[6])
                     spd = float(f[7]) * KNOTS_TO_MPS if f[7] else 0.0
+                    if spd < 0:                      # iPhones say -1 when the speed is unknown: treat as standing still
+                        spd = 0.0
                     crs = float(f[8]) if f[8] else 0.0
                     if lat is not None and lon is not None:
                         with self.lock:
                             self.fix = Fix(lat, lon, spd, crs, time.time(),
                                            self.sats, self.hdop)
                         self.status = "fix OK"
+                    else:
+                        self.status = "the GPS app sends 'valid' sentences with no position in them (the phone has no location yet)"
                 elif kind == "RMC" and len(f) > 2 and f[2] != "A":
                     self.status = "no GPS fix yet (move the antenna to open sky)"
             except (ValueError, IndexError):
@@ -951,6 +973,9 @@ class MultiRadio:
                     r.cur = c.get("slot", i)       # which slot this is (a Flex in Control mode keeps one slice and panadapter per slot)
                     r.want_mode = str(c.get("mode") or "AM").upper()       # and what the slot asks of the radio (0.5.0)
                     r.want_filt = int(c.get("filt_hz") or 0)
+                    r.want_span = float(c.get("span_khz") or 0)
+                    r.want_follow = bool(c.get("pan_follow"))
+                    r.want_ctr = int(c.get("pan_ctr") or 0)
                 except Exception:
                     pass
                 try:
@@ -1203,6 +1228,10 @@ def make_handler(settings, state, stop_event, sdr=None):
                     req = json.loads(body)
                     hl2_audio.SND.listen(max(0, pos_of_slot(settings.get()["channels"], int(req.get("channel", 0)))), bool(req.get("on")),
                                          req.get("mode"), req.get("bw"), req.get("agc"))
+                elif self.path == "/slice_radio_mute":
+                    import hl2_audio
+                    req = json.loads(body)
+                    hl2_audio.SND.radio_mute(max(0, pos_of_slot(settings.get()["channels"], int(req.get("channel", 0)))), bool(req.get("on")))
                 elif self.path == "/slice_mode":
                     import hl2_audio
                     req = json.loads(body)

@@ -20,6 +20,7 @@ This file also finds radios on the network (find_radios) from the broadcast ever
 NOT YET TRIED ON A REAL FLEX: it is tested against a pretend radio (cat_sim.FakeFlex).
 """
 import collections
+import os
 import socket
 import struct
 import threading
@@ -106,6 +107,42 @@ def why_none(heard):
             "reachable through SmartLink. You can still type the radio's address (SmartSDR shows it) and press Test.")
 
 
+_SHARED = {}
+_SHARED_LOCK = threading.Lock()
+
+
+def shared_link(host, gui=False):
+    """One connection per radio and mode, shared by whoever asks (a Flex allows only a few connected programs, and a restart of the
+    preview that overlapped the old one used to open a second connection and be refused). Give it back with release_link()."""
+    key = (str(host).strip(), bool(gui))
+    with _SHARED_LOCK:
+        e = _SHARED.get(key)
+        if e and not e[0].closed:
+            e[1] += 1
+            return e[0]
+        link = FlexLink(host, gui=gui)
+        _SHARED[key] = [link, 1]
+        return link
+
+
+def release_link(link, apis=()):
+    """Let go of a shared connection; it is closed when the last user lets go."""
+    with _SHARED_LOCK:
+        for key, e in list(_SHARED.items()):
+            if e[0] is link:
+                for a in apis:
+                    try:
+                        link.apis.remove(a)
+                    except ValueError:
+                        pass
+                e[1] -= 1
+                if e[1] <= 0:
+                    del _SHARED[key]
+                    link.close()
+                return
+    link.close()
+
+
 class FlexLink:
     """The connection: TCP for commands and news, UDP for meter values."""
 
@@ -124,6 +161,7 @@ class FlexLink:
         self.seq = 0
         self.handle = ""
         self.version = ""
+        self.mk_lock = threading.RLock()
         self.created = []             # slices this program made (removed again on close)
         self.clients = set()          # handles of the programs connected to the radio right now (from 'sub client all')
         self.pan_owner = {}           # panadapter id -> handle of the program that owns it
@@ -163,6 +201,7 @@ class FlexLink:
         threading.Thread(target=self._tcp_loop, daemon=True).start()
         threading.Thread(target=self._udp_loop, daemon=True).start()
         threading.Thread(target=self._diag_loop, daemon=True).start()
+        threading.Thread(target=self._jacks_loop, daemon=True).start()
         t0 = time.time()
         while not self.handle and time.time() - t0 < timeout:
             time.sleep(0.02)
@@ -245,6 +284,7 @@ class FlexLink:
                     self.slices.pop(idx, None)
                     return
                 sl = self.slices.setdefault(idx, {})
+                sl.setdefault("kv", {}).update(kv)
                 if "RF_frequency" in kv:
                     sl["freq_mhz"] = float(kv["RF_frequency"])
                 if "mode" in kv:
@@ -271,6 +311,14 @@ class FlexLink:
                     for kvp in parts[1:]:
                         if kvp.startswith("client_handle="):
                             self.pan_owner[parts[0]] = _hnorm(kvp[14:])
+        elif body.startswith("meter ") and body.strip().endswith("removed"):
+            try:
+                mid = int(body.split()[1])
+            except (ValueError, IndexError):
+                return
+            with self.lock:
+                self.meters.pop(mid, None)
+                self.values.pop(mid, None)
         elif body.startswith("meter "):
             # "meter 5.src=SLC#5.num=0#5.nam=LEVEL#5.unit=dBm#6.src=..."
             with self.lock:
@@ -284,6 +332,45 @@ class FlexLink:
                     except ValueError:
                         continue
                     self.meters.setdefault(mid, {})[field] = val
+
+    def _jacks_path(self):
+        try:
+            import nt_common
+            return os.path.join(nt_common.sub_dir("Settings"), "flex_jacks_mute.json")
+        except Exception:
+            return ""
+
+    def _jacks_loop(self):
+        """The radio's own speaker / headphone / line-out jacks: muted or not as the 'Mute radio speaker' setting says (a small file both programs
+        read). Nothing is sent until the setting has been used once. The sound sent to this computer is not affected."""
+        last = None
+        while not self.closed:
+            time.sleep(1.5)
+            try:
+                p = self._jacks_path()
+                if not p or not os.path.exists(p):
+                    continue
+                import json
+                with open(p, "r", encoding="utf-8") as f:
+                    want = bool(json.load(f).get("mute"))
+                if want == last:
+                    continue
+                self.set_jacks_mute(want)
+                last = want
+            except Exception as e:
+                _log("warn", "Flex: could not set the radio's own speaker mute (%s)." % e)
+                last = None
+                time.sleep(10)
+
+    def set_jacks_mute(self, on):
+        v = 1 if on else 0
+        got = []
+        for c in ("mixer lineout mute %d" % v, "mixer headphone mute %d" % v):
+            try:
+                got.append("%s -> %s" % (c, self.cmd(c, timeout=2.0)))
+            except FlexError as e:
+                got.append("%s -> refused (%s)" % (c, e))
+        _log("info", "Flex: radio speaker/headphone mute %s. Radio answered: %s" % ("ON" if on else "off", "; ".join(got)))
 
     def _diag_loop(self):
         """0.6.0b: three times after connecting (20, 60 and 150 s) write one line saying what the radio and this program each think."""
@@ -357,6 +444,7 @@ class FlexLink:
                     self.audio_sids["0x%X" % sid] = self.audio_sids.get("0x%X" % sid, 0) + 1
                     body = d[28:]
                     if cls == 0x03E3:
+                        self._probe_audio(sid, np.frombuffer(body[:len(body) // 8 * 8], dtype=">f4").astype(np.float32).reshape(-1, 2))
                         a = np.frombuffer(body[:len(body) // 8 * 8], dtype=">f4").astype(np.float32).reshape(-1, 2).mean(axis=1)
                     else:
                         a = np.frombuffer(body[:len(body) // 2 * 2], dtype=">i2").astype(np.float32) / 32768.0
@@ -375,6 +463,28 @@ class FlexLink:
                 for i in range(0, len(body) - 3, 4):
                     mid, v = struct.unpack(">Hh", body[i:i + 4])
                     self.values[mid] = (v / 128.0, now)
+
+    def _probe_audio(self, sid, st):
+        """Keep the first 10 s of the radio's raw stereo sound for each stream and save it as a WAV in the Logs folder (so it can be examined)."""
+        if not os.environ.get("NT_FLEX_DIAG"):                       # support checks: off unless asked for
+            return
+        pr = self.__dict__.setdefault("probe", {})
+        e = pr.setdefault(sid, {"n": 0, "chunks": [], "done": False})
+        if e["done"]:
+            return
+        e["chunks"].append(st.copy()); e["n"] += len(st)
+        if e["n"] >= 240000:
+            e["done"] = True
+            try:
+                import numpy as np, wave, nt_common
+                x = np.concatenate(e["chunks"]); e["chunks"] = []
+                os.makedirs(nt_common.sub_dir("Logs"), exist_ok=True)
+                fn = os.path.join(nt_common.sub_dir("Logs"), "flex_audio_probe_0x%X.wav" % sid)
+                w = wave.open(fn, "wb"); w.setnchannels(2); w.setsampwidth(2); w.setframerate(24000)
+                w.writeframes((np.clip(x, -1, 1) * 32767).astype("<i2").tobytes()); w.close()
+                _log("info", "Flex: saved 10 s of the radio's raw sound for stream 0x%X to %s (for checking)." % (sid, fn))
+            except Exception as ex:
+                _log("warn", "Flex: could not save the sound sample (%s)." % ex)
 
     def _fft(self, d):
         """One piece of a spectrum picture: header (start bin, number of bins, bytes per bin, total bins, frame number), then the bins."""
@@ -509,6 +619,9 @@ class FlexApi:
         self.tuned_at = 0.0
         self.pid = None
         self.span_hz = 200000.0
+        self.pan_follow = False               # False: the picture stays put while you tune inside it; True: it keeps the tuned signal centred
+        self.center_nonce = 0                 # the panel's "Centre" button: a newer number means "centre the picture on the tuned frequency now"
+        self.full_hz = 0.0                    # the band centre last asked for
         self.diag_t0 = 0.0
         self.diag_done = 0
         self.fcalls = 0
@@ -541,6 +654,15 @@ class FlexApi:
             raise FlexError("No slice is open on the Flex. Follow mode needs a slice that something else (SmartSDR) has open. To run without SmartSDR, set this radio to Control mode in Hardware setup: the program then makes its own slice.")
         if time.time() < L.fail_until:                           # a recent attempt failed: say so again without hammering the radio
             raise FlexError(L.fail_msg)
+        with L.mk_lock:
+            return self._slice_make_locked(L, have)
+
+    def _slice_make_locked(self, L, have):
+        if self.idx is not None and self.idx in L.slices:
+            return self.idx
+        got = self._adopt_own()                                  # the radio gives every new GUI client a slice of its own (14.1 MHz): use it before asking for more
+        if got is not None:
+            return got
         if not L.swept:
             L.sweep_orphans()
             with L.lock:
@@ -548,6 +670,9 @@ class FlexApi:
         try:
             return self._make_slice()
         except FlexError as e:
+            got = self._adopt_own()
+            if got is not None:
+                return got
             if L.sweep_orphans() > 0:                            # that freed room: try once more
                 try:
                     return self._make_slice()
@@ -555,12 +680,49 @@ class FlexApi:
                     e = e2
             msg = str(e)
             if "50000003" in msg or "50000009" in msg or "did not say which slice" in msg or "did not answer" in msg:
-                msg = ("The Flex has no room for another slice or panadapter (%d slice(s) are open on it). Close slices you are not using "
-                       "(in SmartSDR, or by restarting the radio's software), then press Start again. (%s)" % (len(have), e))
+                me_h = _hnorm(L.handle) if L.handle else None
+                mine = len([i for i in have if i in L.created or (me_h and L.slices.get(i, {}).get('client') == me_h)])
+                others = len(have) - mine
+                nm = str((self.model or {}).get("name", "") if isinstance(self.model, dict) else self.model or "").upper().replace("FLEX-", "")
+                lim = 2 if nm[:4] in ("6100", "6300", "6400") else 4 if nm[:4] in ("6500", "6600", "8400") else 8 if nm[:4] in ("6700", "8600") else 0
+                if lim and mine >= 1 and others == 0:
+                    msg = ("The FLEX-%s has no room for another slice: it can run only %d slices (receivers) at once, and RFI Trail already has %d open for your other slots, so this slot cannot "
+                           "have one. Give the Flex at most %d slots: change this slot's Radio (in its header) to SDRplay, Hermes Lite 2 or RTL-SDR, or to Off. "
+                           "The other slots keep running. (%s)" % (nm, lim, mine, lim, e))
+                elif lim and others > 0:
+                    msg = ("The FLEX-%s has no room for another slice: it can run only %d slices at once and %d are open (%d made by another program, such as SmartSDR, and %d by RFI Trail). "
+                           "Close the other program's slices, or give the Flex fewer slots, then press Start again. (%s)" % (nm, lim, len(have), others, mine, e))
+                else:
+                    msg = ("The Flex has no room for another slice or panadapter (%d slice(s) are open on it). Close slices you are not using "
+                           "(in SmartSDR, or by restarting the radio's software), then press Start again. (%s)" % (len(have), e))
             L.fail_msg = msg
             L.fail_until = time.time() + 10.0
             _log("warn", "Flex: " + msg)
             raise FlexError(msg)
+
+    def _adopt_own(self):
+        """A real Flex (6300, 2026-11-25) makes a slice on its own for each GUI client that connects. It is listed under OUR handle,
+        so it is ours: take one that no other slot is using instead of counting it as 'another program's' and running out of room."""
+        L = self.link
+        if not L.is_gui or not L.handle:
+            return None
+        me = _hnorm(L.handle)
+        with L.lock:
+            used = set(a.idx for a in L.apis if a is not self and a.idx is not None)
+            mine = sorted(i for i, s in L.slices.items() if "freq_mhz" in s and s.get("client") == me and i not in used and i not in L.created and str(s.get("pan", "")).startswith("0x") and int(s.get("pan"), 16) != 0)
+            if not mine:
+                return None
+            idx = mine[0]
+            pid = L.slices[idx].get("pan", "")
+        if idx not in L.created:
+            L.created.append(idx)
+        self.idx = idx
+        if pid.startswith("0x") and int(pid, 16) != 0:
+            self.pid = pid
+            if pid not in L.made_pans:
+                L.made_pans.append(pid)
+        _log("info", "Flex: using slice %d that the radio opened for this program (panadapter %s)." % (idx, pid or "none"))
+        return idx
 
     def _make_slice(self):
         L = self.link
@@ -622,15 +784,71 @@ class FlexApi:
         with self.link.lock:
             return float(self.link.slices[i]["freq_mhz"]) * 1e6
 
-    def set_freq(self, hz):
+    def set_freq(self, hz, dial_hz=None):
+        """hz = centre of the band to measure (the picture is centred on it); dial_hz = where the slice itself is tuned (its carrier / dial frequency)."""
         t0 = time.time()
+        full_hz = hz
+        if dial_hz is not None:
+            hz = dial_hz
+        self.full_hz = full_hz
         i = self._slice(make=True)
-        self.link.cmd("slice tune %d %.6f" % (i, hz / 1e6))
-        self.tuned_at = time.time()
+        with self.link.lock:
+            cur = self.link.slices.get(i, {}).get("freq_mhz")
+            st0 = self.link.pan_set.get(self.pid) if self.pid else None
+        if cur is not None and abs(float(cur) * 1e6 - hz) < 1.0 and (not self.pid or (st0 and abs(st0.get("center", -1) - self._pan_target(full_hz)) < 1.0)):
+            return                                               # already there: do not retune (a retune blanks the picture for a moment)
+        fast = getattr(self, "tune_ok", False)                   # after the first tune the radio has answered, do not wait for each answer: that is what made tuning feel sluggish
+        rep = self.link.cmd("slice tune %d %.6f" % (i, hz / 1e6), wait=not fast)
+        self.tune_ok = True
+        if not self._wait_freq(i, hz, 0.25) and time.time() - getattr(self.link, "tune_told", 0) > 60:      # a short look only: never slow the tuning down
+            self.link.tune_told = time.time()
+            with self.link.lock:
+                now_f = self.link.slices.get(i, {}).get("freq_mhz")
+            _log("warn", "Flex: slice %d still reports %s MHz a moment after 'slice tune' to %.6f MHz (the radio answered %r)." % (i, now_f, hz / 1e6, rep))
+        self._diag_tune(i, hz)
         t1 = time.time()
-        self._pan(hz)
+        self._pan(full_hz)
         if time.time() - t0 > 1.0:
             _log("warn", "Flex: retuning slice %d to %.4f MHz was slow: %.1f s for the slice, %.1f s for the panadapter." % (i, hz / 1e6, t1 - t0, time.time() - t1))
+
+    def _diag_tune(self, i, hz):
+        """For the first 12 tunes: after a moment, say what the radio reports for the slice, and again after asking it to list the slice afresh."""
+        if not os.environ.get("NT_FLEX_DIAG"):                       # support checks: off unless asked for
+            return
+        n = getattr(self.link, "tune_diag", 0)
+        if n >= 40:
+            return
+        self.link.tune_diag = n + 1
+        def go():
+            try:
+                time.sleep(1.0)
+                with self.link.lock:
+                    f1 = self.link.slices.get(i, {}).get("freq_mhz")
+                try:
+                    self.link.cmd("sub slice %d" % i, wait=False)
+                except Exception:
+                    pass
+                time.sleep(1.0)
+                with self.link.lock:
+                    f2 = self.link.slices.get(i, {}).get("freq_mhz")
+                with self.link.lock:
+                    kv = dict(self.link.slices.get(i, {}).get("kv", {}))
+                ex = " ".join("%s=%s" % (k, kv[k]) for k in ("mode", "filter_lo", "filter_hi", "rxant", "agc_mode", "agc_threshold", "audio_mute", "audio_level", "dax", "lock", "squelch", "squelch_level", "nr", "nb", "anf", "rit_on", "xit_on", "step") if k in kv)
+                _log("info", "Flex tune check #%d: slice %d asked for %.6f MHz; the radio reports %s after 1 s and %s after asking again. Slice settings: %s" % (n + 1, i, hz / 1e6, f1, f2, ex or "(none reported)"))
+            except Exception:
+                pass
+        threading.Thread(target=go, daemon=True).start()
+
+    def _wait_freq(self, i, hz, t):
+        t0 = time.time()
+        while True:
+            with self.link.lock:
+                cur = self.link.slices.get(i, {}).get("freq_mhz")
+            if cur is not None and abs(float(cur) * 1e6 - hz) < 1.0:
+                return True
+            if time.time() - t0 > t:
+                return False
+            time.sleep(0.03)
 
     FLEX_MODES = {"AM": "am", "SAM": "sam", "USB": "usb", "LSB": "lsb", "NFM": "nfm", "FM": "fm", "CW": "cw"}
     DEFAULT_FILT = {"AM": 5000, "SAM": 5000, "USB": 2800, "LSB": 2800, "NFM": 12000, "FM": 12000, "CW": 500}
@@ -664,6 +882,11 @@ class FlexApi:
         ch = L.next_dax
         L.next_dax += 1
         L.cmd("slice set %d dax=%d" % (i, ch))
+        if not getattr(self, "radio_muted", False):
+            try:
+                L.cmd("slice set %d audio_mute=0" % i, timeout=1.5)          # a slice the radio opened itself may start muted
+            except FlexError:
+                pass
         code, msg = L.cmd("stream create type=dax_rx dax_channel=%d" % ch, timeout=8.0)
         tok = (msg or "").replace("|", " ").replace(",", " ").split()
         sid = None
@@ -682,6 +905,13 @@ class FlexApi:
         _log("info", "Flex: sound stream 0x%X for slice %d (DAX channel %d)." % (sid, i, ch))
         return sid
 
+    def set_radio_mute(self, on):
+        """Mute (or unmute) the slice at the radio itself, as the slice's speaker button does in SmartSDR. The sound stream to this computer is separate."""
+        i = self._slice(make=True)
+        self.radio_muted = bool(on)
+        self.link.cmd("slice set %d audio_mute=%d" % (i, 1 if on else 0), timeout=3.0)
+        return self.radio_muted
+
     def audio_pull(self):
         """The sound that has arrived since the last call, as one float32 array at 24 kHz (empty if none)."""
         import numpy as np
@@ -697,12 +927,36 @@ class FlexApi:
                 break
         return np.concatenate(out) if out else np.zeros(0, np.float32)
 
-    def _pan(self, hz):
+    def _pan_target(self, full_hz):
+        """Where the picture should be centred: on the tuned band when 'keep centred' is on, when it was never set, or when the tuned band
+        has moved out of the middle 80 % of the picture; otherwise where it already is (so clicking or dragging does not make it scroll)."""
+        st = self.link.pan_set.get(self.pid) if self.pid else None
+        c = (st or {}).get("center")
+        if self.pan_follow or c is None or abs(full_hz - c) > 0.40 * self.span_hz:
+            return full_hz
+        return c
+
+    def set_pan_mode(self, follow, nonce):
+        """The slot's centring choice: follow = keep the tuned signal centred; a newer nonce = centre it once, now."""
+        self.pan_follow = bool(follow)
+        if nonce and nonce > self.center_nonce:
+            self.center_nonce = nonce
+            if self.pid and self.full_hz:
+                try:
+                    self._pan(self.full_hz, force=True)
+                except Exception:
+                    pass
+
+    def _pan(self, hz, force=False):
         """Our own panadapter (made in Control mode) follows the slot: centre it on the frequency and ask for a spectrum stream."""
         L = self.link
         if not self.pid:
             return
         st = L.pan_set.get(self.pid)
+        if not force:
+            hz = self._pan_target(hz)
+            if st and st.get("center") is not None and abs(st["center"] - hz) < 1.0:
+                return                                   # the picture is already where it should be
         try:
             if not st:
                 st = {"x": 1024, "y": 700, "min": -140.0, "max": -20.0}
@@ -713,10 +967,30 @@ class FlexApi:
                     L.cmd("display pan set %s fps=15" % self.pid, timeout=1.5)          # nice to have; the picture works without it
                 except FlexError:
                     pass
-            L.cmd("display pan set %s center=%.6f bandwidth=%.6f" % (self.pid, hz / 1e6, self.span_hz / 1e6), timeout=1.5)
+            self.tuned_at = time.time()                  # the pictures in flight are centred on the old place: skip them for a moment
+            L.cmd("display pan set %s center=%.6f bandwidth=%.6f" % (self.pid, hz / 1e6, self.span_hz / 1e6), timeout=1.5, wait=("center" not in st))
             st["center"] = hz
         except FlexError as e:
             _log("warn", "Flex: the panadapter could not be set up (%s). The level reading still works, but there is no spectrum picture." % e)
+
+    def set_span(self, hz):
+        """Zoom: ask the radio's own panadapter for a different width (narrower = more detail, like SmartSDR's zoom). Does not wait for the reply."""
+        hz = float(min(max(hz, 5000.0), 1600000.0))
+        if abs(hz - self.span_hz) < 1.0:
+            return
+        self.span_hz = hz
+        self.tuned_at = time.time()                      # the pictures in flight still have the old width: skip them for a moment
+        L = self.link
+        st = L.pan_set.get(self.pid) if self.pid else None
+        if st and st.get("center"):
+            ctr = st["center"]
+            if self.full_hz and abs(self.full_hz - ctr) > 0.40 * hz:
+                ctr = self.full_hz                       # zooming in would push the tuned signal off the picture: centre on it instead
+            try:
+                L.cmd("display pan set %s center=%.6f bandwidth=%.6f" % (self.pid, ctr / 1e6, hz / 1e6), timeout=1.5, wait=False)
+                st["center"] = ctr
+            except FlexError as e:
+                _log("warn", "Flex: the zoom could not be set (%s)." % e)
 
     def frame(self):
         """(centre Hz, span Hz, linear power per bin) of the newest spectrum picture, or None."""
@@ -763,11 +1037,15 @@ class FlexApi:
                              sorted(L.pan_set), list(L.made_pans), sl, sorted(L.clients), L.handle, dict(L.audio_sids)))
 
     def _meter_id(self, i):
+        """The level meter of slice i. The radio can remove and re-make a slice's meters, so of several matches the one with the newest reading wins."""
+        best = None; best_t = -1.0
         with self.link.lock:
             for mid, m in self.link.meters.items():
                 if m.get("src") == "SLC" and m.get("nam") == "LEVEL" and str(m.get("num")) == str(i):
-                    return mid
-        return None
+                    t = (self.link.values.get(mid) or (0, 0.0))[1]
+                    if best is None or t > best_t:
+                        best, best_t = mid, t
+        return best
 
     def read_meter(self):
         """Signal strength of the slice in dBm; waits for a packet newer than the last tune."""
@@ -784,5 +1062,12 @@ class FlexApi:
             time.sleep(0.01)
         if self._meter_id(i) is None:
             raise FlexError("The Flex did not list a signal-level meter for its slice %d." % i)
+        L = self.link
+        if time.time() - getattr(L, "meter_told", 0) > 60:
+            L.meter_told = time.time()
+            with L.lock:
+                age = {m: round(time.time() - v[1], 1) for m, v in L.values.items()}
+                lv = {m: (d.get("src"), d.get("num"), d.get("nam")) for m, d in L.meters.items() if d.get("nam") == "LEVEL"}
+            _log("warn", "Flex: no fresh meter reading for slice %s. Level meters: %s; seconds since each meter's last reading: %s; UDP packets so far: spectrum %d, sound %d." % (i, lv, age, L.fft_packets, L.audio_pkts))
         raise FlexError("No meter readings are arriving from the Flex. A firewall may be blocking UDP to this "
                         "computer (allow RFI Trail / Python for incoming connections).")

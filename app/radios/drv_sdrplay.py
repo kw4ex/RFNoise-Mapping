@@ -9,6 +9,9 @@ class SdrplayDriver(B.RadioDriver):
     accuracy = "Raw radio signal. One receiver, so its frequencies take turns. Covers HF through VHF and airband."
     cfg_flag = "use_sdrplay"
 
+    def driver_state(self):
+        return C.soapy_driver_state("sdrplay", "the SDRplay")
+
     def detect(self, cfg, practice=False):
         if practice:
             return {"found": [{"label": "Pretend SDRplay", "detail": "practice mode"}], "note": "Practice mode."}

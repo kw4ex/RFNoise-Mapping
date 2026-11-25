@@ -294,7 +294,8 @@ cat <<'EOF'
 ============================================================
 What would you like to do?
 
-  1)  Install or update RFI Trail  (this also repairs a broken install)
+  1)  Install or update RFI Trail  (this also repairs a broken install, and
+      adds a radio driver later: SDRplay or RTL-SDR)
   2)  Check my setup and make a support file  (changes nothing)
   3)  Uninstall RFI Trail
 
@@ -311,8 +312,8 @@ This will:
   2. Set up its private Python environment (no changes to your system Python)
   3. Create a folder  RFI Trail  in your home folder for your data
   4. Put an "RFI Trail" icon on your Desktop and in Applications
-  5. (Optional) help you install the SDRplay radio driver
-     (a Hermes Lite 2 needs NO driver - if that is your radio, say n at that step)
+  5. (Optional) help you install the SDRplay radio driver and/or the RTL-SDR
+     dongle driver (a Hermes Lite 2 needs NO driver - say n at those steps)
   6. Run a quick self-test with practice data
 
 Nothing is sent anywhere. Everything it does is written to a log that is kept:
@@ -471,6 +472,41 @@ else
 fi
 
 # ------------------------------------------------------------------------------
+step "3b" "RTL-SDR DRIVER (optional - needed ONLY for an RTL-SDR USB dongle).
+The small USB dongles need two free driver packages (soapysdr and soapyrtlsdr).
+I can add them with Homebrew now. No password is needed unless Homebrew itself
+asks. Answer n if you have no dongle. You can add them later: run this installer
+again, or press 'Install the RTL-SDR drivers' in RFI Trail > Hardware setup."
+RTL_OK=0
+if ask "Set up the RTL-SDR dongle driver now? (Return = yes)"; then
+    if [ -z "$BREW" ]; then
+        echo "Homebrew (a standard Mac tool installer) is needed for this."
+        if ask_no "Install Homebrew now? (official installer from brew.sh; it will ask for your Mac password)"; then
+            /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" || fail "Homebrew did not install. See https://brew.sh"
+            for b in /opt/homebrew/bin/brew /usr/local/bin/brew; do [ -x "$b" ] && BREW="$b" && break; done
+            [ -n "$BREW" ] && eval "$($BREW shellenv)"
+        fi
+    fi
+    if [ -n "$BREW" ]; then
+        say "I am about to install the RTL-SDR drivers with Homebrew (a few minutes)."
+        M3="$(log_mark)"
+        HOMEBREW_NO_AUTO_UPDATE=1 "$BREW" install soapysdr soapyrtlsdr librtlsdr 2>&1 | tee -a "$LOG"
+        if "$BREW" list --versions soapysdr soapyrtlsdr librtlsdr >/dev/null 2>&1; then
+            say "RTL-SDR drivers installed. After RFI Trail starts, plug the dongle in and press 'Check my dongle' in Hardware setup."
+            RTL_OK=1
+        else
+            say "Homebrew could not install the RTL-SDR drivers. The rest of the install will continue."
+            diagnose "$(log_since "$M3")"
+            note_warn "Homebrew could not install the RTL-SDR drivers"
+        fi
+    else
+        say "Skipping the RTL-SDR drivers (no Homebrew)."
+    fi
+else
+    say "Skipped the RTL-SDR drivers."
+fi
+
+# ------------------------------------------------------------------------------
 step 4 "I am about to copy the program into: $DEST"
 pkill -f "nt_app.py" 2>/dev/null && say "Closed a running copy of RFI Trail so it can be replaced."
 mkdir -p "$DEST" || fail "Could not create $DEST"
@@ -493,6 +529,11 @@ step 5 "I am about to create the program's private Python environment (a few min
 PY=""
 [ -n "$BREW" ] && [ -x "$("$BREW" --prefix)/bin/python3" ] && PY="$("$BREW" --prefix)/bin/python3"
 [ -z "$PY" ] && command -v python3 >/dev/null 2>&1 && PY="$(command -v python3)"
+# The radio library's Python module (SoapySDR) only loads in the Python version it was built for: use that Python.
+if [ -n "$BREW" ]; then
+    SPY="$(ls "$("$BREW" --prefix)"/lib/python3.*/site-packages/SoapySDR.py 2>/dev/null | head -1 | sed -n 's#.*/lib/python\(3\.[0-9]*\)/.*#\1#p')"
+    [ -n "$SPY" ] && [ -x "$("$BREW" --prefix)/bin/python$SPY" ] && PY="$("$BREW" --prefix)/bin/python$SPY"
+fi
 if [ -z "$PY" ] || ! "$PY" --version >/dev/null 2>&1; then
     say "Python 3 is not available. A window may have appeared offering to install the Apple developer tools: click Install, wait for it to finish, then run this installer again."
     xcode-select --install 2>/dev/null

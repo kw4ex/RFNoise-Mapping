@@ -46,6 +46,11 @@ class RadioDriver:
         """Return the reader for slot value rid. chans = this radio's own slots. ctx = hl2_ip, hl2_rate, hl2_port."""
         raise NotImplementedError("%s cannot be opened yet." % self.name)
 
+    def driver_state(self):
+        """Is the software this radio needs installed? ("ok" | "missing" | "none_needed", plain sentence). Never opens the radio."""
+        return "none_needed", ""
+
     def describe(self):
-        return {"id": self.id, "name": self.name, "kind": self.kind, "accuracy": self.accuracy,
+        st, msg = self.driver_state()
+        return {"driver": st, "driver_msg": msg, "id": self.id, "name": self.name, "kind": self.kind, "accuracy": self.accuracy,
                 "multi": self.multi, "max_mhz": self.max_mhz, "planned": self.planned, "scan_only": self.scan_only, "note": self.note}

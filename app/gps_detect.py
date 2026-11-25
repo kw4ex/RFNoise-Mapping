@@ -219,3 +219,221 @@ def main():
 
 if __name__ == "__main__":
     sys.exit(main())
+
+
+# ----------------------------------------------------------------------------
+# iPhone running GPS2IP (or GPS2IP Lite): it sends NMEA lines over the network (a TCP address and port, 11123 by default)
+# ----------------------------------------------------------------------------
+def _local_ips():
+    """This computer's own IPv4 addresses on real networks (Wi-Fi, hotspot, cable)."""
+    import re
+    import socket
+    import subprocess
+    ips = []
+    try:
+        if sys.platform.startswith("win"):
+            out = subprocess.run(["ipconfig"], capture_output=True, text=True, timeout=5, creationflags=0x08000000).stdout
+            ips += re.findall(r"IPv4[^:]*:\s*(\d+\.\d+\.\d+\.\d+)", out)
+        else:
+            out = subprocess.run(["ifconfig"], capture_output=True, text=True, timeout=5).stdout
+            ips += re.findall(r"inet (\d+\.\d+\.\d+\.\d+)", out)
+    except Exception:
+        pass
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("10.255.255.255", 1))                     # sends nothing; only asks which address would be used
+        ips.append(s.getsockname()[0])
+        s.close()
+    except Exception:
+        pass
+    out = []
+    for ip in ips:
+        if ip.startswith(("127.", "169.254.", "0.")) or ip in out:
+            continue
+        out.append(ip)
+    return out
+
+
+def _probe_port(host, port, t=0.4):
+    import socket
+    try:
+        s = socket.create_connection((host, port), timeout=t)
+        s.close()
+        return True
+    except Exception:
+        return False
+
+
+def _scan(port, ips, budget_s=8.0):
+    """Which addresses next to this computer's own (the same /24 network) have the GPS2IP port open."""
+    import concurrent.futures as cf
+    cand = []
+    for ip in ips:
+        a = ip.rsplit(".", 1)[0]
+        cand += ["%s.%d" % (a, i) for i in range(1, 255) if "%s.%d" % (a, i) != ip]
+    found = []
+    t0 = time.time()
+    with cf.ThreadPoolExecutor(max_workers=96) as ex:
+        futs = {ex.submit(_probe_port, h, port): h for h in cand}
+        for f in cf.as_completed(futs, timeout=budget_s + 5):
+            try:
+                if f.result():
+                    found.append(futs[f])
+            except Exception:
+                pass
+            if time.time() - t0 > budget_s:
+                break
+    return found
+
+
+def _listen_nmea(host, port, seconds=4.0):
+    """Connect to GPS2IP and listen. Returns (error_text_or_None, list_of_good_lines, n_bad_lines, seconds_listened)."""
+    import socket
+    try:
+        s = socket.create_connection((host, port), timeout=3.0)
+    except socket.timeout:
+        return "timeout", [], 0, 0.0
+    except ConnectionRefusedError:
+        return "refused", [], 0, 0.0
+    except OSError as e:
+        return "oserror:%s" % e, [], 0, 0.0
+    s.settimeout(1.0)
+    good, bad, buf, t0 = [], 0, b"", time.time()
+    try:
+        while time.time() - t0 < seconds:
+            try:
+                chunk = s.recv(4096)
+            except socket.timeout:
+                continue
+            if not chunk:
+                break
+            buf += chunk
+            while b"\n" in buf:
+                line, _, buf = buf.partition(b"\n")
+                line = line.decode("ascii", "ignore").strip()
+                if not line:
+                    continue
+                if nmea_ok(line):
+                    good.append((time.time() - t0, line))
+                else:
+                    bad += 1
+    finally:
+        s.close()
+    return None, good, bad, time.time() - t0
+
+
+def _deg(v, hemi):
+    try:
+        x = float(v)
+    except ValueError:
+        return None
+    d = int(x // 100)
+    r = d + (x - d * 100) / 60.0
+    return -r if hemi in ("S", "W") else r
+
+
+def describe_nmea(good):
+    """What the lines say: which sentence types, whether there is a fix, satellites, accuracy, position, speed, update rate."""
+    types, fix, sats, hdop, lat, lon, speed_mph, qual = {}, None, None, None, None, None, None, None
+    stamps = []
+    for t, line in good:
+        f = line[1:].split("*")[0].split(",")
+        kind = f[0][-3:]
+        types[kind] = types.get(kind, 0) + 1
+        try:
+            if kind == "RMC" and len(f) > 7:
+                fix = (f[2] == "A") if fix is None or f[2] == "A" else fix
+                stamps.append(t)
+                if f[2] == "A":
+                    lat, lon = _deg(f[3], f[4]), _deg(f[5], f[6])
+                    if f[7]:
+                        speed_mph = float(f[7]) * 1.15078
+            elif kind == "GGA" and len(f) > 8:
+                qual = int(f[6] or 0)
+                sats = int(f[7] or 0)
+                hdop = float(f[8]) if f[8] else None
+                if qual > 0:
+                    fix = True
+                    lat, lon = _deg(f[2], f[3]), _deg(f[4], f[5])
+        except (ValueError, IndexError):
+            pass
+    rate = None
+    if len(stamps) >= 2 and stamps[-1] > stamps[0]:
+        rate = (len(stamps) - 1) / (stamps[-1] - stamps[0])
+    return {"types": types, "fix": bool(fix), "sats": sats, "hdop": hdop, "lat": lat, "lon": lon,
+            "speed_mph": speed_mph, "rate_hz": rate, "sample": good[-1][1] if good else ""}
+
+
+def find_iphone(host="", port=11123, scan=True, budget_s=20.0):
+    """Test the iPhone GPS-app connection and say, in plain words, what was found and what to do if it was not.
+    Tries the address in the box, the iPhone Personal Hotspot address, then (if asked) every address on this computer's network."""
+    import socket
+    port = int(port or 11123)
+    t0 = time.time()
+    tried, found_via = [], None
+    cand = []
+    typed = str(host or "").strip()
+    loop_note = ""
+    if typed.lower() in ("127.0.0.1", "localhost", "::1", "0.0.0.0"):
+        loop_note = ("%s means 'this computer itself', so it can only reach a GPS source running on this computer, never the iPhone. "
+                     "For the iPhone use its hotspot address (usually 172.20.10.1)." % typed)
+    for h in (str(host or "").strip(), "172.20.10.1"):
+        if h and h not in cand:
+            cand.append(h)
+    use, why, refused_hosts = None, "", []
+    for h in cand:
+        err, good, bad, secs = _listen_nmea(h, port, 4.0)
+        tried.append(h)
+        if err is None:
+            use, found_via = (h, good, bad, secs), ("the address in the box" if h == str(host or "").strip() else "the iPhone's Personal Hotspot address")
+            break
+        if err == "refused":
+            refused_hosts.append(h)
+    if use is None and scan:
+        ips = _local_ips()
+        hits = _scan(port, ips, min(8.0, max(2.0, budget_s - (time.time() - t0)))) if ips else []
+        for h in hits:
+            err, good, bad, secs = _listen_nmea(h, port, 4.0)
+            if err is None:
+                use, found_via = (h, good, bad, secs), "found by looking on your network"
+                break
+    out = {"ok": False, "host": "", "port": port, "tried": tried, "steps": [], "problem": "", "summary": ""}
+    if use is None:
+        if refused_hosts:
+            out["problem"] = ("The iPhone at %s answered, but the GPS app is not sending. Open the GPS app on the iPhone, switch its network sharing (server) on, "
+                              "and check that its Port is %d." % (refused_hosts[0], port))
+        else:
+            out["problem"] = ("No iPhone sharing its GPS position was found. 1) Put the iPhone and this computer on the same network: either turn on the iPhone's "
+                              "Personal Hotspot and join this computer to it, or use the same Wi-Fi. 2) Open the GPS app on the iPhone (NMEA Gps, GPS2IP and similar) and switch its network sharing on. "
+                              "3) Keep the app on the screen (most of these apps stop sending when the screen locks unless a background setting is on). "
+                              "4) If you know the address the app shows, type it in the box and press the button again.")
+        if loop_note:
+            out["problem"] = loop_note + " " + out["problem"]
+        out["summary"] = out["problem"]
+        return out
+    h, good, bad, secs = use
+    d = describe_nmea(good)
+    out.update({"ok": True, "host": h, "port": port, "found_via": found_via, "lines": len(good), "bad_lines": bad, **d})
+    steps = ([loop_note] if (loop_note and h == typed) else []) + ["Found the iPhone at %s, port %d (%s)." % (h, port, found_via)]
+    if not good:
+        out["ok"] = False
+        out["problem"] = ("Connected to %s:%d but no GPS lines arrived in %.0f seconds. In the GPS app's settings turn on the "
+                          "RMC and GGA sentences (and any 'send when not moving' option), make sure Location Services are on for the app, and keep it open." % (h, port, secs))
+        steps.append(out["problem"])
+    else:
+        steps.append("GPS lines are arriving: %s%s." % (", ".join("%s x%d" % (k, v) for k, v in sorted(d["types"].items())),
+                     (", about %.1f updates a second" % d["rate_hz"]) if d["rate_hz"] else ""))
+        if "RMC" not in d["types"]:
+            out["problem"] = "The GPS app is not sending the RMC sentence, which RFI Trail needs for position and speed. In the app's settings turn on RMC (GPRMC)."
+            out["ok"] = False
+        if d["fix"]:
+            steps.append("Position fix OK%s%s." % ((", %d satellites" % d["sats"]) if d["sats"] is not None else "",
+                         (", accuracy (HDOP) %.1f" % d["hdop"]) if d["hdop"] is not None else ""))
+            if d["lat"] is not None:
+                steps.append("Position %.5f, %.5f%s." % (d["lat"], d["lon"], (", moving at %.0f mph" % d["speed_mph"]) if d["speed_mph"] else ""))
+        else:
+            out["problem"] = out["problem"] or "The iPhone is connected but has no position fix yet. Go where the phone can see the sky, and check Settings > Privacy > Location Services > (this GPS app) is on."
+            steps.append(out["problem"])
+    out["steps"] = steps
+    out["summary"] = " ".join(steps)
+    return out

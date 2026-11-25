@@ -10,7 +10,7 @@ import re
 import sys
 
 APP_NAME = "RFI Trail"
-VERSION = "2.0.0i"
+VERSION = "2.0.0j"
 IS_MAC = sys.platform == "darwin"
 IS_WIN = sys.platform.startswith("win")
 
@@ -311,3 +311,24 @@ def audio_tune_save(d):
     _AT["t"] = 0.0
     _AT["mt"] = -1.0
     return v
+
+
+def soapy_driver_state(module_word, pretty):
+    """Is the driver for one SoapySDR radio (module_word = 'sdrplay' or 'rtlsdr') installed? No radio is opened.
+    Returns ("ok" | "missing", plain sentence)."""
+    try:
+        soapy, note = find_soapy()
+    except Exception as e:
+        return "missing", "The radio library (SoapySDR) could not be loaded: %s" % e
+    if soapy is None:
+        return "missing", ("The radio library (SoapySDR) is not installed, or Python cannot find it, so %s cannot be used. "
+                           "Run the installer again." % pretty)
+    try:
+        mods = [str(m).lower() for m in soapy.listModules()]
+    except Exception:
+        return "ok", ""
+    if mods and not any(module_word in m for m in mods):
+        return "missing", ("SoapySDR is installed, but its %s driver is missing. Run the installer again (or, for the SDRplay, install "
+                           "the SDRplay API from sdrplay.com first)." % pretty)
+    return "ok", ""
+

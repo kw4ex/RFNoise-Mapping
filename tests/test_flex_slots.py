@@ -38,13 +38,13 @@ creates = [l for l in fx.log if "slice create" in l]
 assert len(creates) == 2, creates
 print("PASS exactly two slices made for two slots")
 # a slot's frequency is typed to something new: only that slot is retuned
-freqs[1] = 7.255e6
+freqs[1] = 7.200e6
 for _ in range(10):
     res = one_round()
-    if res[1][1] and abs(res[1][1][0] - 7.255e6) < 1:
+    if res[1][1] and abs(res[1][1][0] - 7.200e6) < 1:
         break
     time.sleep(0.1)
-assert abs(res[1][1][0] - 7.255e6) < 1 and abs(res[0][1][0] - 7.143e6) < 1, "retune of one slot disturbed the other"
+assert abs(res[1][1][0] - 7.200e6) < 1 and abs(res[0][1][0] - 7.143e6) < 1, "retune of one slot disturbed the other"
 assert sum(1 for l in fx.log if "slice tune" in l) == tunes0 + 1
 print("PASS changing one slot's frequency retunes only that slot")
 r.close(); fx.stop()
