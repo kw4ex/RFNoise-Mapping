@@ -34,6 +34,7 @@ WHAT IS NEW SINCE 2.0.0a (versions b to j)
   - FlexRadio slots: zoom, drag the tuning bar to retune, a Centre button and Keep centred, and Mute radio speaker.
   - GPS wording now fits whichever phone app you use (GPS2IP, NMEA Gps...). "Hide unused" hides slots with no radio.
   - Point at anything and press ? for help. The top bar and the Compact and Car views are tidier (no wrapping or overlap).
+  - Map pages: the boxes fold up to their title, and the colour bar is a two-handle slider for Min and Max.
     The full list is in docs/release-notes/v2.0.0j.md.
   - Phone and tablet access is on by default: scan the QR code on the main screen (see the user guide).
     If the Mac asks whether to allow incoming connections, choose Allow.

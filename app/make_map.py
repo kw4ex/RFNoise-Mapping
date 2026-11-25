@@ -418,10 +418,25 @@ html,body{height:100%;margin:0;font-family:-apple-system,Helvetica,Arial,sans-se
 #ctl summary{cursor:pointer;font-weight:600;font-size:13px}
 #ctl label{white-space:nowrap}
 #ctl .sm{font-size:12px;color:#555}
-#ctl .tg{display:block;margin:2px 0}
+#ctl .tg{display:block;margin:2px 0;white-space:normal}
 #ctl select,#ctl input{font-size:14px}
 #ctl input[type=number]{width:62px}
-#bar,#pbar{height:14px;border-radius:3px;margin:6px 0 2px}
+#pbar{height:14px;border-radius:3px;margin:6px 0 2px}
+#bar{position:relative;height:24px;border-radius:4px;margin:6px 0 0;overflow:visible}
+#bar input[type=range]{position:absolute;left:0;top:0;width:100%;height:24px;margin:0;padding:0;background:none;-webkit-appearance:none;appearance:none;pointer-events:none}
+#bar input[type=range]::-webkit-slider-runnable-track{background:none;height:24px}
+#bar input[type=range]::-moz-range-track{background:none;height:24px}
+#bar input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;pointer-events:auto;cursor:ew-resize;width:14px;height:30px;margin-top:-3px;border-radius:4px;background:#fff;border:3px solid #14233a;box-shadow:0 1px 4px rgba(0,0,0,.5)}
+#bar input[type=range]::-moz-range-thumb{pointer-events:auto;cursor:ew-resize;width:8px;height:26px;border-radius:4px;background:#fff;border:3px solid #14233a}
+#bticks{position:relative;height:16px;margin:2px 0 0;font-size:11px;color:#2c3e50}
+#bticks span{position:absolute;transform:translateX(-50%);white-space:nowrap}
+#bticks span::before{content:"";position:absolute;left:50%;top:-4px;height:4px;border-left:1px solid #556}
+.panel>h4{cursor:pointer;user-select:none}
+.panel>h4::before{content:"\25BE\00a0";color:#14233a}
+.panel.shut>h4::before{content:"\25B8\00a0"}
+.panel.shut{font-size:0 !important;width:auto !important;max-height:none !important;overflow:hidden !important;padding-bottom:4px}
+.panel.shut>*:not(h4){display:none !important}
+.panel.shut>h4{font-size:15px;margin:0}
 #barlab,#pbarlab{display:flex;justify-content:space-between;font-size:12px}
 #hot{bottom:24px;left:10px;max-height:34%;overflow:auto;width:250px}
 #multi{top:10px;right:56px;max-height:46%;overflow:auto;width:290px}
@@ -466,7 +481,8 @@ __NT_BIG__</style></head><body>
  Min <input id="mn" type="number" step="1"> Max <input id="mx" type="number" step="1"> dB
  <button id="auto">Auto</button><br>
  Dot size <input id="sz" type="range" min="2" max="12" value="5" style="width:80px"> see-through <input id="op" type="range" min="15" max="100" value="92" style="width:62px" title="Left = more see-through">
- <div id="bar"></div>
+ <div id="bar" title="Drag the two handles to choose which levels get the weakest colour (blue) and the strongest colour (red). Everything weaker than the left handle is blue, everything stronger than the right handle is red."><input type="range" id="cmin" min="0" max="1000" value="0" aria-label="Weakest level (blue)"><input type="range" id="cmax" min="0" max="1000" value="1000" aria-label="Strongest level (red)"></div>
+ <div id="bticks"></div>
  <div id="barlab"><span id="lo"></span><span>weak &rarr; strong</span><span id="hi"></span></div>
  <div id="info" style="margin-top:4px;color:#555"></div>
  <div id="flat"></div>
@@ -515,7 +531,6 @@ function colorAt(f){            // f = 0..1
   const c=RGB[i].map((a,k)=>Math.round(a+(RGB[i+1][k]-a)*u)); return "rgb("+c.join(",")+")";
 }
 const GRAD="linear-gradient(to right,"+STOPS.join(",")+")";
-document.getElementById("bar").style.background=GRAD;
 document.getElementById("pbar").style.background=GRAD;
 
 const map = L.map("map",{preferCanvas:true,maxZoom:19});
@@ -565,12 +580,13 @@ function dotMarker(r,lo,hi,rad,op){
               r.t.replace("T"," ").replace("Z"," UTC")+"<br>"+r.mph.toFixed(0)+" mph<br>"+
               r.lat.toFixed(6)+", "+r.lon.toFixed(6)+geoLinks(r.lat,r.lon));
 }
-function draw(){
+function draw(fresh){
   pbStop();
   group.clearLayers();
   const rows=DATA[sel.value], lo=+mn.value, hi=+mx.value, rad=+document.getElementById("sz").value, op=dotOp();
   document.getElementById("lo").textContent=lo+" ("+sTxt(lo,sel.value)+")"; document.getElementById("hi").textContent=hi+" ("+sTxt(hi,sel.value)+")";
   document.getElementById("plo").textContent=lo+" ("+sTxt(lo,sel.value)+")"; document.getElementById("phi").textContent=hi+" ("+sTxt(hi,sel.value)+")";
+  if(typeof slSync==="function") slSync(fresh===false?false:true);
   // draw weak first, strong last, so the strong dots sit on top
   [...rows].sort((a,b)=>a.v-b.v).forEach(r=>dotMarker(r,lo,hi,rad,op).addTo(group));
   if(!fitted && rows.length){map.fitBounds(L.latLngBounds(rows.map(r=>[r.lat,r.lon])).pad(0.05));fitted=true;}
@@ -693,6 +709,39 @@ document.getElementById("tgSflag").onchange=document.getElementById("sflagSel").
 document.getElementById("tgDots").onchange=function(){ if(this.checked) map.addLayer(group); else map.removeLayer(group); };
 document.getElementById("tgMarks").onchange=function(){ if(this.checked) map.addLayer(markLayer); else map.removeLayer(markLayer); };
 document.getElementById("auto").onclick=()=>{autoRange();draw();};
+/* ---- colour-range slider: the bar shows the true colouring across the levels of this channel; drag the handles to set Min and Max */
+let CD=[-120,-20];
+function slDomain(){ const v=DATA[sel.value].map(r=>r.v); let a=Math.floor(Math.min(...v))-6, b=Math.ceil(Math.max(...v))+6; a=Math.min(a,+mn.value-3); b=Math.max(b,+mx.value+3); if(b-a<20){ const c=(a+b)/2; a=c-10; b=c+10; } return [a,b]; }
+function slPos(db){ return Math.max(0,Math.min(1000,Math.round((db-CD[0])/(CD[1]-CD[0])*1000))); }
+function slSync(fresh){
+  const cmin=document.getElementById("cmin"), cmax=document.getElementById("cmax");
+  if(fresh!==false) CD=slDomain();
+  const L=slPos(+mn.value), R=slPos(+mx.value); cmin.value=L; cmax.value=R;
+  const n=STOPS.length, l=L/10, r=R/10;
+  document.getElementById("bar").style.background="linear-gradient(to right,"+STOPS[0]+" 0%,"+STOPS[0]+" "+l+"%,"+STOPS.map((c,i)=>c+" "+(l+(r-l)*i/(n-1))+"%").join(",")+","+STOPS[n-1]+" "+r+"%,"+STOPS[n-1]+" 100%)";
+  const f=sel.value, base=s9(f), tk=[[1,"S1"],[3,"S3"],[5,"S5"],[7,"S7"],[9,"S9"],[19,"+10"],[29,"+20"],[49,"+40"],[69,"+60"]], out=[];
+  tk.forEach(t=>{ const db=t[0]<=9?base-(9-t[0])*6:base+(t[0]-9); if(db>CD[0]+2&&db<CD[1]-2) out.push('<span style="left:'+(db-CD[0])/(CD[1]-CD[0])*100+'%">'+t[1]+'</span>'); });
+  document.getElementById("bticks").innerHTML=out.join("");
+  cmin.title="Weakest level (blue): "+mn.value+" dB ("+sTxt(+mn.value,f)+")"; cmax.title="Strongest level (red): "+mx.value+" dB ("+sTxt(+mx.value,f)+")";
+}
+let slBusy=false;
+function slMove(which){
+  const cmin=document.getElementById("cmin"), cmax=document.getElementById("cmax");
+  let a=+cmin.value, b=+cmax.value; const gap=Math.ceil(1000/(CD[1]-CD[0]));        // at least 1 dB apart
+  if(which==="min"&&a>b-gap) a=b-gap; if(which==="max"&&b<a+gap) b=a+gap;
+  mn.value=Math.round(CD[0]+a/1000*(CD[1]-CD[0])); mx.value=Math.round(CD[0]+b/1000*(CD[1]-CD[0]));
+  if(+mx.value<=+mn.value){ if(which==="min") mn.value=+mx.value-1; else mx.value=+mn.value+1; }
+  if(!slBusy){ slBusy=true; requestAnimationFrame(()=>{ slBusy=false; draw(false); }); }
+}
+document.getElementById("cmin").oninput=()=>slMove("min");
+document.getElementById("cmax").oninput=()=>slMove("max");
+/* ---- the three boxes fold up to their title so they never hide the map (remembered) */
+document.querySelectorAll(".panel").forEach(p=>{
+  const h=p.querySelector("h4"); if(!h) return;
+  h.title="Click to fold this box up or open it again";
+  try{ if(localStorage.getItem("ntShut_"+p.id)==="1") p.classList.add("shut"); }catch(e){}
+  h.addEventListener("click",()=>{ const sh=p.classList.toggle("shut"); try{ localStorage.setItem("ntShut_"+p.id,sh?"1":"0"); }catch(e){} });
+});
 if(freqs.length){sel.value=freqs[0];autoRange();draw();}
 drawHot();
 
